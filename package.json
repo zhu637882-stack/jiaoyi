@@ -1,0 +1,23 @@
+{
+  "name": "jiaoyi-monorepo",
+  "version": "1.0.0",
+  "description": "药品垫资交易平台 - Monorepo",
+  "private": true,
+  "scripts": {
+    "dev:server": "pnpm --filter server dev",
+    "dev:web": "pnpm --filter web dev",
+    "build:server": "pnpm --filter server build",
+    "build:web": "pnpm --filter web build",
+    "build": "pnpm build:server && pnpm build:web",
+    "lint": "pnpm --filter server lint && pnpm --filter web lint",
+    "typecheck": "pnpm --filter server typecheck && pnpm --filter web typecheck"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

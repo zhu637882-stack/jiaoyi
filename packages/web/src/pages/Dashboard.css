@@ -1,0 +1,758 @@
+/* 币安风格交易界面样式 */
+
+/* 整体布局 */
+.trading-terminal {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 120px);
+  height: calc(100dvh - 72px);
+  background: #181A20;
+  overflow: hidden;
+}
+
+.terminal-main {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* 左侧药品面板 - 币安风格 */
+.drug-panel {
+  width: 240px;
+  min-width: 0;
+  background: #181A20;
+  border-right: 1px solid #2B3139;
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 2;
+  overflow: hidden;
+  justify-content: flex-start;
+}
+
+/* Tab分组 - 币安风格 */
+.market-tabs {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  border-bottom: 1px solid #2B3139;
+  background: #181A20;
+  flex-shrink: 0;
+  height: 40px;
+}
+
+.market-tab {
+  position: relative;
+  padding: 0 12px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  color: #848E9C;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.market-tab:hover {
+  color: #EAECEF;
+}
+
+.market-tab.active {
+  color: #EAECEF;
+}
+
+.market-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 12px;
+  right: 12px;
+  height: 2px;
+  background: #F0B90B;
+}
+
+/* 列表表头 - 币安风格 */
+.drug-list-header {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  height: 32px;
+  background: #1E2329;
+  border-bottom: 1px solid #2B3139;
+  flex-shrink: 0;
+}
+
+.header-col {
+  color: #848E9C;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header-col:hover {
+  color: #EAECEF;
+}
+
+.sort-header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sort-header.active {
+  color: #F0B90B;
+}
+
+.sort-icon {
+  font-size: 10px;
+}
+
+.name-col {
+  flex: 1;
+}
+
+.price-col {
+  width: 80px;
+  text-align: right;
+  justify-content: flex-end;
+}
+
+.change-col {
+  width: 70px;
+  text-align: right;
+  justify-content: flex-end;
+}
+
+/* 药品列表 - 币安风格，无卡片 */
+.drug-list {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+}
+
+.drug-list-loading {
+  padding: 16px;
+}
+
+.drug-list-empty {
+  padding: 40px 16px;
+  text-align: center;
+  color: #848E9C;
+  font-size: 13px;
+}
+
+/* 药品行 - 币安紧凑风格 */
+.drug-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0 12px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  border-bottom: none;
+  cursor: pointer;
+  transition: background 0.15s;
+  flex: 0 0 auto;
+}
+
+.drug-item:hover {
+  background: rgba(43, 49, 57, 0.5);
+}
+
+.drug-item.selected {
+  background: #2B3139;
+}
+
+.drug-item-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  overflow: hidden;
+}
+
+.favorite-star {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.favorite-star:hover {
+  transform: scale(1.1);
+}
+
+.drug-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+
+/* 药品名称 - 14px */
+.drug-item-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #EAECEF;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 药品代码 - 11px 灰色 */
+.drug-item-code {
+  font-size: 11px;
+  color: #848E9C;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.drug-item-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* 价格 - 等宽字体 */
+.drug-item-price {
+  font-size: 13px;
+  font-weight: 500;
+  color: #EAECEF;
+  font-family: 'SF Mono', Monaco, monospace;
+  width: 80px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 涨跌 - 币安风格纯色背景色块 */
+.drug-item-change {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'SF Mono', Monaco, monospace;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 64px;
+  height: 20px;
+  border-radius: 4px;
+  font-variant-numeric: tabular-nums;
+}
+
+.drug-item-change.up {
+  background: #0ECB81;
+  color: #fff;
+}
+
+.drug-item-change.down {
+  background: #F6465D;
+  color: #fff;
+}
+
+/* 底部操作区 */
+.drug-panel-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 12px;
+  border-top: 1px solid #2B3139;
+  flex-shrink: 0;
+  background: #181A20;
+}
+
+.drug-panel-bottom .total-count {
+  font-size: 12px;
+  color: #848E9C;
+}
+
+/* 右侧主区域 */
+.terminal-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--color-bg-primary);
+  overflow: hidden;
+  min-width: 300px;
+  min-height: 0;
+}
+
+/* 药品信息摘要条 - 币安风格水平统计栏 */
+.drug-summary-bar {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 0 16px;
+  background: #1E2329;
+  border-bottom: 1px solid #2B3139;
+  flex-shrink: 0;
+  height: 52px;
+  overflow-x: auto;
+}
+
+.summary-left {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.summary-drug-name {
+  font-size: 20px;
+  font-weight: 600;
+  color: #EAECEF;
+}
+
+.summary-drug-code {
+  font-size: 12px;
+  color: #848E9C;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.summary-stats {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  flex: 1;
+}
+
+.stat-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #848E9C;
+  line-height: 14px;
+}
+
+.stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: #EAECEF;
+  font-family: 'SF Mono', Monaco, monospace;
+  line-height: 18px;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-value.price {
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.stat-value.up {
+  color: #0ECB81;
+}
+
+.stat-value.down {
+  color: #F6465D;
+}
+
+/* K线图表区域 - flex: 6 */
+.chart-area {
+  flex: 6;
+  min-height: 140px;
+  border-bottom: 1px solid var(--color-border);
+  overflow: hidden;
+}
+
+/* 底部区域 - OrderBook + Tab面板 */
+.bottom-area {
+  display: flex;
+  flex: 3;
+  min-height: 60px;
+  overflow: hidden;
+  background: #181A20;
+}
+
+/* OrderBook区域 */
+.orderbook-section {
+  width: 40%;
+  min-width: 280px;
+  border-right: 1px solid #2B3139;
+  overflow: hidden;
+}
+
+/* Tab面板区域 */
+.bottom-tab-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #181A20;
+}
+
+/* Tab栏 - 币安风格 */
+.bottom-tabs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  height: 40px;
+  background: #1E2329;
+  border-bottom: 1px solid #2B3139;
+  flex-shrink: 0;
+}
+
+.bottom-tab {
+  position: relative;
+  padding: 0 16px;
+  height: 40px;
+  background: transparent;
+  border: none;
+  color: #848E9C;
+  font-size: 14px;
+  cursor: pointer;
+  transition: color 0.2s;
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.bottom-tab:hover {
+  color: #EAECEF;
+}
+
+.bottom-tab.active {
+  color: #EAECEF;
+}
+
+.bottom-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 16px;
+  right: 16px;
+  height: 2px;
+  background: #F0B90B;
+}
+
+/* Tab内容 */
+.tab-content {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 表格样式 - 币安风格 */
+.tab-table {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.table-header {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 36px;
+  background: #1E2329;
+  border-bottom: 1px solid #2B3139;
+  flex-shrink: 0;
+}
+
+.table-header span {
+  flex: 1;
+  color: #848E9C;
+  font-size: 12px;
+  text-transform: uppercase;
+}
+
+.table-header span:first-child {
+  flex: 0 0 80px;
+}
+
+.table-header span:last-child {
+  text-align: right;
+}
+
+.table-body {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.table-row {
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  height: 36px;
+  border-bottom: 1px solid rgba(43, 49, 57, 0.5);
+  transition: background 0.15s;
+}
+
+.table-row:hover {
+  background: #2B3139;
+}
+
+.table-row span {
+  flex: 1;
+  color: #EAECEF;
+  font-size: 13px;
+  font-family: 'SF Mono', Monaco, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.table-row span:first-child {
+  flex: 0 0 80px;
+  color: #848E9C;
+}
+
+.table-row span:last-child {
+  text-align: right;
+}
+
+.table-row .profit {
+  color: #0ECB81;
+}
+
+.table-row .status-pending {
+  color: #F0B90B;
+}
+
+.table-row .status-completed {
+  color: #0ECB81;
+}
+
+.empty-table {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100px;
+  color: #848E9C;
+  font-size: 13px;
+}
+
+.tab-placeholder {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #848E9C;
+  font-size: 13px;
+}
+
+
+
+/* 滚动条样式 */
+.drug-list::-webkit-scrollbar,
+.table-body::-webkit-scrollbar {
+  width: 4px;
+}
+
+.drug-list::-webkit-scrollbar-track,
+.table-body::-webkit-scrollbar-track {
+  background: #181A20;
+}
+
+.drug-list::-webkit-scrollbar-thumb,
+.table-body::-webkit-scrollbar-thumb {
+  background: #2B3139;
+  border-radius: 2px;
+}
+
+.drug-list::-webkit-scrollbar-thumb:hover,
+.table-body::-webkit-scrollbar-thumb:hover {
+  background: #474D57;
+}
+
+/* 右侧交易面板容器 */
+.trade-panel-container {
+  width: 260px;
+  min-width: 0;
+  flex-shrink: 2;
+  background: #1E2329;
+  border-left: 1px solid #2B3139;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+/* 浮动交易按钮 */
+.trade-float-btn {
+  display: none;
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 100;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #0ECB81 0%, #0BA572 100%);
+  border: none;
+  box-shadow: 0 4px 16px rgba(14, 203, 129, 0.4);
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 24px;
+  transition: all 0.3s ease;
+}
+
+.trade-float-btn:hover {
+  transform: scale(1.1);
+  box-shadow: 0 6px 24px rgba(14, 203, 129, 0.5);
+}
+
+/* 平板响应式 */
+@media (max-width: 768px) {
+  .trade-panel-container {
+    display: none;
+  }
+
+  .trade-float-btn {
+    display: flex;
+  }
+}
+
+@media (min-width: 769px) {
+  .trade-panel-container {
+    display: flex;
+  }
+
+  .trade-float-btn {
+    display: none;
+  }
+}
+
+/* 移动端响应式 */
+@media (max-width: 768px) {
+  .trading-terminal {
+    height: auto;
+    min-height: calc(100vh - 90px);
+    min-height: calc(100dvh - 72px);
+  }
+
+  .terminal-main {
+    flex-direction: column;
+  }
+
+  .drug-panel {
+    width: 100%;
+    min-width: unset;
+    max-height: 200px;
+    border-right: none;
+    border-bottom: 1px solid #2B3139;
+  }
+
+  .drug-panel.mobile {
+    max-height: 180px;
+  }
+
+  .drug-list {
+    display: flex;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+    gap: 0;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .drug-item {
+    flex-direction: column;
+    align-items: flex-start;
+    min-width: 140px;
+    padding: 8px 12px;
+    margin: 0;
+    border-bottom: none;
+    border-right: 1px solid #2B3139;
+    scroll-snap-align: start;
+    flex: 0 0 auto;
+    height: auto;
+  }
+
+  .drug-item:last-child {
+    margin-right: 0;
+  }
+
+  .drug-item.selected {
+    background: #2B3139;
+  }
+
+  .drug-item-left {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .drug-item-right {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    margin-top: 4px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .drug-panel-bottom .total-count {
+    display: none;
+  }
+
+  .terminal-content {
+    min-height: auto;
+  }
+
+  .drug-summary-bar {
+    flex-wrap: wrap;
+    gap: 16px;
+    padding: 8px 12px;
+    height: auto;
+  }
+
+  .summary-stats {
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+
+  .chart-area {
+    min-height: 280px;
+  }
+
+  .bottom-area {
+    flex-direction: column;
+    min-height: auto;
+  }
+
+  .orderbook-section {
+    width: 100%;
+    height: 200px;
+    border-right: none;
+    border-bottom: 1px solid #2B3139;
+  }
+}
+
+/* 小屏手机 */
+@media (max-width: 480px) {
+  .drug-item {
+    min-width: 120px;
+    padding: var(--space-xs) var(--space-sm);
+  }
+
+  .drug-item-name {
+    font-size: var(--font-sm);
+  }
+
+  .drug-item-price {
+    font-size: var(--font-sm);
+  }
+
+  .drug-item-change {
+    font-size: var(--font-xs);
+  }
+
+  .summary-value {
+    font-size: var(--font-sm);
+  }
+
+  .section-title {
+    font-size: var(--font-sm);
+  }
+}

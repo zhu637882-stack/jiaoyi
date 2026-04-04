@@ -1,0 +1,426 @@
+/* Portfolio 页面样式 - 使用全局 Token */
+
+/* ========== 页面容器 ========== */
+.portfolio-page {
+  padding: var(--space-md);
+  min-height: calc(100vh - 72px);
+  background: var(--color-bg-primary);
+}
+
+/* ========== 页面标题 ========== */
+.portfolio-title {
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+/* ========== 统计卡片统一样式 ========== */
+.portfolio-stat-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-normal);
+  height: 100%;
+}
+
+.portfolio-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.portfolio-stat-card .ant-card-body {
+  padding: var(--space-lg);
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 统计数值样式 - 等宽数字 */
+.portfolio-stat-card .ant-statistic-content-value {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-stat-value {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 操作栏卡片 ========== */
+.portfolio-action-bar {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.portfolio-action-bar .ant-card-body {
+  padding: var(--space-md) var(--space-lg);
+}
+
+/* ========== Tab 样式覆盖 ========== */
+.portfolio-tabs .ant-tabs-nav {
+  margin-bottom: var(--space-lg);
+}
+
+.portfolio-tabs .ant-tabs-tab {
+  background: var(--color-bg-secondary) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+  border-radius: var(--radius-md) var(--radius-md) 0 0 !important;
+  transition: all var(--transition-normal);
+}
+
+.portfolio-tabs .ant-tabs-tab:hover {
+  color: var(--color-text-primary) !important;
+}
+
+.portfolio-tabs .ant-tabs-tab-active {
+  background: var(--color-bg-tertiary) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.portfolio-tabs .ant-tabs-tab-active .ant-tabs-tab-btn {
+  color: var(--color-text-primary) !important;
+}
+
+/* Tab 激活指示器 - 渐变 */
+.portfolio-tabs .ant-tabs-ink-bar {
+  background: linear-gradient(90deg, #F0B90B, #0ECB81) !important;
+  height: 3px !important;
+  border-radius: 3px 3px 0 0 !important;
+}
+
+.portfolio-tabs .ant-tabs-content {
+  background: transparent;
+}
+
+/* ========== 表格样式 ========== */
+.portfolio-table .ant-table {
+  background: transparent !important;
+}
+
+/* Sticky 表头 */
+.portfolio-table .ant-table-thead > tr > th {
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  height: 48px;
+  padding: 0 var(--space-lg);
+}
+
+.portfolio-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary);
+  height: 48px;
+  padding: 0 var(--space-lg);
+}
+
+/* 表格 hover */
+.portfolio-table .ant-table-tbody > tr:hover > td {
+  background: var(--color-bg-tertiary) !important;
+}
+
+/* 斑马纹 - 奇数行透明，偶数行半透明 */
+.portfolio-table .ant-table-tbody > tr:nth-child(odd) > td {
+  background: transparent;
+}
+
+.portfolio-table .ant-table-tbody > tr:nth-child(even) > td {
+  background: rgba(30, 35, 41, 0.5);
+}
+
+.portfolio-table .ant-table-tbody > tr:nth-child(even):hover > td {
+  background: var(--color-bg-tertiary) !important;
+}
+
+/* 表格最后一行去除底部边框 */
+.portfolio-table .ant-table-tbody > tr:last-child > td {
+  border-bottom: none !important;
+}
+
+/* 表格数值列等宽字体 */
+.portfolio-table .ant-table-cell {
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 分页器样式 ========== */
+.portfolio-pagination {
+  padding: var(--space-md) var(--space-lg);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  justify-content: flex-end;
+}
+
+.portfolio-pagination .ant-pagination-item {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+}
+
+.portfolio-pagination .ant-pagination-item a {
+  color: var(--color-text-secondary) !important;
+}
+
+.portfolio-pagination .ant-pagination-item-active {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.portfolio-pagination .ant-pagination-item-active a {
+  color: #fff !important;
+}
+
+.portfolio-pagination .ant-pagination-prev button,
+.portfolio-pagination .ant-pagination-next button {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+/* ========== Select 下拉框样式 ========== */
+.portfolio-select .ant-select-selector {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-primary) !important;
+}
+
+.portfolio-select .ant-select-arrow {
+  color: var(--color-text-secondary) !important;
+}
+
+/* ========== 持仓概览卡片行 ========== */
+.portfolio-overview-row {
+  margin-bottom: var(--space-lg);
+}
+
+/* ========== 持仓统计卡片 ========== */
+.portfolio-stats-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-normal);
+}
+
+.portfolio-stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.portfolio-stats-card .ant-card-body {
+  padding: var(--space-lg);
+}
+
+/* 统计数值和单位水平排列 */
+.portfolio-stats-card .text-value {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-xs);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 表格卡片 ========== */
+.portfolio-table-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.portfolio-table-card .ant-card-body {
+  padding: 0;
+}
+
+.portfolio-table-card .ant-card-head {
+  border-bottom: 1px solid var(--color-border);
+  padding: 0 var(--space-lg);
+  min-height: 56px;
+}
+
+.portfolio-table-card .ant-card-head-title {
+  padding: var(--space-md) 0;
+}
+
+/* ========== 充值按钮样式 - 绿色渐变 ========== */
+.portfolio-recharge-btn {
+  background: linear-gradient(135deg, #0ECB81, #0BA572) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(14, 203, 129, 0.3);
+  font-weight: 500;
+  transition: all var(--transition-normal);
+}
+
+.portfolio-recharge-btn:hover {
+  box-shadow: 0 6px 20px rgba(14, 203, 129, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+/* ========== 提现按钮样式 - 黄色渐变 ========== */
+.portfolio-withdraw-btn {
+  background: linear-gradient(135deg, #F0B90B, #D4A20A) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(240, 185, 11, 0.3);
+  font-weight: 500;
+  transition: all var(--transition-normal);
+}
+
+.portfolio-withdraw-btn:hover {
+  box-shadow: 0 6px 20px rgba(240, 185, 11, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+/* ========== 主按钮 hover 效果 ========== */
+.portfolio-page .ant-btn-primary:hover {
+  transform: translateY(-1px);
+}
+
+/* ========== 空状态样式 ========== */
+.portfolio-empty .ant-empty-description {
+  color: var(--color-text-secondary);
+}
+
+/* ========== Tag 样式微调 ========== */
+.portfolio-tag {
+  font-size: var(--font-sm);
+  border-radius: var(--radius-sm);
+}
+
+/* ========== Modal 样式覆盖 ========== */
+.portfolio-modal .ant-modal-content {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+}
+
+.portfolio-modal .ant-modal-header {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.portfolio-modal .ant-modal-title {
+  color: var(--color-text-primary);
+}
+
+/* ========== 响应式断点 - 平板 ========== */
+@media (max-width: 1200px) {
+  .portfolio-page {
+    padding: var(--space-md);
+  }
+  
+  .portfolio-stat-card .ant-card-body {
+    padding: var(--space-md);
+  }
+  
+  .portfolio-stat-value {
+    font-size: var(--font-2xl) !important;
+  }
+}
+
+/* ========== 响应式断点 - 手机 ========== */
+@media (max-width: 768px) {
+  .portfolio-page {
+    padding: var(--space-sm);
+  }
+  
+  .portfolio-title {
+    font-size: var(--font-lg);
+    margin-bottom: var(--space-md);
+  }
+  
+  .portfolio-stat-card .ant-card-body {
+    padding: var(--space-md);
+    min-height: 80px;
+  }
+  
+  .portfolio-stat-value {
+    font-size: var(--font-xl) !important;
+  }
+  
+  .portfolio-stat-card .ant-statistic-title {
+    font-size: var(--font-sm);
+  }
+  
+  .portfolio-action-bar .ant-card-body {
+    padding: var(--space-md);
+  }
+  
+  .portfolio-table .ant-table {
+    font-size: var(--font-sm);
+  }
+  
+  .portfolio-table .ant-table-thead > tr > th {
+    font-size: var(--font-sm);
+    padding: var(--space-sm);
+    height: 40px;
+  }
+  
+  .portfolio-table .ant-table-tbody > tr > td {
+    padding: var(--space-sm);
+    height: 40px;
+  }
+  
+  .portfolio-pagination {
+    padding: var(--space-md);
+    justify-content: center;
+  }
+  
+  .portfolio-pagination .ant-pagination {
+    flex-wrap: wrap;
+  }
+  
+  .portfolio-tabs .ant-tabs-tab {
+    padding: var(--space-sm) var(--space-md) !important;
+  }
+}
+
+/* ========== 小屏手机 ========== */
+@media (max-width: 480px) {
+  .portfolio-stat-value {
+    font-size: var(--font-lg) !important;
+  }
+  
+  .portfolio-stats-card .ant-card-body {
+    padding: var(--space-md);
+  }
+  
+  .portfolio-stats-card .text-value {
+    font-size: var(--font-2xl) !important;
+  }
+}
+
+/* ========== 表格sticky header支持 ========== */
+.portfolio-table-wrapper {
+  position: relative;
+}
+
+/* ========== 表格行hover左侧指示条 ========== */
+.portfolio-table .ant-table-tbody > tr:hover > td:first-child {
+  box-shadow: inset 3px 0 0 #F0B90B;
+}
+
+/* ========== 金额列hover微增效果 ========== */
+.portfolio-table .ant-table-tbody > tr:hover .amount-cell {
+  transform: scale(1.02);
+  transition: transform 0.15s ease;
+}
+
+/* ========== 状态圆点样式 ========== */
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+}

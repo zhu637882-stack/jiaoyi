@@ -1,0 +1,237 @@
+.orderbook-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  min-height: 0;
+}
+
+/* 统计头部 - 简洁行内显示 */
+.orderbook-stats {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #2B3139;
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.stat-label {
+  font-size: 11px;
+  color: #848E9C;
+}
+
+.stat-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #EAECEF;
+  font-family: 'JetBrains Mono', 'DIN Alternate', monospace;
+}
+
+.stat-value.highlight {
+  color: #0ECB81;
+}
+
+.stat-divider {
+  color: #2B3139;
+  margin: 0 4px;
+}
+
+/* 深度列表容器 */
+.orderbook-list-wrapper {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* 表头 */
+.orderbook-header {
+  display: flex;
+  align-items: center;
+  height: 28px;
+  padding: 0 12px;
+  background: transparent;
+  border-bottom: 1px solid #2B3139;
+  flex-shrink: 0;
+}
+
+.orderbook-header .orderbook-col {
+  font-size: 11px;
+  font-weight: 400;
+  color: #848E9C;
+}
+
+/* 列表内容区域 */
+.orderbook-body {
+  overflow: hidden;
+}
+
+.orderbook-body.asks {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.orderbook-body.bids {
+  flex: 1;
+  overflow-y: auto;
+}
+
+/* 每一行 */
+.orderbook-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 12px;
+  transition: background-color 0.15s ease;
+}
+
+.orderbook-row:hover {
+  background: rgba(43, 49, 57, 0.5);
+}
+
+/* 柱状背景 */
+.orderbook-row-bg {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+}
+
+/* 列样式 */
+.orderbook-col {
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: #EAECEF;
+  z-index: 1;
+}
+
+.orderbook-col.price {
+  flex: 0 0 35%;
+  justify-content: flex-start;
+  font-weight: 500;
+}
+
+.orderbook-col.amount {
+  flex: 0 0 30%;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+.orderbook-col.cumulative {
+  flex: 0 0 35%;
+  justify-content: flex-end;
+  text-align: right;
+}
+
+/* 卖盘样式 - 红色 */
+.ask-price {
+  color: #F6465D !important;
+}
+
+/* 买盘样式 - 绿色 */
+.bid-price {
+  color: #0ECB81 !important;
+}
+
+/* 最新价中间区域 */
+.orderbook-current-price {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 0 12px;
+  border-top: 1px solid #2B3139;
+  border-bottom: 1px solid #2B3139;
+  background: transparent;
+  flex-shrink: 0;
+}
+
+.current-price-value {
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'DIN Alternate', monospace;
+}
+
+.current-price-value.up {
+  color: #0ECB81;
+}
+
+.current-price-value.down {
+  color: #F6465D;
+}
+
+.price-change {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: 'JetBrains Mono', 'DIN Alternate', monospace;
+}
+
+.price-change.up {
+  color: #0ECB81;
+}
+
+.price-change.down {
+  color: #F6465D;
+}
+
+/* 等宽字体 */
+.font-mono {
+  font-family: 'JetBrains Mono', 'SF Mono', 'DIN Alternate', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 加载状态 */
+.orderbook-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #848E9C;
+  gap: 16px;
+  font-size: 13px;
+}
+
+.loading-spinner {
+  width: 28px;
+  height: 28px;
+  border: 2px solid #2B3139;
+  border-top-color: #F0B90B;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 滚动条样式 */
+.orderbook-body::-webkit-scrollbar {
+  width: 3px;
+}
+
+.orderbook-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.orderbook-body::-webkit-scrollbar-thumb {
+  background: #2B3139;
+  border-radius: 2px;
+}
+
+.orderbook-body::-webkit-scrollbar-thumb:hover {
+  background: #3C4043;
+}

@@ -1,0 +1,385 @@
+/* Settlement 页面样式 - 使用全局 Token */
+
+/* ========== 页面容器 ========== */
+.settlement-page {
+  padding: var(--space-md);
+  min-height: calc(100vh - 72px);
+  background: var(--color-bg-primary);
+}
+
+/* ========== 页面标题 ========== */
+.settlement-title {
+  color: var(--color-text-primary);
+  margin-bottom: var(--space-md);
+  font-size: var(--font-xl);
+  font-weight: 600;
+}
+
+/* ========== 统计卡片统一样式 ========== */
+.settlement-stat-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: all var(--transition-normal);
+  height: 100%;
+}
+
+.settlement-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-hover);
+}
+
+.settlement-stat-card .ant-card-body {
+  padding: var(--space-lg);
+  min-height: 100px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 统计数值样式 - 等宽数字 */
+.settlement-stat-card .ant-statistic-content-value {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.settlement-stat-value {
+  font-family: var(--font-family-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 筛选栏卡片 ========== */
+.settlement-filter-bar {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  margin-bottom: var(--space-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.settlement-filter-bar .ant-card-body {
+  padding: var(--space-lg);
+}
+
+/* 筛选栏日期选择器 */
+.settlement-range-picker {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+  border-radius: var(--radius-md);
+}
+
+/* 查询按钮 - 渐变 */
+.settlement-query-btn {
+  background: linear-gradient(135deg, #F0B90B, #0ECB81) !important;
+  border: none !important;
+  box-shadow: 0 4px 12px rgba(240, 185, 11, 0.3);
+  font-weight: 500;
+  transition: all var(--transition-normal);
+}
+
+.settlement-query-btn:hover {
+  box-shadow: 0 6px 20px rgba(240, 185, 11, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+/* 导出按钮 */
+.settlement-export-btn {
+  background: var(--color-bg-tertiary) !important;
+  border: 1px solid var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+  transition: all var(--transition-normal);
+}
+
+.settlement-export-btn:hover {
+  border-color: var(--color-primary) !important;
+  color: var(--color-primary) !important;
+}
+
+/* ========== 表格样式 ========== */
+.settlement-table .ant-table {
+  background: transparent !important;
+}
+
+/* Sticky 表头 */
+.settlement-table .ant-table-thead > tr > th {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--color-bg-secondary) !important;
+  border-bottom: 1px solid var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+  font-weight: 600;
+  font-size: var(--font-sm);
+  height: 48px;
+  padding: 0 var(--space-lg);
+}
+
+.settlement-table .ant-table-tbody > tr > td {
+  border-bottom: 1px solid var(--color-border) !important;
+  color: var(--color-text-primary);
+  height: 48px;
+  padding: 0 var(--space-lg);
+  background: transparent;
+}
+
+/* 斑马纹 - 奇数行透明，偶数行半透明 */
+.settlement-table .ant-table-tbody > tr:nth-child(odd) > td {
+  background: transparent !important;
+}
+
+.settlement-table .ant-table-tbody > tr:nth-child(even) > td {
+  background: rgba(30, 35, 41, 0.5) !important;
+}
+
+/* 表格 hover */
+.settlement-table .ant-table-tbody > tr:hover > td {
+  background: var(--color-bg-tertiary) !important;
+}
+
+.settlement-table .ant-table-tbody > tr:last-child > td {
+  border-bottom: none !important;
+}
+
+/* 表格数值列等宽字体 */
+.settlement-table .ant-table-cell {
+  font-family: var(--font-family-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ========== 分页器样式 ========== */
+.settlement-table .ant-pagination {
+  flex-wrap: wrap;
+}
+
+.settlement-table .ant-pagination-item {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+}
+
+.settlement-table .ant-pagination-item a {
+  color: var(--color-text-secondary) !important;
+}
+
+.settlement-table .ant-pagination-item-active {
+  background: var(--color-primary) !important;
+  border-color: var(--color-primary) !important;
+}
+
+.settlement-table .ant-pagination-item-active a {
+  color: #fff !important;
+}
+
+.settlement-table .ant-pagination-prev button,
+.settlement-table .ant-pagination-next button {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+  color: var(--color-text-secondary) !important;
+}
+
+/* ========== 按钮样式 ========== */
+/* 查询按钮 - 渐变 */
+.settlement-page .ant-btn-primary {
+  background: linear-gradient(135deg, #F0B90B, #0ECB81) !important;
+  border: none !important;
+  transition: all var(--transition-normal);
+  box-shadow: 0 4px 12px rgba(240, 185, 11, 0.3);
+}
+
+.settlement-page .ant-btn-primary:hover {
+  box-shadow: 0 6px 20px rgba(240, 185, 11, 0.5) !important;
+  transform: translateY(-1px);
+}
+
+.settlement-page .ant-btn-default {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  transition: all var(--transition-normal);
+}
+
+.settlement-page .ant-btn-default:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+/* ========== 日期选择器样式 ========== */
+.settlement-page .ant-picker {
+  background: var(--color-bg-primary) !important;
+  border-color: var(--color-border) !important;
+  border-radius: var(--radius-md);
+}
+
+.settlement-page .ant-picker-input > input {
+  color: var(--color-text-primary) !important;
+}
+
+.settlement-page .ant-picker-separator,
+.settlement-page .ant-picker-suffix {
+  color: var(--color-text-secondary) !important;
+}
+
+/* ========== Modal 样式覆盖 ========== */
+.settlement-modal .ant-modal-content {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-panel);
+}
+
+.settlement-modal .ant-modal-header {
+  background: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border);
+  padding: var(--space-xl) var(--space-xl);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.settlement-modal .ant-modal-title {
+  color: var(--color-text-primary);
+  font-size: var(--font-lg);
+  font-weight: 600;
+}
+
+.settlement-modal .ant-modal-body {
+  background: var(--color-bg-secondary);
+  padding: var(--space-xl);
+}
+
+.settlement-modal .ant-modal-close {
+  color: var(--color-text-secondary);
+}
+
+.settlement-modal .ant-modal-close:hover {
+  color: var(--color-text-primary);
+}
+
+/* Descriptions 样式 */
+.settlement-modal .ant-descriptions-item-label {
+  color: var(--color-text-secondary);
+}
+
+.settlement-modal .ant-descriptions-item-content {
+  color: var(--color-text-primary);
+}
+
+/* ========== 表格卡片 ========== */
+.settlement-table-card {
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  margin-bottom: var(--space-lg);
+}
+
+.settlement-table-card .ant-card-body {
+  padding: 0;
+}
+
+/* ========== 统计数值字体 ========== */
+.ant-statistic-content {
+  font-family: var(--font-family-mono) !important;
+  font-variant-numeric: tabular-nums !important;
+}
+
+/* ========== 响应式断点 - 平板 ========== */
+@media (max-width: 1200px) {
+  .settlement-page {
+    padding: var(--space-md);
+  }
+
+  .settlement-stat-card .ant-card-body {
+    padding: var(--space-md);
+  }
+
+  .settlement-stat-value {
+    font-size: var(--font-2xl) !important;
+  }
+}
+
+/* ========== 响应式断点 - 手机 ========== */
+@media (max-width: 768px) {
+  .settlement-page {
+    padding: var(--space-sm);
+  }
+
+  .settlement-title {
+    font-size: var(--font-lg);
+    margin-bottom: var(--space-md);
+  }
+
+  .settlement-stat-card .ant-card-body {
+    padding: var(--space-md);
+    min-height: 80px;
+  }
+
+  .settlement-stat-value {
+    font-size: var(--font-xl) !important;
+  }
+
+  .settlement-stat-card .ant-statistic-title {
+    font-size: var(--font-sm);
+  }
+
+  .settlement-filter-bar .ant-card-body {
+    padding: var(--space-md) var(--space-lg);
+  }
+
+  .settlement-table .ant-table {
+    font-size: var(--font-sm);
+  }
+
+  .settlement-table .ant-table-thead > tr > th {
+    font-size: var(--font-sm);
+    padding: var(--space-sm);
+    height: 40px;
+  }
+
+  .settlement-table .ant-table-tbody > tr > td {
+    padding: var(--space-sm);
+    height: 40px;
+  }
+
+  .settlement-table .ant-pagination {
+    justify-content: center;
+  }
+}
+
+/* ========== 小屏手机 ========== */
+@media (max-width: 480px) {
+  .settlement-stat-value {
+    font-size: var(--font-lg) !important;
+  }
+
+  .settlement-stat-card .ant-card-body {
+    padding: var(--space-md);
+  }
+
+  .settlement-filter-bar .ant-card-body {
+    padding: var(--space-md);
+  }
+
+  .settlement-table-card .ant-card-body {
+    padding: var(--space-sm);
+  }
+}
+
+/* ========== 表格行hover左侧指示条 ========== */
+.settlement-table .ant-table-tbody > tr:hover > td:first-child {
+  box-shadow: inset 3px 0 0 #F0B90B;
+}
+
+/* ========== 金额列hover微增效果 ========== */
+.settlement-table .ant-table-tbody > tr:hover .amount-cell {
+  transform: scale(1.02);
+  transition: transform 0.15s ease;
+}
+
+/* ========== 状态圆点样式 ========== */
+.status-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+}

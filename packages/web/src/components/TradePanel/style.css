@@ -1,0 +1,514 @@
+/* TradePanel 样式 - 币安风格 */
+
+.trade-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  background: #1E2329;
+  overflow-y: auto;
+}
+
+.trade-panel-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #848E9C;
+}
+
+.trade-panel-empty .empty-icon {
+  font-size: 48px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+.trade-panel-empty .empty-text {
+  font-size: 14px;
+}
+
+/* Tab 切换 - 币安风格 */
+.trade-tabs {
+  display: flex;
+  width: 100%;
+  height: 40px;
+  background: transparent;
+  border-bottom: 1px solid #2B3139;
+}
+
+.trade-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 600;
+  color: #848E9C;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.2s;
+  background: transparent;
+}
+
+.trade-tab:hover {
+  color: #EAECEF;
+}
+
+.trade-tab.active {
+  color: #0ECB81;
+}
+
+.trade-tab.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #0ECB81;
+}
+
+/* 卖出模式 Tab 样式 */
+.trade-panel.sell-mode .trade-tab.active {
+  color: #F6465D;
+}
+
+.trade-panel.sell-mode .trade-tab.active::after {
+  background: #F6465D;
+}
+
+/* 面板区域 */
+.panel-section {
+  padding: 16px;
+}
+
+/* 表单区域 */
+.form-section {
+  padding: 16px;
+}
+
+.form-item {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  font-size: 12px;
+  color: #848E9C;
+  margin-bottom: 8px;
+}
+
+/* 价格输入框 - 币安风格 */
+.price-input {
+  width: 100%;
+}
+
+.price-input .ant-input-number-input {
+  background: #2B3139 !important;
+  color: #EAECEF !important;
+  text-align: right !important;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.price-input.ant-input-number {
+  background: #2B3139 !important;
+  border: none !important;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.price-input .ant-input-number-group-addon {
+  background: #2B3139 !important;
+  border: none !important;
+  color: #848E9C !important;
+  font-size: 12px;
+  padding-right: 12px;
+}
+
+/* 数量输入框 - 币安风格 */
+.quantity-input {
+  width: 100%;
+}
+
+.quantity-input .ant-input-number-input {
+  background: #2B3139 !important;
+  color: #EAECEF !important;
+  text-align: right !important;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.quantity-input.ant-input-number {
+  background: #2B3139 !important;
+  border: none !important;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.quantity-input .ant-input-number-group-addon {
+  background: #2B3139 !important;
+  border: none !important;
+  color: #848E9C !important;
+  font-size: 12px;
+  padding-right: 12px;
+}
+
+/* 可用余额/可卖数量行 */
+.available-balance {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-size: 12px;
+}
+
+.available-label {
+  color: #848E9C;
+}
+
+.available-value {
+  color: #EAECEF;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+}
+
+/* 滑块区域 - 币安风格 */
+.slider-section {
+  margin-bottom: 20px;
+  padding: 0 8px;
+}
+
+/* Slider 轨道 */
+.trade-panel .ant-slider {
+  margin: 8px 0;
+}
+
+.trade-panel .ant-slider-rail {
+  background: #2B3139;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.trade-panel .ant-slider-track {
+  background: #0ECB81;
+  height: 4px;
+  border-radius: 2px;
+}
+
+/* 滑块手柄 */
+.trade-panel .ant-slider-handle {
+  width: 12px;
+  height: 12px;
+  margin-top: -4px;
+  border: 2px solid #0ECB81;
+  background: #0ECB81;
+  box-shadow: none;
+}
+
+.trade-panel .ant-slider-handle::after {
+  display: none;
+}
+
+.trade-panel .ant-slider-handle::before {
+  display: none;
+}
+
+.trade-panel .ant-slider-handle:hover,
+.trade-panel .ant-slider-handle:active {
+  transform: scale(1.1);
+}
+
+/* 滑块标记点 */
+.trade-panel .ant-slider-dot {
+  width: 8px;
+  height: 8px;
+  border: 2px solid #2B3139;
+  background: #2B3139;
+  border-radius: 50%;
+  top: 0;
+}
+
+.trade-panel .ant-slider-dot-active {
+  border-color: #0ECB81;
+  background: #0ECB81;
+}
+
+/* Slider 卖出模式 */
+.trade-panel.sell-mode .ant-slider-track {
+  background: #F6465D;
+}
+
+.trade-panel.sell-mode .ant-slider-handle {
+  border-color: #F6465D;
+  background: #F6465D;
+}
+
+.trade-panel.sell-mode .ant-slider-dot-active {
+  border-color: #F6465D;
+  background: #F6465D;
+}
+
+/* 交易额显示 - 币安风格 */
+.trade-amount-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 0 4px;
+}
+
+.trade-amount-label {
+  font-size: 12px;
+  color: #848E9C;
+}
+
+.trade-amount-value {
+  font-size: 14px;
+  color: #EAECEF;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+}
+
+/* 确认按钮 - 币安风格 */
+.submit-btn {
+  height: 40px !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+.submit-btn.buy-btn {
+  background: #0ECB81 !important;
+  color: #fff !important;
+}
+
+.submit-btn.sell-btn {
+  background: #F6465D !important;
+  color: #fff !important;
+}
+
+.submit-btn:hover:not(:disabled) {
+  opacity: 0.9;
+}
+
+.submit-btn:disabled {
+  background: #2B3139 !important;
+  color: #5E6673 !important;
+  opacity: 1;
+}
+
+.error-tip {
+  color: #F6465D;
+  font-size: 12px;
+  text-align: center;
+  margin-top: 8px;
+}
+
+/* 持仓概要 - 币安风格 */
+.holding-section {
+  padding: 16px;
+  background: transparent;
+}
+
+.holding-section .section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #EAECEF;
+  margin-bottom: 8px;
+}
+
+.holding-section .holding-loading {
+  text-align: center;
+  padding: 8px 0;
+}
+
+.holding-section .holding-info {
+  background: transparent;
+  padding: 4px 0;
+}
+
+.holding-section .holding-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+}
+
+.holding-section .holding-label {
+  font-size: 13px;
+  color: #848E9C;
+}
+
+.holding-section .holding-value {
+  font-size: 14px;
+  font-weight: 500;
+  color: #EAECEF;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+}
+
+.holding-section .holding-value.profit {
+  color: #0ECB81;
+}
+
+.holding-section .holding-value.loss {
+  color: #F6465D;
+}
+
+.holding-section .holding-empty {
+  text-align: center;
+  color: #848E9C;
+  font-size: 13px;
+  padding: 8px 0;
+}
+
+/* 确认弹窗样式 - 币安风格 */
+.confirm-modal-content {
+  padding: 24px 24px 0;
+}
+
+.confirm-modal-content .confirm-header {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.confirm-modal-content .confirm-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 12px;
+}
+
+/* 买入模式弹窗 */
+.trade-confirm-modal.buy-mode .confirm-icon {
+  background: rgba(14, 203, 129, 0.15);
+  border: 2px solid #0ECB81;
+}
+
+.trade-confirm-modal.buy-mode .confirm-icon span {
+  font-size: 24px;
+  color: #0ECB81;
+}
+
+.trade-confirm-modal.buy-mode .confirm-amount {
+  color: #0ECB81;
+}
+
+.trade-confirm-modal.buy-mode .confirm-btn {
+  background: #0ECB81 !important;
+}
+
+/* 卖出模式弹窗 */
+.trade-confirm-modal.sell-mode .confirm-icon {
+  background: rgba(246, 70, 93, 0.15);
+  border: 2px solid #F6465D;
+}
+
+.trade-confirm-modal.sell-mode .confirm-icon span {
+  font-size: 24px;
+  color: #F6465D;
+}
+
+.trade-confirm-modal.sell-mode .confirm-amount {
+  color: #F6465D;
+}
+
+.trade-confirm-modal.sell-mode .confirm-btn {
+  background: #F6465D !important;
+}
+
+.confirm-modal-content .confirm-title {
+  color: #EAECEF;
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.confirm-modal-content .confirm-details {
+  background: #181A20;
+  border-radius: 4px;
+  padding: 16px;
+  margin-bottom: 24px;
+  border: 1px solid #2B3139;
+}
+
+.confirm-modal-content .confirm-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+}
+
+.confirm-modal-content .confirm-label {
+  color: #848E9C;
+  font-size: 13px;
+}
+
+.confirm-modal-content .confirm-value {
+  color: #EAECEF;
+  font-size: 14px;
+}
+
+.confirm-modal-content .confirm-amount {
+  font-size: 18px;
+  font-weight: 700;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+}
+
+.confirm-modal-content .confirm-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.confirm-modal-content .cancel-btn {
+  flex: 1;
+  height: 40px;
+  background: transparent;
+  border: 1px solid #2B3139;
+  color: #848E9C;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.confirm-modal-content .cancel-btn:hover {
+  border-color: #3C4043;
+  color: #EAECEF;
+  background: transparent;
+}
+
+.confirm-modal-content .confirm-btn {
+  flex: 1;
+  height: 40px;
+  border: none;
+  border-radius: 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #fff;
+}
+
+/* 滚动条样式 */
+.trade-panel::-webkit-scrollbar {
+  width: 4px;
+}
+
+.trade-panel::-webkit-scrollbar-track {
+  background: #181A20;
+}
+
+.trade-panel::-webkit-scrollbar-thumb {
+  background: #2B3139;
+  border-radius: 2px;
+}
+
+.trade-panel::-webkit-scrollbar-thumb:hover {
+  background: #3C4043;
+}

@@ -1,0 +1,377 @@
+/* K线图表容器 */
+.kline-chart-container {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #0D1117;
+  overflow: hidden;
+}
+
+/* 工具栏 - 单行紧凑布局 */
+.kline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 8px;
+  gap: 8px;
+  flex-shrink: 0;
+  min-height: 28px;
+  background: #0D1117;
+}
+
+.toolbar-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.drug-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #E6EDF3;
+  white-space: nowrap;
+}
+
+/* 工具栏中的价格和涨跌 */
+.toolbar-current-price {
+  font-size: 14px;
+  font-weight: 700;
+  font-family: 'SF Mono', monospace;
+  white-space: nowrap;
+}
+
+.toolbar-change {
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'SF Mono', monospace;
+  white-space: nowrap;
+}
+
+.toolbar-change.up {
+  color: #00D4AA;
+}
+
+.toolbar-change.down {
+  color: #FF4D4F;
+}
+
+/* 时间周期选择器 */
+.period-selector {
+  display: flex;
+  gap: 4px;
+  background: #161B22;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid #30363D;
+}
+
+.period-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8B949E;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.period-btn:hover {
+  color: #E6EDF3;
+  background: #21262D;
+}
+
+.period-btn.active {
+  color: #0D1117;
+  background: #1890FF;
+}
+
+/* 指标选择器 */
+.indicator-selector {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: #161B22;
+  padding: 4px;
+  border-radius: 6px;
+  border: 1px solid #30363D;
+}
+
+.indicator-label {
+  font-size: 12px;
+  color: #8B949E;
+  padding: 0 8px;
+}
+
+.indicator-btn {
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #8B949E;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.indicator-btn:hover {
+  color: #E6EDF3;
+  background: #21262D;
+}
+
+.indicator-btn.active {
+  color: #0D1117;
+  background: #1890FF;
+}
+
+/* 图表包装器 */
+.kline-charts-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 主图表 */
+.kline-main-chart {
+  flex: 1;
+  min-height: 200px;
+}
+
+/* 数据显示栏 - 单行紧凑显示 */
+.kline-data-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 1px 8px;
+  font-size: 11px;
+  flex-shrink: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  min-height: 18px;
+  max-height: 20px;
+  background: #0D1117;
+  border-bottom: 1px solid rgba(33,38,45,0.8);
+}
+
+.kline-data-bar::-webkit-scrollbar {
+  height: 2px;
+}
+
+.kline-data-bar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.kline-data-bar::-webkit-scrollbar-thumb {
+  background: #30363D;
+  border-radius: 1px;
+}
+
+.data-date {
+  font-size: 11px;
+  font-weight: 600;
+  color: #E6EDF3;
+  white-space: nowrap;
+  min-width: 75px;
+}
+
+.data-item {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.data-label {
+  font-size: 10px;
+  color: #8B949E;
+}
+
+.data-value {
+  font-size: 11px;
+  font-weight: 600;
+  color: #E6EDF3;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+.data-value.up {
+  color: #00D4AA;
+}
+
+.data-value.down {
+  color: #FF4D4F;
+}
+
+/* MA 均线数值颜色 */
+.kline-data-bar .ma5 .data-value {
+  color: #FFFFFF;
+}
+
+.kline-data-bar .ma10 .data-value {
+  color: #FFFF00;
+}
+
+.kline-data-bar .ma20 .data-value {
+  color: #FF00FF;
+}
+
+.kline-data-bar .ma60 .data-value {
+  color: #00FF00;
+}
+
+/* 副图参数标注 */
+.sub-chart-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 1px 8px;
+  background: #0D1117;
+  border-top: 1px solid rgba(33,38,45,0.8);
+  font-size: 11px;
+  flex-shrink: 0;
+}
+
+.sub-chart-header .indicator-title {
+  color: #8B949E;
+  font-weight: 600;
+  margin-right: 8px;
+}
+
+.sub-chart-header .data-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sub-chart-header .data-label {
+  font-size: 10px;
+  color: #8B949E;
+}
+
+.sub-chart-header .data-value {
+  font-size: 10px;
+  font-weight: 600;
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+}
+
+/* MACD 副图颜色 */
+.macd-header .dif .data-value {
+  color: #FFFFFF;
+}
+
+.macd-header .dea .data-value {
+  color: #FFFF00;
+}
+
+.macd-header .bar .data-value {
+  color: #00D4AA;
+}
+
+/* KDJ 副图颜色 */
+.kdj-header .kdj-k .data-value {
+  color: #FFFFFF;
+}
+
+.kdj-header .kdj-d .data-value {
+  color: #FFFF00;
+}
+
+.kdj-header .kdj-j .data-value {
+  color: #FF00FF;
+}
+
+/* RSI 副图颜色 */
+.rsi-header .rsi .data-value {
+  color: #00D4AA;
+}
+
+/* BOLL 副图颜色 */
+.boll-header .boll-upper .data-value {
+  color: #FF00FF;
+}
+
+.boll-header .boll-mid .data-value {
+  color: #FFFF00;
+}
+
+.boll-header .boll-lower .data-value {
+  color: #00FF00;
+}
+
+/* 加载状态 */
+.kline-chart-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #8B949E;
+  gap: 16px;
+  background: rgba(13, 17, 23, 0.5);
+}
+
+.loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 2px solid #30363D;
+  border-top-color: #1890FF;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* 响应式 */
+@media (max-width: 768px) {
+  .kline-toolbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .toolbar-right {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .period-selector,
+  .indicator-selector {
+    flex: 1;
+    justify-content: center;
+  }
+
+  .kline-data-bar {
+    padding: 4px;
+  }
+
+  .data-item {
+    font-size: 10px;
+  }
+
+  .sub-chart-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+}
