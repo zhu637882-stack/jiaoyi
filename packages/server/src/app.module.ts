@@ -13,6 +13,7 @@ import { SettlementModule } from './modules/settlement/settlement.module';
 import { AccountModule } from './modules/account/account.module';
 import { MarketModule } from './modules/market/market.module';
 import { PaymentModule } from './modules/payment/payment.module';
+import { SystemMessageModule } from './modules/system-message/system-message.module';
 import { DatabaseModule } from './database/database.module';
 import { EventsModule } from './common/events/events.module';
 import { AuditModule } from './common/services/audit.module';
@@ -55,6 +56,7 @@ import { IdempotencyGuard } from './common/guards/idempotency.guard';
     AccountModule,
     MarketModule,
     PaymentModule,
+    SystemMessageModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: IdempotencyGuard },

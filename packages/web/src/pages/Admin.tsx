@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import './Admin.css'
 import { Card, Tabs, Typography, Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, message, Popconfirm, Statistic, Row, Col, Divider, Alert, Steps } from 'antd'
-import { UserOutlined, MedicineBoxOutlined, SettingOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, WalletOutlined, FileTextOutlined } from '@ant-design/icons'
-import { drugApi, salesApi, settlementApi, adminApi, pendingOrderApi, accountApi } from '../services/api'
+import { UserOutlined, MedicineBoxOutlined, SettingOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, WalletOutlined, FileTextOutlined, NotificationOutlined, SendOutlined } from '@ant-design/icons'
+import { drugApi, salesApi, settlementApi, adminApi, pendingOrderApi, accountApi, systemMessageApi } from '../services/api'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 
@@ -144,6 +144,19 @@ interface AuditLog {
   createdAt: string
 }
 
+// 系统消息类型
+interface SystemMessage {
+  id: string
+  title: string
+  content: string
+  type: 'announcement' | 'notification' | 'maintenance'
+  status: 'draft' | 'published' | 'archived'
+  publishedBy?: string
+  publishedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
 // 审计日志动作类型映射
 const auditActionMap: Record<string, { label: string; color: string }> = {
   LOGIN: { label: '登录', color: '#1890FF' },
@@ -153,6 +166,20 @@ const auditActionMap: Record<string, { label: string; color: string }> = {
   RECHARGE: { label: '充值', color: '#00D4AA' },
   WITHDRAW: { label: '提现', color: '#FF4D4F' },
   SELL: { label: '卖出', color: '#722ED1' },
+}
+
+// 系统消息类型映射
+const messageTypeMap: Record<string, { label: string; color: string }> = {
+  announcement: { label: '公告', color: '#D4A017' },
+  notification: { label: '通知', color: '#1890FF' },
+  maintenance: { label: '维护', color: '#FA8C16' },
+}
+
+// 系统消息状态映射
+const messageStatusMap: Record<string, { label: string; color: string }> = {
+  draft: { label: '草稿', color: '#8B949E' },
+  published: { label: '已发布', color: '#52C41A' },
+  archived: { label: '已归档', color: '#FAAD14' },
 }
 
 const Admin = () => {
@@ -211,6 +238,17 @@ const Admin = () => {
   const [auditLogPageSize, setAuditLogPageSize] = useState(20)
   const [auditLogTotal, setAuditLogTotal] = useState(0)
 
+  // 系统消息管理状态
+  const [systemMessages, setSystemMessages] = useState<SystemMessage[]>([])
+  const [systemMessagesLoading, setSystemMessagesLoading] = useState(false)
+  const [systemMessageFilterStatus, setSystemMessageFilterStatus] = useState<string>('')
+  const [systemMessagePage, setSystemMessagePage] = useState(1)
+  const [systemMessagePageSize, setSystemMessagePageSize] = useState(10)
+  const [systemMessageTotal, setSystemMessageTotal] = useState(0)
+  const [isMessageModalOpen, setIsMessageModalOpen] = useState(false)
+  const [editingMessage, setEditingMessage] = useState<SystemMessage | null>(null)
+  const [messageForm] = Form.useForm()
+
   // 获取药品列表
   const fetchDrugs = useCallback(async () => {
     setDrugsLoading(true)
@@ -245,6 +283,8 @@ const Admin = () => {
       fetchAccountOverview()
     } else if (activeTab === 'auditLogs') {
       fetchAuditLogs()
+    } else if (activeTab === 'systemMessages') {
+      fetchSystemMessages()
     }
   }, [activeTab, fetchDrugs])
 
@@ -562,6 +602,102 @@ const Admin = () => {
       setAuditLogsLoading(false)
     }
   }, [auditLogFilterAction, auditLogPage, auditLogPageSize])
+
+  // ==================== 系统消息管理 ====================
+
+  // 获取系统消息列表
+  const fetchSystemMessages = useCallback(async () => {
+    setSystemMessagesLoading(true)
+    try {
+      const res: any = await systemMessageApi.adminGetList({
+        status: systemMessageFilterStatus || undefined,
+        page: systemMessagePage,
+        pageSize: systemMessagePageSize,
+      })
+      if (res.success) {
+        setSystemMessages(res.data.list)
+        setSystemMessageTotal(res.data.pagination.total)
+      }
+    } catch (error) {
+      console.error('获取系统消息失败:', error)
+      message.error('获取系统消息失败')
+    } finally {
+      setSystemMessagesLoading(false)
+    }
+  }, [systemMessageFilterStatus, systemMessagePage, systemMessagePageSize])
+
+  // 打开新增消息弹窗
+  const handleAddMessage = () => {
+    setEditingMessage(null)
+    messageForm.resetFields()
+    messageForm.setFieldsValue({ type: 'announcement' })
+    setIsMessageModalOpen(true)
+  }
+
+  // 打开编辑消息弹窗
+  const handleEditMessage = (record: SystemMessage) => {
+    setEditingMessage(record)
+    messageForm.setFieldsValue({
+      title: record.title,
+      content: record.content,
+      type: record.type,
+    })
+    setIsMessageModalOpen(true)
+  }
+
+  // 提交消息表单
+  const handleSubmitMessage = async () => {
+    try {
+      const values = await messageForm.validateFields()
+      setSubmitLoading(true)
+
+      if (editingMessage) {
+        const res: any = await systemMessageApi.adminUpdate(editingMessage.id, values)
+        if (res.success) {
+          message.success('消息更新成功')
+          setIsMessageModalOpen(false)
+          fetchSystemMessages()
+        }
+      } else {
+        const res: any = await systemMessageApi.adminCreate(values)
+        if (res.success) {
+          message.success('消息创建成功')
+          setIsMessageModalOpen(false)
+          fetchSystemMessages()
+        }
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || '提交失败')
+    } finally {
+      setSubmitLoading(false)
+    }
+  }
+
+  // 删除消息
+  const handleDeleteMessage = async (id: string) => {
+    try {
+      const res: any = await systemMessageApi.adminDelete(id)
+      if (res.success) {
+        message.success('消息删除成功')
+        fetchSystemMessages()
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || '删除失败')
+    }
+  }
+
+  // 发布消息
+  const handlePublishMessage = async (id: string) => {
+    try {
+      const res: any = await systemMessageApi.adminPublish(id)
+      if (res.success) {
+        message.success('消息发布成功')
+        fetchSystemMessages()
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || '发布失败')
+    }
+  }
 
   // 预览清算
   const handlePreviewSettlement = async () => {
@@ -1209,6 +1345,120 @@ const Admin = () => {
     },
   ]
 
+  // 系统消息表格列
+  const systemMessageColumns: ColumnsType<SystemMessage> = [
+    {
+      title: '标题',
+      dataIndex: 'title',
+      key: 'title',
+      render: (text: string) => (
+        <span className="table-cell-primary table-cell-bold">{text}</span>
+      ),
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      key: 'type',
+      width: 100,
+      render: (type: string) => {
+        const config = messageTypeMap[type] || { label: type, color: '#8B949E' }
+        return (
+          <Tag style={{ background: `${config.color}20`, borderColor: config.color, color: config.color }}>
+            {config.label}
+          </Tag>
+        )
+      },
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      width: 100,
+      render: (status: string) => {
+        const config = messageStatusMap[status] || { label: status, color: '#8B949E' }
+        return (
+          <Tag style={{ background: `${config.color}20`, borderColor: config.color, color: config.color }}>
+            {config.label}
+          </Tag>
+        )
+      },
+    },
+    {
+      title: '发布者',
+      dataIndex: 'publishedBy',
+      key: 'publishedBy',
+      width: 220,
+      render: (text: string) => (
+        <span className="table-cell-code">{text || '-'}</span>
+      ),
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 180,
+      render: (text: string) => (
+        <span className="table-cell-tertiary">{text ? dayjs(text).format('YYYY-MM-DD HH:mm') : '-'}</span>
+      ),
+    },
+    {
+      title: '发布时间',
+      dataIndex: 'publishedAt',
+      key: 'publishedAt',
+      width: 180,
+      render: (text: string) => (
+        <span className="table-cell-tertiary">{text ? dayjs(text).format('YYYY-MM-DD HH:mm') : '-'}</span>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 180,
+      render: (_, record: SystemMessage) => (
+        <Space size="small">
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleEditMessage(record)}
+            style={{ color: 'var(--color-primary)' }}
+            disabled={record.status === 'published'}
+          >
+            编辑
+          </Button>
+          {record.status === 'draft' && (
+            <Button
+              type="text"
+              size="small"
+              icon={<SendOutlined />}
+              onClick={() => handlePublishMessage(record.id)}
+              style={{ color: 'var(--color-success)' }}
+            >
+              发布
+            </Button>
+          )}
+          <Popconfirm
+            title="确认删除"
+            description="确定要删除该消息吗？此操作不可恢复。"
+            onConfirm={() => handleDeleteMessage(record.id)}
+            okText="删除"
+            cancelText="取消"
+            okButtonProps={{ danger: true }}
+          >
+            <Button
+              type="text"
+              size="small"
+              icon={<DeleteOutlined />}
+              danger
+            >
+              删除
+            </Button>
+          </Popconfirm>
+        </Space>
+      ),
+    },
+  ]
+
   const tabItems = [
     {
       key: 'users',
@@ -1577,6 +1827,65 @@ const Admin = () => {
               onChange: (page, pageSize) => {
                 setBalancePage(page)
                 setBalancePageSize(pageSize || 10)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+        </Card>
+      ),
+    },
+    {
+      key: 'systemMessages',
+      label: (
+        <span>
+          <NotificationOutlined style={{ marginRight: 8 }} />
+          系统消息
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          <div className="admin-action-bar">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleAddMessage}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
+                border: 'none',
+              }}
+            >
+              发布新消息
+            </Button>
+            <Select
+              placeholder="筛选状态"
+              allowClear
+              style={{ width: 160 }}
+              onChange={(value) => {
+                setSystemMessageFilterStatus(value)
+                setSystemMessagePage(1)
+              }}
+              value={systemMessageFilterStatus || undefined}
+            >
+              <Option value="draft">草稿</Option>
+              <Option value="published">已发布</Option>
+              <Option value="archived">已归档</Option>
+            </Select>
+          </div>
+          <Table
+            columns={systemMessageColumns}
+            dataSource={systemMessages}
+            rowKey="id"
+            loading={systemMessagesLoading}
+            pagination={{
+              current: systemMessagePage,
+              pageSize: systemMessagePageSize,
+              total: systemMessageTotal,
+              onChange: (page, pageSize) => {
+                setSystemMessagePage(page)
+                setSystemMessagePageSize(pageSize || 10)
               },
               showSizeChanger: true,
               showTotal: (total) => `共 ${total} 条`,
@@ -2121,6 +2430,67 @@ const Admin = () => {
             )}
           </div>
         )}
+      </Modal>
+
+      {/* 新增/编辑系统消息弹窗 */}
+      <Modal
+        title={editingMessage ? '编辑消息' : '发布新消息'}
+        open={isMessageModalOpen}
+        onOk={handleSubmitMessage}
+        onCancel={() => setIsMessageModalOpen(false)}
+        confirmLoading={submitLoading}
+        width={600}
+        style={{ top: 100 }}
+        className="admin-modal"
+        okButtonProps={{
+          style: {
+            background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
+            border: 'none',
+          }
+        }}
+        cancelButtonProps={{
+          className: 'admin-modal-cancel-btn'
+        }}
+      >
+        <Form
+          form={messageForm}
+          layout="vertical"
+          requiredMark={false}
+          className="admin-form"
+        >
+          <Form.Item
+            name="title"
+            label="标题"
+            rules={[{ required: true, message: '请输入消息标题' }]}
+          >
+            <Input placeholder="请输入消息标题" maxLength={100} showCount />
+          </Form.Item>
+
+          <Form.Item
+            name="type"
+            label="类型"
+            rules={[{ required: true, message: '请选择消息类型' }]}
+          >
+            <Select placeholder="请选择消息类型">
+              <Option value="announcement">平台公告</Option>
+              <Option value="notification">系统通知</Option>
+              <Option value="maintenance">维护通知</Option>
+            </Select>
+          </Form.Item>
+
+          <Form.Item
+            name="content"
+            label="内容"
+            rules={[{ required: true, message: '请输入消息内容' }]}
+          >
+            <Input.TextArea 
+              placeholder="请输入消息内容" 
+              rows={6}
+              maxLength={2000}
+              showCount
+            />
+          </Form.Item>
+        </Form>
       </Modal>
 
     </div>

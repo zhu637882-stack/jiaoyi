@@ -9,3 +9,4 @@ export { AccountTransaction, TransactionType } from './account-transaction.entit
 export { MarketSnapshot } from './market-snapshot.entity';
 export { PaymentOrder, PaymentChannel, PaymentStatus } from './payment-order.entity';
 export { AuditLog } from './audit-log.entity';
+export { SystemMessage, MessageType, MessageStatus } from './system-message.entity';

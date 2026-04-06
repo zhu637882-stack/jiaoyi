@@ -6,7 +6,7 @@ import {
   StarFilled,
   BellOutlined,
 } from '@ant-design/icons'
-import { marketApi, pendingOrderApi, accountApi, fundingApi, drugApi } from '../services/api'
+import { marketApi, pendingOrderApi, accountApi, fundingApi, systemMessageApi } from '../services/api'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { wsService } from '../services/websocket'
 import KLineChart, { KLineData } from '../components/KLineChart'
@@ -75,6 +75,19 @@ interface Holding {
   totalProfit: number
 }
 
+// 系统消息类型定义
+interface SystemMessage {
+  id: string
+  title: string
+  content: string
+  type: 'announcement' | 'notification' | 'maintenance'
+  status: 'draft' | 'published' | 'archived'
+  publishedBy?: string
+  publishedAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
 // 分页类型定义
 interface PaginationData {
   page: number
@@ -139,16 +152,23 @@ const Dashboard = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // 底部Tab状态
-  const [bottomTab, setBottomTab] = useState<'orders' | 'history' | 'funds' | 'holdings' | 'ranking'>('orders')
+  const [bottomTab, setBottomTab] = useState<'orders' | 'history' | 'funds' | 'holdings' | 'messages'>('orders')
 
   // 通知状态
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [unreadCount, setUnreadCount] = useState(0)
   const [showNotifications, setShowNotifications] = useState(false)
 
-  // 行情排行状态
-  const [rankingData, setRankingData] = useState<any[]>([])
-  const [rankingLoading, setRankingLoading] = useState(false)
+  // 系统消息状态
+  const [systemMessages, setSystemMessages] = useState<SystemMessage[]>([])
+  const [messagesLoading, setMessagesLoading] = useState(false)
+  const [messagesPagination, setMessagesPagination] = useState<PaginationData>({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
+  })
+  const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null)
 
   // 当前委托状态
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([])
@@ -477,6 +497,23 @@ const Dashboard = () => {
     }
   }, [fetchPendingOrders])
 
+  // 获取系统消息列表
+  const fetchSystemMessages = useCallback(async () => {
+    setMessagesLoading(true)
+    try {
+      const response: any = await systemMessageApi.getPublished({
+        page: messagesPagination.page,
+        pageSize: messagesPagination.pageSize,
+      })
+      setSystemMessages(response.data?.list || [])
+      setMessagesPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+    } catch (error) {
+      console.error('获取系统消息失败:', error)
+    } finally {
+      setMessagesLoading(false)
+    }
+  }, [messagesPagination.page, messagesPagination.pageSize])
+
   // Tab切换时加载数据
   useEffect(() => {
     if (bottomTab === 'orders') {
@@ -487,40 +524,10 @@ const Dashboard = () => {
       fetchTransactions()
     } else if (bottomTab === 'holdings') {
       fetchHoldings()
-    } else if (bottomTab === 'ranking') {
-      fetchRankingData()
+    } else if (bottomTab === 'messages') {
+      fetchSystemMessages()
     }
-  }, [bottomTab, fetchPendingOrders, fetchHistoryOrders, fetchTransactions, fetchHoldings])
-
-  // 获取行情排行数据
-  const fetchRankingData = useCallback(async () => {
-    setRankingLoading(true)
-    try {
-      const response: any = await drugApi.getDrugs({ page: 1, pageSize: 100 })
-      const drugs = response.data?.list || []
-      
-      // 计算涨跌幅并排序
-      const rankedDrugs = drugs.map((drug: any) => {
-        const currentPrice = drug.sellingPrice || 0
-        const previousPrice = drug.previousPrice || drug.purchasePrice || currentPrice
-        const changePercent = previousPrice > 0 
-          ? ((currentPrice - previousPrice) / previousPrice) * 100 
-          : 0
-        
-        return {
-          ...drug,
-          currentPrice,
-          changePercent: Number(changePercent.toFixed(2)),
-        }
-      }).sort((a: any, b: any) => b.changePercent - a.changePercent)
-      
-      setRankingData(rankedDrugs)
-    } catch (error) {
-      console.error('获取行情排行失败:', error)
-    } finally {
-      setRankingLoading(false)
-    }
-  }, [])
+  }, [bottomTab, fetchPendingOrders, fetchHistoryOrders, fetchTransactions, fetchHoldings, fetchSystemMessages])
 
   // 添加通知
   const addNotification = useCallback((type: 'triggered' | 'expired' | 'cancelled', data: any) => {
@@ -948,10 +955,10 @@ const Dashboard = () => {
                   持仓
                 </button>
                 <button
-                  className={`bottom-tab ${bottomTab === 'ranking' ? 'active' : ''}`}
-                  onClick={() => setBottomTab('ranking')}
+                  className={`bottom-tab ${bottomTab === 'messages' ? 'active' : ''}`}
+                  onClick={() => setBottomTab('messages')}
                 >
-                  行情排行
+                  系统消息
                 </button>
               </div>
 
@@ -1229,43 +1236,71 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {/* Tab 5: 行情排行 */}
-                {bottomTab === 'ranking' && (
-                  <div className="tab-table">
-                    <div className="table-header ranking-header">
-                      <span className="col-rank">排名</span>
-                      <span className="col-drug">药品名称</span>
-                      <span className="col-price">当前价</span>
-                      <span className="col-change">涨跌幅(%)</span>
-                      <span className="col-status">状态</span>
-                    </div>
-                    {rankingLoading ? (
+                {/* Tab 5: 系统消息 */}
+                {bottomTab === 'messages' && (
+                  <div className="system-messages-container">
+                    {messagesLoading ? (
                       <div className="empty-table">加载中...</div>
-                    ) : rankingData.length === 0 ? (
-                      <div className="empty-table">暂无行情数据</div>
+                    ) : systemMessages.length === 0 ? (
+                      <div className="empty-table">暂无系统消息</div>
                     ) : (
-                      <div className="table-body">
-                        {rankingData.map((drug, index) => {
-                          const rank = index + 1
-                          const isPositive = drug.changePercent >= 0
+                      <div className="system-messages-list">
+                        {systemMessages.map((msg) => {
+                          const isExpanded = expandedMessageId === msg.id
+                          const typeConfig = {
+                            announcement: { label: '公告', color: '#D4A017' },
+                            notification: { label: '通知', color: '#1890FF' },
+                            maintenance: { label: '维护', color: '#FA8C16' },
+                          }
+                          const typeInfo = typeConfig[msg.type] || typeConfig.notification
                           return (
-                            <div key={drug.id} className="table-row ranking-row">
-                              <span className={`col-rank rank-${rank <= 3 ? rank : 'other'}`}>
-                                {rank}
-                              </span>
-                              <span className="col-drug" title={drug.name}>{drug.name}</span>
-                              <span className="col-price">¥{Number(drug.currentPrice || 0).toFixed(2)}</span>
-                              <span className={`col-change ${isPositive ? 'up' : 'down'}`}>
-                                {isPositive ? '+' : ''}{drug.changePercent}%
-                              </span>
-                              <span className="col-status">
-                                <span className={`status-tag ${drug.status === 'active' ? 'active' : 'inactive'}`}>
-                                  {drug.status === 'active' ? '交易中' : '已暂停'}
+                            <div 
+                              key={msg.id} 
+                              className={`system-message-item ${isExpanded ? 'expanded' : ''}`}
+                              onClick={() => setExpandedMessageId(isExpanded ? null : msg.id)}
+                            >
+                              <div className="system-message-header">
+                                <span 
+                                  className="message-type-badge"
+                                  style={{ backgroundColor: `${typeInfo.color}20`, color: typeInfo.color, borderColor: `${typeInfo.color}40` }}
+                                >
+                                  {typeInfo.label}
                                 </span>
-                              </span>
+                                <span className="message-title">{msg.title}</span>
+                                <span className="message-time">
+                                  {msg.publishedAt ? formatDate(msg.publishedAt) : formatDate(msg.createdAt)}
+                                </span>
+                              </div>
+                              {isExpanded && (
+                                <div className="system-message-content">
+                                  {msg.content}
+                                </div>
+                              )}
                             </div>
                           )
                         })}
+                      </div>
+                    )}
+                    {/* 分页 */}
+                    {messagesPagination.totalPages > 1 && (
+                      <div className="tab-pagination">
+                        <button
+                          className="page-btn"
+                          disabled={messagesPagination.page <= 1}
+                          onClick={() => setMessagesPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                        >
+                          上一页
+                        </button>
+                        <span className="page-info">
+                          {messagesPagination.page} / {messagesPagination.totalPages}
+                        </span>
+                        <button
+                          className="page-btn"
+                          disabled={messagesPagination.page >= messagesPagination.totalPages}
+                          onClick={() => setMessagesPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        >
+                          下一页
+                        </button>
                       </div>
                     )}
                   </div>

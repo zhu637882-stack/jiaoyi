@@ -371,6 +371,22 @@ export const settlementApi = {
   getMySettlementStats: () => http.get('/settlements/my/stats'),
 }
 
+// 系统消息相关 API
+export const systemMessageApi = {
+  getPublished: (params?: { page?: number; pageSize?: number }) => 
+    http.get('/system-messages', { params }),
+  adminGetList: (params?: { status?: string; page?: number; pageSize?: number }) => 
+    http.get('/system-messages/admin/list', { params }),
+  adminCreate: (data: { title: string; content: string; type?: string }) => 
+    http.post('/system-messages/admin', data),
+  adminUpdate: (id: string, data: any) => 
+    http.put(`/system-messages/admin/${id}`, data),
+  adminDelete: (id: string) => 
+    http.delete(`/system-messages/admin/${id}`),
+  adminPublish: (id: string) => 
+    http.patch(`/system-messages/admin/${id}/publish`),
+}
+
 // 委托订单相关 API
 export const pendingOrderApi = {
   create: (data: { drugId: string; type: string; targetPrice: number; quantity: number; expireAt?: string }) =>
