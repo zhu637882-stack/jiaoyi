@@ -107,18 +107,6 @@ interface DepthData {
   totalCount: number
 }
 
-interface ActivityItem {
-  id: string
-  type: 'funding' | 'settlement'
-  time: string
-  userName: string
-  drugName: string
-  amount?: number
-  quantity?: number
-  profit?: number
-}
-
-
 // MT4风格统一交易界面
 const Dashboard = () => {
 
@@ -191,47 +179,6 @@ const Dashboard = () => {
 
   // TradePanel 高亮动画状态
   const [tradePanelHighlight, setTradePanelHighlight] = useState(false)
-
-  // WebSocket 连接
-  const { subscribeTicker } = useWebSocket({
-    onMarketTicker: (data) => {
-      if (data?.tickers) {
-        setMarketOverview((prev) => {
-          return prev.map((item) => {
-            const ticker = data.tickers.find((t: any) => t.drugId === item.drugId)
-            if (ticker) {
-              return {
-                ...item,
-                sellingPrice: ticker.sellingPrice,
-                dailyReturn: ticker.dailyReturn,
-                cumulativeReturn: ticker.cumulativeReturn,
-                fundingHeat: ticker.fundingHeat,
-              }
-            }
-            return item
-          })
-        })
-      }
-    },
-    onFundingUpdate: (data) => {
-      if (data) {
-        // 资金更新时刷新当前委托和持仓
-        if (bottomTab === 'orders') {
-          fetchPendingOrders()
-        } else if (bottomTab === 'holdings') {
-          fetchHoldings()
-        }
-      }
-    },
-    onSettlementComplete: (data) => {
-      if (data) {
-        // 清算完成时刷新持仓
-        if (bottomTab === 'holdings') {
-          fetchHoldings()
-        }
-      }
-    },
-  })
 
   // 响应式检测
   useEffect(() => {
@@ -534,6 +481,47 @@ const Dashboard = () => {
   const formatCurrency = (value: number) => {
     return `¥${Number(value || 0).toFixed(2)}`
   }
+
+  // WebSocket 连接 - 放在所有依赖函数之后
+  const { subscribeTicker } = useWebSocket({
+    onMarketTicker: (data) => {
+      if (data?.tickers) {
+        setMarketOverview((prev) => {
+          return prev.map((item) => {
+            const ticker = data.tickers.find((t: any) => t.drugId === item.drugId)
+            if (ticker) {
+              return {
+                ...item,
+                sellingPrice: ticker.sellingPrice,
+                dailyReturn: ticker.dailyReturn,
+                cumulativeReturn: ticker.cumulativeReturn,
+                fundingHeat: ticker.fundingHeat,
+              }
+            }
+            return item
+          })
+        })
+      }
+    },
+    onFundingUpdate: (data) => {
+      if (data) {
+        // 资金更新时刷新当前委托和持仓
+        if (bottomTab === 'orders') {
+          fetchPendingOrders()
+        } else if (bottomTab === 'holdings') {
+          fetchHoldings()
+        }
+      }
+    },
+    onSettlementComplete: (data) => {
+      if (data) {
+        // 清算完成时刷新持仓
+        if (bottomTab === 'holdings') {
+          fetchHoldings()
+        }
+      }
+    },
+  })
 
   // 渲染排序表头
   const renderSortHeader = (label: string, column: 'name' | 'price' | 'change') => {
