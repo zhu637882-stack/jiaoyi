@@ -183,6 +183,10 @@ export const fundingApi = {
   createFundingOrder: (data: { drugId: string; quantity: number }) =>
     http.post('/funding/orders', data),
 
+  // 解套卖出
+  sellOrder: (data: { drugId: string; quantity: number }) =>
+    http.post('/funding/orders/sell', data),
+
   // 获取我的垫资订单列表
   getFundingOrders: (params?: { status?: string; page?: number; pageSize?: number }) =>
     http.get('/funding/orders', { params }),
@@ -236,6 +240,12 @@ export const accountApi = {
   
   getStats: () =>
     http.get('/account/stats'),
+  
+  // 管理员接口
+  adminGetOverview: () =>
+    http.get('/account/admin/overview'),
+  adminGetBalances: (params?: { page?: number; pageSize?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }) =>
+    http.get('/account/admin/balances', { params }),
 }
 
 // 持仓相关 API
@@ -348,6 +358,14 @@ export const pendingOrderApi = {
     http.delete(`/pending-orders/${id}`),
   getActiveCount: () =>
     http.get('/pending-orders/active/count'),
+  
+  // 管理员接口
+  adminGetList: (params?: { status?: string; page?: number; pageSize?: number }) =>
+    http.get('/pending-orders/admin/list', { params }),
+  adminCancel: (id: string) =>
+    http.delete(`/pending-orders/admin/${id}`),
+  adminGetStats: () =>
+    http.get('/pending-orders/admin/stats'),
 }
 
 export default api

@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction, TransactionType } from '../../database/entities/account-transaction.entity';
+import { User } from '../../database/entities/user.entity';
 
 @Injectable()
 export class AccountService {
@@ -11,6 +12,8 @@ export class AccountService {
     private accountBalanceRepository: Repository<AccountBalance>,
     @InjectRepository(AccountTransaction)
     private accountTransactionRepository: Repository<AccountTransaction>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private dataSource: DataSource,
   ) {}
 
@@ -247,5 +250,103 @@ export class AccountService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * 管理员获取资金总览统计
+   */
+  async getAdminOverview() {
+    // 统计总充值金额
+    const rechargeResult = await this.accountTransactionRepository
+      .createQueryBuilder('t')
+      .select('SUM(t.amount)', 'total')
+      .where('t.type = :type', { type: TransactionType.RECHARGE })
+      .getRawOne();
+
+    // 统计总提现金额（取绝对值）
+    const withdrawResult = await this.accountTransactionRepository
+      .createQueryBuilder('t')
+      .select('SUM(ABS(t.amount))', 'total')
+      .where('t.type = :type', { type: TransactionType.WITHDRAW })
+      .getRawOne();
+
+    // 统计总冻结金额
+    const frozenResult = await this.accountBalanceRepository
+      .createQueryBuilder('b')
+      .select('SUM(b.frozenBalance)', 'total')
+      .getRawOne();
+
+    // 统计总可用余额
+    const availableResult = await this.accountBalanceRepository
+      .createQueryBuilder('b')
+      .select('SUM(b.availableBalance)', 'total')
+      .getRawOne();
+
+    // 统计有余额的用户数（availableBalance > 0 或 frozenBalance > 0）
+    const activeUserCount = await this.accountBalanceRepository
+      .createQueryBuilder('b')
+      .where('b.availableBalance > 0 OR b.frozenBalance > 0')
+      .getCount();
+
+    return {
+      totalRecharge: Number(rechargeResult?.total || 0),
+      totalWithdraw: Number(withdrawResult?.total || 0),
+      totalFrozen: Number(frozenResult?.total || 0),
+      totalAvailable: Number(availableResult?.total || 0),
+      activeUserCount,
+    };
+  }
+
+  /**
+   * 管理员获取所有用户余额列表
+   */
+  async getAdminBalances(options: {
+    page?: number;
+    pageSize?: number;
+    sortBy?: string;
+    sortOrder?: 'ASC' | 'DESC';
+  } = {}) {
+    const { page = 1, pageSize = 10, sortBy = 'createdAt', sortOrder = 'DESC' } = options;
+
+    // 获取所有用户余额，JOIN user 获取用户信息
+    const queryBuilder = this.accountBalanceRepository
+      .createQueryBuilder('balance')
+      .leftJoinAndMapOne(
+        'balance.user',
+        User,
+        'user',
+        'user.id = balance.userId',
+      );
+
+    // 排序
+    const orderField = ['availableBalance', 'frozenBalance', 'totalProfit', 'totalInvested', 'createdAt'].includes(sortBy)
+      ? `balance.${sortBy}`
+      : 'balance.createdAt';
+    queryBuilder.orderBy(orderField, sortOrder);
+
+    const total = await queryBuilder.getCount();
+
+    const balances = await queryBuilder
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getMany();
+
+    return {
+      list: balances.map((balance: any) => ({
+        userId: balance.userId,
+        username: balance.user?.username,
+        realName: balance.user?.realName,
+        availableBalance: Number(balance.availableBalance),
+        frozenBalance: Number(balance.frozenBalance),
+        totalProfit: Number(balance.totalProfit),
+        totalInvested: Number(balance.totalInvested),
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
   }
 }

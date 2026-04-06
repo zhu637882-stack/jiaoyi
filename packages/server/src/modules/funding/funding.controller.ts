@@ -42,6 +42,26 @@ export class FundingController {
   }
 
   /**
+   * 解套卖出
+   * POST /api/funding/orders/sell
+   * 注意：此路由必须在 orders/:id 之前定义
+   */
+  @Post('orders/sell')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async sellOrder(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateFundingOrderDto,
+  ) {
+    const result = await this.fundingService.sellOrder(userId, dto);
+    return {
+      success: true,
+      data: result,
+      message: '解套卖出成功',
+    };
+  }
+
+  /**
    * 获取我的垫资订单列表
    * GET /api/funding/orders
    */

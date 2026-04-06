@@ -16,6 +16,7 @@ import {
   AccountTransaction,
   TransactionType,
 } from '../../database/entities/account-transaction.entity';
+import { User } from '../../database/entities/user.entity';
 import { CreatePendingOrderDto } from './dto/create-pending-order.dto';
 import { FundingService } from '../funding/funding.service';
 
@@ -30,6 +31,8 @@ export class PendingOrderService {
     private accountBalanceRepository: Repository<AccountBalance>,
     @InjectRepository(AccountTransaction)
     private accountTransactionRepository: Repository<AccountTransaction>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     private dataSource: DataSource,
     private fundingService: FundingService,
   ) {}
@@ -379,6 +382,190 @@ export class PendingOrderService {
     });
 
     return count;
+  }
+
+  /**
+   * 管理员获取所有委托订单列表
+   */
+  async getAdminPendingOrders(options: {
+    status?: PendingOrderStatus;
+    page?: number;
+    pageSize?: number;
+  } = {}) {
+    const { status, page = 1, pageSize = 10 } = options;
+
+    const queryBuilder = this.pendingOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.drug', 'drug')
+      .leftJoinAndMapOne(
+        'order.user',
+        User,
+        'user',
+        'user.id = order.userId',
+      )
+      .orderBy('order.createdAt', 'DESC');
+
+    if (status) {
+      queryBuilder.andWhere('order.status = :status', { status });
+    }
+
+    const total = await queryBuilder.getCount();
+
+    const orders = await queryBuilder
+      .skip((page - 1) * pageSize)
+      .take(pageSize)
+      .getMany();
+
+    return {
+      list: orders.map((order: any) => ({
+        id: order.id,
+        orderNo: order.orderNo,
+        userId: order.userId,
+        username: order.user?.username,
+        realName: order.user?.realName,
+        drugId: order.drugId,
+        drugName: order.drug?.name,
+        drugCode: order.drug?.code,
+        type: order.type,
+        targetPrice: Number(order.targetPrice),
+        quantity: order.quantity,
+        filledQuantity: order.filledQuantity,
+        frozenAmount: Number(order.frozenAmount),
+        status: order.status,
+        expireAt: order.expireAt,
+        triggeredAt: order.triggeredAt,
+        fundingOrderId: order.fundingOrderId,
+        createdAt: order.createdAt,
+      })),
+      pagination: {
+        page,
+        pageSize,
+        total,
+        totalPages: Math.ceil(total / pageSize),
+      },
+    };
+  }
+
+  /**
+   * 管理员强制撤单
+   */
+  async adminCancelOrder(orderId: string): Promise<PendingOrder> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. 查询委托单（带锁）- 不校验 userId
+      const order = await queryRunner.manager.findOne(PendingOrder, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException('委托订单不存在');
+      }
+
+      // 单独查询关联的 drug
+      const drug = await queryRunner.manager.findOne(Drug, {
+        where: { id: order.drugId },
+      });
+
+      // 2. 校验状态
+      if (![PendingOrderStatus.PENDING, PendingOrderStatus.PARTIAL].includes(order.status)) {
+        throw new BadRequestException('该委托单当前状态不可撤销');
+      }
+
+      // 3. 计算需要解冻的金额
+      const unfilledQuantity = order.quantity - order.filledQuantity;
+      const unfrozenAmount = Number((order.targetPrice * unfilledQuantity).toFixed(2));
+
+      if (unfrozenAmount > 0) {
+        // 4. 解冻资金
+        const balance = await queryRunner.manager.findOne(AccountBalance, {
+          where: { userId: order.userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!balance) {
+          throw new NotFoundException('账户不存在');
+        }
+
+        const availableBefore = Number(balance.availableBalance);
+        const frozenBefore = Number(balance.frozenBalance);
+
+        balance.availableBalance = Number((availableBefore + unfrozenAmount).toFixed(2));
+        balance.frozenBalance = Number((frozenBefore - unfrozenAmount).toFixed(2));
+
+        await queryRunner.manager.save(balance);
+
+        // 5. 记录资金流水
+        const transaction = queryRunner.manager.create(AccountTransaction, {
+          userId: order.userId,
+          type: TransactionType.FUNDING,
+          amount: unfrozenAmount,
+          balanceBefore: availableBefore,
+          balanceAfter: balance.availableBalance,
+          relatedOrderId: order.id,
+          description: `管理员强制撤销委托解冻资金 ${drug?.name || ''} ${unfilledQuantity}盒 @ ${order.targetPrice}元，订单号：${order.orderNo}`,
+        });
+
+        await queryRunner.manager.save(transaction);
+      }
+
+      // 6. 更新委托单状态
+      order.status = PendingOrderStatus.CANCELLED;
+      order.frozenAmount = Number(((order.filledQuantity * order.targetPrice)).toFixed(2));
+
+      const savedOrder = await queryRunner.manager.save(order);
+
+      await queryRunner.commitTransaction();
+
+      return savedOrder;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 管理员获取委托统计
+   */
+  async getAdminStats() {
+    // 统计各状态委托数量
+    const pendingCount = await this.pendingOrderRepository.count({
+      where: { status: PendingOrderStatus.PENDING },
+    });
+
+    const triggeredCount = await this.pendingOrderRepository.count({
+      where: { status: PendingOrderStatus.TRIGGERED },
+    });
+
+    const cancelledCount = await this.pendingOrderRepository.count({
+      where: { status: PendingOrderStatus.CANCELLED },
+    });
+
+    const expiredCount = await this.pendingOrderRepository.count({
+      where: { status: PendingOrderStatus.EXPIRED },
+    });
+
+    // 统计总冻结金额（pending状态的 frozenAmount 之和）
+    const frozenResult = await this.pendingOrderRepository
+      .createQueryBuilder('order')
+      .select('SUM(order.frozenAmount)', 'total')
+      .where('order.status = :status', { status: PendingOrderStatus.PENDING })
+      .getRawOne();
+
+    const totalFrozenAmount = Number(frozenResult?.total || 0);
+
+    return {
+      pendingCount,
+      triggeredCount,
+      cancelledCount,
+      expiredCount,
+      totalFrozenAmount,
+    };
   }
 
   /**

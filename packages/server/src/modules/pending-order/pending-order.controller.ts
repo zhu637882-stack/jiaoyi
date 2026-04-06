@@ -13,15 +13,69 @@ import {
 } from '@nestjs/common';
 import { PendingOrderService } from './pending-order.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard, Roles } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   CreatePendingOrderDto,
   QueryPendingOrderDto,
 } from './dto';
+import { UserRole } from '../../database/entities/user.entity';
 
 @Controller('pending-orders')
 export class PendingOrderController {
   constructor(private readonly pendingOrderService: PendingOrderService) {}
+
+  /**
+   * 管理员获取委托统计
+   * GET /api/pending-orders/admin/stats
+   */
+  @Get('admin/stats')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAdminStats() {
+    const stats = await this.pendingOrderService.getAdminStats();
+    return {
+      success: true,
+      data: stats,
+    };
+  }
+
+  /**
+   * 管理员获取所有委托订单列表
+   * GET /api/pending-orders/admin/list
+   */
+  @Get('admin/list')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAdminPendingOrders(@Query() query: QueryPendingOrderDto) {
+    const result = await this.pendingOrderService.getAdminPendingOrders({
+      status: query.status,
+      page: query.page,
+      pageSize: query.pageSize,
+    });
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  /**
+   * 管理员强制撤单
+   * DELETE /api/pending-orders/admin/:id
+   */
+  @Delete('admin/:id')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async adminCancelOrder(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+  ) {
+    const order = await this.pendingOrderService.adminCancelOrder(id);
+    return {
+      success: true,
+      data: order,
+      message: '委托订单已强制撤销',
+    };
+  }
 
   /**
    * 测试触发委托单（仅用于调试）

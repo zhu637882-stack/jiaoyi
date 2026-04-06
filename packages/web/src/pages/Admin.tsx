@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import './Admin.css'
 import { Card, Tabs, Typography, Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, message, Popconfirm, Statistic, Row, Col, Divider, Alert, Steps } from 'antd'
-import { UserOutlined, MedicineBoxOutlined, SettingOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined } from '@ant-design/icons'
-import { drugApi, salesApi, settlementApi, adminApi } from '../services/api'
+import { UserOutlined, MedicineBoxOutlined, SettingOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, WalletOutlined } from '@ant-design/icons'
+import { drugApi, salesApi, settlementApi, adminApi, pendingOrderApi, accountApi } from '../services/api'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
 
@@ -81,6 +81,57 @@ interface SettlementRecord {
   createdAt: string
 }
 
+// 委托订单数据类型
+interface PendingOrder {
+  id: string
+  orderNo: string
+  userId: string
+  username: string
+  realName?: string
+  drugId: string
+  drugName: string
+  drugCode: string
+  type: 'limit_buy' | 'limit_sell'
+  targetPrice: number
+  quantity: number
+  filledQuantity: number
+  frozenAmount: number
+  status: 'pending' | 'triggered' | 'cancelled' | 'expired' | 'partial'
+  expireAt?: string
+  triggeredAt?: string
+  fundingOrderId?: string
+  createdAt: string
+}
+
+// 委托统计类型
+interface PendingOrderStats {
+  pendingCount: number
+  triggeredCount: number
+  cancelledCount: number
+  expiredCount: number
+  totalFrozenAmount: number
+}
+
+// 用户余额数据类型
+interface UserBalance {
+  userId: string
+  username: string
+  realName?: string
+  availableBalance: number
+  frozenBalance: number
+  totalProfit: number
+  totalInvested: number
+}
+
+// 资金总览类型
+interface AccountOverview {
+  totalRecharge: number
+  totalWithdraw: number
+  totalFrozen: number
+  totalAvailable: number
+  activeUserCount: number
+}
+
 const Admin = () => {
   const [activeTab, setActiveTab] = useState('users')
   const [drugs, setDrugs] = useState<Drug[]>([])
@@ -112,6 +163,23 @@ const Admin = () => {
   const [settlementForm] = Form.useForm()
   const [settlementSummary, setSettlementSummary] = useState<any>(null)
 
+  // 委托管理状态
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([])
+  const [pendingOrdersLoading, setPendingOrdersLoading] = useState(false)
+  const [pendingOrderStats, setPendingOrderStats] = useState<PendingOrderStats | null>(null)
+  const [pendingOrderFilterStatus, setPendingOrderFilterStatus] = useState<string>('')
+  const [pendingOrderPage, setPendingOrderPage] = useState(1)
+  const [pendingOrderPageSize, setPendingOrderPageSize] = useState(10)
+  const [pendingOrderTotal, setPendingOrderTotal] = useState(0)
+
+  // 资金监控状态
+  const [userBalances, setUserBalances] = useState<UserBalance[]>([])
+  const [userBalancesLoading, setUserBalancesLoading] = useState(false)
+  const [accountOverview, setAccountOverview] = useState<AccountOverview | null>(null)
+  const [balancePage, setBalancePage] = useState(1)
+  const [balancePageSize, setBalancePageSize] = useState(10)
+  const [balanceTotal, setBalanceTotal] = useState(0)
+
   // 获取药品列表
   const fetchDrugs = useCallback(async () => {
     setDrugsLoading(true)
@@ -138,6 +206,12 @@ const Admin = () => {
     } else if (activeTab === 'settlements') {
       fetchSettlements()
       fetchSettlementSummary()
+    } else if (activeTab === 'pendingOrders') {
+      fetchPendingOrders()
+      fetchPendingOrderStats()
+    } else if (activeTab === 'fundMonitor') {
+      fetchUserBalances()
+      fetchAccountOverview()
     }
   }, [activeTab, fetchDrugs])
 
@@ -347,6 +421,89 @@ const Admin = () => {
       }
     } catch (error) {
       console.error('获取清算统计失败:', error)
+    }
+  }, [])
+
+  // ==================== 委托管理 ====================
+
+  // 获取委托列表
+  const fetchPendingOrders = useCallback(async () => {
+    setPendingOrdersLoading(true)
+    try {
+      const res: any = await pendingOrderApi.adminGetList({
+        status: pendingOrderFilterStatus || undefined,
+        page: pendingOrderPage,
+        pageSize: pendingOrderPageSize,
+      })
+      if (res.success) {
+        setPendingOrders(res.data.list)
+        setPendingOrderTotal(res.data.pagination.total)
+      }
+    } catch (error) {
+      console.error('获取委托列表失败:', error)
+      message.error('获取委托列表失败')
+    } finally {
+      setPendingOrdersLoading(false)
+    }
+  }, [pendingOrderFilterStatus, pendingOrderPage, pendingOrderPageSize])
+
+  // 获取委托统计
+  const fetchPendingOrderStats = useCallback(async () => {
+    try {
+      const res: any = await pendingOrderApi.adminGetStats()
+      if (res.success) {
+        setPendingOrderStats(res.data)
+      }
+    } catch (error) {
+      console.error('获取委托统计失败:', error)
+    }
+  }, [])
+
+  // 强制撤单
+  const handleAdminCancelOrder = async (orderId: string) => {
+    try {
+      const res: any = await pendingOrderApi.adminCancel(orderId)
+      if (res.success) {
+        message.success('委托订单已强制撤销')
+        fetchPendingOrders()
+        fetchPendingOrderStats()
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || '撤单失败')
+    }
+  }
+
+  // ==================== 资金监控 ====================
+
+  // 获取用户余额列表
+  const fetchUserBalances = useCallback(async () => {
+    setUserBalancesLoading(true)
+    try {
+      const res: any = await accountApi.adminGetBalances({
+        page: balancePage,
+        pageSize: balancePageSize,
+      })
+      if (res.success) {
+        setUserBalances(res.data.list)
+        setBalanceTotal(res.data.pagination.total)
+      }
+    } catch (error) {
+      console.error('获取用户余额列表失败:', error)
+      message.error('获取用户余额列表失败')
+    } finally {
+      setUserBalancesLoading(false)
+    }
+  }, [balancePage, balancePageSize])
+
+  // 获取资金总览
+  const fetchAccountOverview = useCallback(async () => {
+    try {
+      const res: any = await accountApi.adminGetOverview()
+      if (res.success) {
+        setAccountOverview(res.data)
+      }
+    } catch (error) {
+      console.error('获取资金总览失败:', error)
     }
   }, [])
 
@@ -742,7 +899,181 @@ const Admin = () => {
     },
   ]
 
+  // 委托订单表格列
+  const pendingOrderColumns: ColumnsType<PendingOrder> = [
+    {
+      title: '用户名',
+      dataIndex: 'username',
+      key: 'username',
+      render: (text: string, record: PendingOrder) => (
+        <div className="table-cell-with-sub">
+          <span className="table-cell-primary table-cell-bold">{text || '-'}</span>
+          <span className="table-cell-code">{record.realName || '-'}</span>
+        </div>
+      ),
+    },
+    {
+      title: '药品',
+      dataIndex: 'drugName',
+      key: 'drugName',
+      render: (text: string, record: PendingOrder) => (
+        <div className="table-cell-with-sub">
+          <span className="table-cell-primary">{text || '-'}</span>
+          <span className="table-cell-code">{record.drugCode || '-'}</span>
+        </div>
+      ),
+    },
+    {
+      title: '类型',
+      dataIndex: 'type',
+      key: 'type',
+      render: (type: string) => (
+        <Tag className={`status-tag ${type === 'limit_buy' ? 'status-tag-error' : 'status-tag-success'}`}>
+          {type === 'limit_buy' ? '买入' : '卖出'}
+        </Tag>
+      ),
+    },
+    {
+      title: '目标价',
+      dataIndex: 'targetPrice',
+      key: 'targetPrice',
+      align: 'right',
+      render: (price: number) => (
+        <span className="table-cell-mono">¥{Number(price || 0).toFixed(2)}</span>
+      ),
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      align: 'right',
+      render: (quantity: number, record: PendingOrder) => (
+        <span className="table-cell-mono">
+          {record.filledQuantity > 0 ? `${record.filledQuantity}/${quantity}` : quantity}
+        </span>
+      ),
+    },
+    {
+      title: '冻结金额',
+      dataIndex: 'frozenAmount',
+      key: 'frozenAmount',
+      align: 'right',
+      render: (amount: number) => (
+        <span className="table-cell-mono table-cell-warning">¥{Number(amount || 0).toFixed(2)}</span>
+      ),
+    },
+    {
+      title: '状态',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: string) => {
+        const config: Record<string, { className: string; text: string }> = {
+          pending: { className: 'status-tag-warning', text: '待触发' },
+          triggered: { className: 'status-tag-success', text: '已触发' },
+          cancelled: { className: 'status-tag-default', text: '已撤销' },
+          expired: { className: 'status-tag-error', text: '已过期' },
+          partial: { className: 'status-tag-warning', text: '部分成交' },
+        }
+        const { className, text } = config[status] || { className: 'status-tag-default', text: status }
+        return (
+          <Tag className={`status-tag ${className}`}>
+            {text}
+          </Tag>
+        )
+      },
+    },
+    {
+      title: '创建时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (text: string) => (
+        <span className="table-cell-tertiary">{text ? dayjs(text).format('YYYY-MM-DD HH:mm') : '-'}</span>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      width: 120,
+      render: (_, record: PendingOrder) => (
+        <Space size="small">
+          {record.status === 'pending' || record.status === 'partial' ? (
+            <Popconfirm
+              title="确认强制撤单"
+              description="确定要强制撤销该委托订单吗？冻结资金将返还给用户。"
+              onConfirm={() => handleAdminCancelOrder(record.id)}
+              okText="确认撤单"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                type="text"
+                size="small"
+                danger
+              >
+                强制撤单
+              </Button>
+            </Popconfirm>
+          ) : (
+            <span className="table-cell-tertiary">-</span>
+          )}
+        </Space>
+      ),
+    },
+  ]
 
+  // 用户余额表格列
+  const userBalanceColumns: ColumnsType<UserBalance> = [
+    {
+      title: '用户名',
+      dataIndex: 'username',
+      key: 'username',
+      render: (text: string) => <span className="table-cell-primary table-cell-bold">{text || '-'}</span>,
+    },
+    {
+      title: '真实姓名',
+      dataIndex: 'realName',
+      key: 'realName',
+      render: (text: string) => <span className="table-cell-primary">{text || '-'}</span>,
+    },
+    {
+      title: '可用余额',
+      dataIndex: 'availableBalance',
+      key: 'availableBalance',
+      align: 'right',
+      render: (value: number) => (
+        <span className="table-cell-mono">¥{Number(value || 0).toFixed(2)}</span>
+      ),
+    },
+    {
+      title: '冻结金额',
+      dataIndex: 'frozenBalance',
+      key: 'frozenBalance',
+      align: 'right',
+      render: (value: number) => (
+        <span className="table-cell-mono table-cell-warning">¥{Number(value || 0).toFixed(2)}</span>
+      ),
+    },
+    {
+      title: '累计收益',
+      dataIndex: 'totalProfit',
+      key: 'totalProfit',
+      align: 'right',
+      render: (value: number) => (
+        <span className={`table-cell-mono ${value >= 0 ? 'table-cell-success' : 'table-cell-error'}`}>
+          {value >= 0 ? '+' : ''}¥{Number(value || 0).toFixed(2)}
+        </span>
+      ),
+    },
+    {
+      title: '累计投资',
+      dataIndex: 'totalInvested',
+      key: 'totalInvested',
+      align: 'right',
+      render: (value: number) => (
+        <span className="table-cell-mono">¥{Number(value || 0).toFixed(2)}</span>
+      ),
+    },
+  ]
 
   const tabItems = [
     {
@@ -941,6 +1272,181 @@ const Admin = () => {
             rowKey="id"
             loading={settlementsLoading}
             pagination={false}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+        </Card>
+      ),
+    },
+    {
+      key: 'pendingOrders',
+      label: (
+        <span>
+          <OrderedListOutlined style={{ marginRight: 8 }} />
+          委托管理
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          {/* 统计卡片 */}
+          {pendingOrderStats && (
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+              <Col xs={24} sm={8}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="待触发委托"
+                    value={pendingOrderStats.pendingCount}
+                    valueStyle={{ color: 'var(--color-warning)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="已触发委托"
+                    value={pendingOrderStats.triggeredCount}
+                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={8}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总冻结金额"
+                    value={pendingOrderStats.totalFrozenAmount}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-error)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          )}
+
+          <div className="admin-action-bar">
+            <Select
+              placeholder="筛选状态"
+              allowClear
+              style={{ width: 160 }}
+              onChange={(value) => {
+                setPendingOrderFilterStatus(value)
+                setPendingOrderPage(1)
+              }}
+              value={pendingOrderFilterStatus || undefined}
+            >
+              <Option value="pending">待触发</Option>
+              <Option value="triggered">已触发</Option>
+              <Option value="cancelled">已撤销</Option>
+              <Option value="expired">已过期</Option>
+            </Select>
+          </div>
+          <Table
+            columns={pendingOrderColumns}
+            dataSource={pendingOrders}
+            rowKey="id"
+            loading={pendingOrdersLoading}
+            pagination={{
+              current: pendingOrderPage,
+              pageSize: pendingOrderPageSize,
+              total: pendingOrderTotal,
+              onChange: (page, pageSize) => {
+                setPendingOrderPage(page)
+                setPendingOrderPageSize(pageSize || 10)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+        </Card>
+      ),
+    },
+    {
+      key: 'fundMonitor',
+      label: (
+        <span>
+          <WalletOutlined style={{ marginRight: 8 }} />
+          资金监控
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          {/* 统计卡片 */}
+          {accountOverview && (
+            <Row gutter={[16, 16]} style={{ marginBottom: 24 }}>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总充值金额"
+                    value={accountOverview.totalRecharge}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总提现金额"
+                    value={accountOverview.totalWithdraw}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-error)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总冻结金额"
+                    value={accountOverview.totalFrozen}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-warning)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总可用余额"
+                    value={accountOverview.totalAvailable}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="活跃用户数"
+                    value={accountOverview.activeUserCount}
+                    valueStyle={{ color: 'var(--color-text-primary)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          )}
+
+          <Table
+            columns={userBalanceColumns}
+            dataSource={userBalances}
+            rowKey="userId"
+            loading={userBalancesLoading}
+            pagination={{
+              current: balancePage,
+              pageSize: balancePageSize,
+              total: balanceTotal,
+              onChange: (page, pageSize) => {
+                setBalancePage(page)
+                setBalancePageSize(pageSize || 10)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
             scroll={{ x: 'max-content' }}
             rowClassName={() => 'admin-table-row'}
           />

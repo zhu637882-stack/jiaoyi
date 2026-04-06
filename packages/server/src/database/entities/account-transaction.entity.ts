@@ -17,6 +17,7 @@ export enum TransactionType {
   PROFIT_SHARE = 'profit_share',
   LOSS_SHARE = 'loss_share',
   INTEREST = 'interest',
+  SELL = 'sell',
 }
 
 @Entity('account_transactions')

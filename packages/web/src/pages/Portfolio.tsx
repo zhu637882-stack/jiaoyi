@@ -172,6 +172,7 @@ const transactionTypeMap: Record<string, { label: string; color: string }> = {
   profit_share: { label: '收益分配', color: '#FF4D4F' },
   loss_share: { label: '亏损分摊', color: '#00D4AA' },
   interest: { label: '利息', color: '#F0B90B' },
+  sell: { label: '卖出', color: '#00D4AA' },
 }
 
 interface BalanceData {

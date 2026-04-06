@@ -5,7 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, LessThan, MoreThan } from 'typeorm';
+import { Repository, DataSource, LessThan, MoreThan, In } from 'typeorm';
 import {
   FundingOrder,
   FundingOrderStatus,
@@ -455,5 +455,135 @@ export class FundingService {
       totalProfit: Number(order.totalProfit),
       totalInterest: Number(order.totalInterest),
     }));
+  }
+
+  /**
+   * 解套卖出（市价卖出）
+   */
+  async sellOrder(userId: string, dto: CreateFundingOrderDto): Promise<any> {
+    const { drugId, quantity } = dto;
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. 查找药品获取 sellingPrice
+      const drug = await queryRunner.manager.findOne(Drug, {
+        where: { id: drugId },
+      });
+      if (!drug) throw new NotFoundException('药品不存在');
+
+      // 2. 查找用户该药品的 holding/partial_settled 状态持仓（按 fundedAt ASC，FIFO卖出）
+      const holdings = await queryRunner.manager.find(FundingOrder, {
+        where: {
+          userId,
+          drugId,
+          status: In([FundingOrderStatus.HOLDING, FundingOrderStatus.PARTIAL_SETTLED]),
+        },
+        order: { fundedAt: 'ASC' },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      // 3. 计算可卖总数
+      const totalAvailable = holdings.reduce(
+        (sum, h) => sum + (h.quantity - h.settledQuantity),
+        0,
+      );
+      if (totalAvailable < quantity) {
+        throw new BadRequestException(
+          `可卖数量不足，当前可卖：${totalAvailable}盒`,
+        );
+      }
+
+      // 4. 按 sellingPrice 计算卖出总金额
+      const sellAmount = Number(
+        (quantity * Number(drug.sellingPrice)).toFixed(2),
+      );
+
+      // 5. FIFO 逐个扣减持仓
+      let remainingToSell = quantity;
+      let totalPrincipalReturned = 0; // 归还的本金（解冻用）
+
+      for (const order of holdings) {
+        if (remainingToSell <= 0) break;
+
+        const available = order.quantity - order.settledQuantity;
+        const sellFromThis = Math.min(available, remainingToSell);
+        const principalPerUnit = Number(order.amount) / order.quantity;
+        const principalReturned = Number(
+          (sellFromThis * principalPerUnit).toFixed(2),
+        );
+
+        order.settledQuantity += sellFromThis;
+        order.unsettledAmount = Number(
+          (Number(order.unsettledAmount) - principalReturned).toFixed(2),
+        );
+
+        if (order.settledQuantity >= order.quantity) {
+          order.status = FundingOrderStatus.SETTLED;
+          order.settledAt = new Date();
+        } else {
+          order.status = FundingOrderStatus.PARTIAL_SETTLED;
+        }
+
+        totalPrincipalReturned += principalReturned;
+        remainingToSell -= sellFromThis;
+
+        await queryRunner.manager.save(order);
+      }
+
+      // 6. 更新用户余额
+      const balance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!balance) throw new NotFoundException('账户不存在');
+
+      const availableBefore = Number(balance.availableBalance);
+      // 解冻本金 + 卖出收入
+      balance.frozenBalance = Number(
+        (Number(balance.frozenBalance) - totalPrincipalReturned).toFixed(2),
+      );
+      balance.availableBalance = Number(
+        (availableBefore + sellAmount).toFixed(2),
+      );
+
+      // 计算盈亏
+      const profitOrLoss = sellAmount - totalPrincipalReturned;
+      if (profitOrLoss > 0) {
+        balance.totalProfit = Number(
+          (Number(balance.totalProfit) + profitOrLoss).toFixed(2),
+        );
+      }
+
+      await queryRunner.manager.save(balance);
+
+      // 7. 记录资金流水
+      const transaction = queryRunner.manager.create(AccountTransaction, {
+        userId,
+        type: TransactionType.SELL,
+        amount: sellAmount,
+        balanceBefore: availableBefore,
+        balanceAfter: balance.availableBalance,
+        description: `解套卖出 ${drug.name} ${quantity}盒，卖出金额：¥${sellAmount}`,
+      });
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+
+      return {
+        drugName: drug.name,
+        quantity,
+        sellAmount,
+        principalReturned: totalPrincipalReturned,
+        profitOrLoss: Number(profitOrLoss.toFixed(2)),
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

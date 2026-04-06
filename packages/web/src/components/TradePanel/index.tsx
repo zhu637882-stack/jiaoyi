@@ -184,11 +184,33 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
   const handleConfirmOrder = async () => {
     if (!drug) return
 
-    // 卖出功能暂未完成
+    // 卖出功能
     if (tradeMode === 'sell') {
-      message.info('解套功能开发中')
-      setConfirmModalVisible(false)
-      return
+      // 市价卖出
+      if (orderType === 'market') {
+        setSubmitting(true)
+        try {
+          const response = await fundingApi.sellOrder({
+            drugId: drug.drugId,
+            quantity,
+          })
+          if (response.success) {
+            message.success(`解套卖出成功，卖出金额 ¥${response.data.sellAmount}`)
+            setConfirmModalVisible(false)
+            setQuantity(1)
+            setSliderValue(0)
+            fetchBalance()
+            fetchHoldingSummary(drug.drugId)
+            onOrderSuccess?.()
+          }
+        } catch (error: any) {
+          message.error(error.response?.data?.message || '卖出失败')
+        } finally {
+          setSubmitting(false)
+        }
+        return
+      }
+      // 限价卖出委托走下面的通用限价委托逻辑
     }
 
     setSubmitting(true)

@@ -1,14 +1,56 @@
 import { Controller, Get, Post, Body, Query, UseGuards } from '@nestjs/common';
 import { AccountService } from './account.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { RolesGuard, Roles } from '../../common/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { RechargeDto } from './dto/recharge.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
+import { UserRole } from '../../database/entities/user.entity';
 
 @Controller('account')
 export class AccountController {
   constructor(private accountService: AccountService) {}
+
+  /**
+   * 管理员获取资金总览
+   * GET /api/account/admin/overview
+   */
+  @Get('admin/overview')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAdminOverview() {
+    const overview = await this.accountService.getAdminOverview();
+    return {
+      success: true,
+      data: overview,
+    };
+  }
+
+  /**
+   * 管理员获取用户余额列表
+   * GET /api/account/admin/balances
+   */
+  @Get('admin/balances')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAdminBalances(
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+    @Query('sortBy') sortBy?: string,
+    @Query('sortOrder') sortOrder?: 'ASC' | 'DESC',
+  ) {
+    const result = await this.accountService.getAdminBalances({
+      page: page ? parseInt(page, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize, 10) : 10,
+      sortBy,
+      sortOrder,
+    });
+    return {
+      success: true,
+      data: result,
+    };
+  }
 
   @Get('balance')
   @UseGuards(JwtAuthGuard)
