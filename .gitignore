@@ -15,6 +15,11 @@ build/
 # IDE
 .idea/
 .vscode/
+
+# Qoder (contains tokens and sensitive config)
+.qoder/mcp.json
+.qoder/agents/
+.qoder/cache/
 *.swp
 *.swo
 *~
