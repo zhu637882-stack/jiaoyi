@@ -8,3 +8,4 @@ export { AccountBalance } from './account-balance.entity';
 export { AccountTransaction, TransactionType } from './account-transaction.entity';
 export { MarketSnapshot } from './market-snapshot.entity';
 export { PaymentOrder, PaymentChannel, PaymentStatus } from './payment-order.entity';
+export { AuditLog } from './audit-log.entity';

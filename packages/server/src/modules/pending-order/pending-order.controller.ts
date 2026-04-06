@@ -14,6 +14,7 @@ import {
 import { PendingOrderService } from './pending-order.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../../common/guards/roles.guard';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   CreatePendingOrderDto,
@@ -103,6 +104,7 @@ export class PendingOrderController {
    */
   @Post()
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @HttpCode(HttpStatus.CREATED)
   async createPendingOrder(
     @CurrentUser('userId') userId: string,

@@ -16,6 +16,7 @@ import {
   QueryDrugDto,
 } from './dto';
 import { PendingOrderTriggerService } from '../pending-order/pending-order-trigger.service';
+import { AuditService } from '../../common/services/audit.service';
 
 @Injectable()
 export class DrugService {
@@ -27,6 +28,7 @@ export class DrugService {
     @InjectRepository(MarketSnapshot)
     private readonly marketSnapshotRepository: Repository<MarketSnapshot>,
     private readonly pendingOrderTriggerService: PendingOrderTriggerService,
+    private readonly auditService: AuditService,
   ) {}
 
   /**
@@ -253,6 +255,23 @@ export class DrugService {
         `药品 ${id} 价格更新，检查条件委托单。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}`,
       );
       console.log(`[DrugService v2] 触发检查: drugId=${id}, newPurchasePriceNum=${newPurchasePriceNum}`);
+
+      // 记录审计日志 - 价格更新
+      await this.auditService.log({
+        action: 'PRICE_UPDATE',
+        targetType: 'drug',
+        targetId: id,
+        detail: {
+          before: {
+            purchasePrice: oldPurchasePriceNum,
+            sellingPrice: oldSellingPriceNum,
+          },
+          after: {
+            purchasePrice: newPurchasePriceNum,
+            sellingPrice: newSellingPriceNum,
+          },
+        },
+      });
 
       // 触发条件委托单检查（改为同步执行以便调试）
       try {

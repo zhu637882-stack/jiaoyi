@@ -9,6 +9,7 @@ import { Drug } from '../../database/entities/drug.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction } from '../../database/entities/account-transaction.entity';
 import { FundingModule } from '../funding/funding.module';
+import { EventsModule } from '../../common/events/events.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { FundingModule } from '../funding/funding.module';
       AccountTransaction,
     ]),
     FundingModule,
+    EventsModule,
   ],
   controllers: [PendingOrderController],
   providers: [PendingOrderService, PendingOrderTriggerService, PendingOrderCronService],

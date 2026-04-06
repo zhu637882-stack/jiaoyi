@@ -4,14 +4,27 @@ import {
   ShoppingCartOutlined,
   StarOutlined,
   StarFilled,
+  BellOutlined,
 } from '@ant-design/icons'
-import { marketApi, pendingOrderApi, accountApi, fundingApi } from '../services/api'
+import { marketApi, pendingOrderApi, accountApi, fundingApi, drugApi } from '../services/api'
 import { useWebSocket } from '../hooks/useWebSocket'
+import { wsService } from '../services/websocket'
 import KLineChart, { KLineData } from '../components/KLineChart'
 import TickerBar from '../components/TickerBar'
 import OrderBook from '../components/OrderBook'
 import TradePanel from '../components/TradePanel'
 import './Dashboard.css'
+
+// 通知类型定义
+interface Notification {
+  id: string
+  type: 'triggered' | 'expired' | 'cancelled'
+  title: string
+  content: string
+  timestamp: string
+  read: boolean
+  data?: any
+}
 
 // 交易类型映射
 const transactionTypeMap: Record<string, { label: string; color: string }> = {
@@ -126,7 +139,16 @@ const Dashboard = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // 底部Tab状态
-  const [bottomTab, setBottomTab] = useState<'orders' | 'history' | 'funds' | 'holdings'>('orders')
+  const [bottomTab, setBottomTab] = useState<'orders' | 'history' | 'funds' | 'holdings' | 'ranking'>('orders')
+
+  // 通知状态
+  const [notifications, setNotifications] = useState<Notification[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
+  const [showNotifications, setShowNotifications] = useState(false)
+
+  // 行情排行状态
+  const [rankingData, setRankingData] = useState<any[]>([])
+  const [rankingLoading, setRankingLoading] = useState(false)
 
   // 当前委托状态
   const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([])
@@ -465,8 +487,106 @@ const Dashboard = () => {
       fetchTransactions()
     } else if (bottomTab === 'holdings') {
       fetchHoldings()
+    } else if (bottomTab === 'ranking') {
+      fetchRankingData()
     }
   }, [bottomTab, fetchPendingOrders, fetchHistoryOrders, fetchTransactions, fetchHoldings])
+
+  // 获取行情排行数据
+  const fetchRankingData = useCallback(async () => {
+    setRankingLoading(true)
+    try {
+      const response: any = await drugApi.getDrugs({ page: 1, pageSize: 100 })
+      const drugs = response.data?.list || []
+      
+      // 计算涨跌幅并排序
+      const rankedDrugs = drugs.map((drug: any) => {
+        const currentPrice = drug.sellingPrice || 0
+        const previousPrice = drug.previousPrice || drug.purchasePrice || currentPrice
+        const changePercent = previousPrice > 0 
+          ? ((currentPrice - previousPrice) / previousPrice) * 100 
+          : 0
+        
+        return {
+          ...drug,
+          currentPrice,
+          changePercent: Number(changePercent.toFixed(2)),
+        }
+      }).sort((a: any, b: any) => b.changePercent - a.changePercent)
+      
+      setRankingData(rankedDrugs)
+    } catch (error) {
+      console.error('获取行情排行失败:', error)
+    } finally {
+      setRankingLoading(false)
+    }
+  }, [])
+
+  // 添加通知
+  const addNotification = useCallback((type: 'triggered' | 'expired' | 'cancelled', data: any) => {
+    const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    let title = ''
+    let content = ''
+    
+    switch (type) {
+      case 'triggered':
+        title = '委托已成交'
+        content = `委托单${data.orderNo}已成交，${data.drugName} ${data.quantity}盒，成交价 ¥${data.executionPrice}`
+        break
+      case 'expired':
+        title = '委托已过期'
+        content = `委托单${data.orderNo}已过期，${data.drugName} ${data.quantity}盒`
+        break
+      case 'cancelled':
+        title = '委托已撤销'
+        content = `委托单${data.orderNo}已撤销`
+        break
+    }
+    
+    const newNotification: Notification = {
+      id,
+      type,
+      title,
+      content,
+      timestamp: data.timestamp || new Date().toISOString(),
+      read: false,
+      data,
+    }
+    
+    setNotifications(prev => {
+      const updated = [newNotification, ...prev].slice(0, 10) // 保留最近10条
+      return updated
+    })
+    setUnreadCount(prev => prev + 1)
+  }, [])
+
+  // 标记通知为已读
+  const markNotificationRead = useCallback((id: string) => {
+    setNotifications(prev => 
+      prev.map(n => n.id === id ? { ...n, read: true } : n)
+    )
+    setUnreadCount(prev => Math.max(0, prev - 1))
+  }, [])
+
+  // 标记所有通知为已读
+  const markAllRead = useCallback(() => {
+    setNotifications(prev => 
+      prev.map(n => ({ ...n, read: true }))
+    )
+    setUnreadCount(0)
+  }, [])
+
+  // 格式化通知时间
+  const formatNotificationTime = (timestamp: string) => {
+    const date = new Date(timestamp)
+    const now = new Date()
+    const diff = now.getTime() - date.getTime()
+    
+    if (diff < 60000) return '刚刚'
+    if (diff < 3600000) return `${Math.floor(diff / 60000)}分钟前`
+    if (diff < 86400000) return `${Math.floor(diff / 3600000)}小时前`
+    return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  }
 
   // 格式化日期
   const formatDate = (dateStr: string) => {
@@ -523,6 +643,43 @@ const Dashboard = () => {
       }
     },
   })
+
+  // WebSocket 委托通知监听
+  useEffect(() => {
+    const handleTriggered = (data: any) => {
+      console.log('委托成交通知:', data)
+      addNotification('triggered', data)
+      // 刷新当前委托列表
+      if (bottomTab === 'orders') {
+        fetchPendingOrders()
+      }
+    }
+
+    const handleExpired = (data: any) => {
+      console.log('委托过期通知:', data)
+      addNotification('expired', data)
+      // 刷新当前委托列表
+      if (bottomTab === 'orders') {
+        fetchPendingOrders()
+      }
+    }
+
+    const handleCancelled = (data: any) => {
+      console.log('委托撤销通知:', data)
+      addNotification('cancelled', data)
+    }
+
+    // 注册事件监听
+    wsService.on('pending-order:triggered', handleTriggered)
+    wsService.on('pending-order:expired', handleExpired)
+    wsService.on('pending-order:cancelled', handleCancelled)
+
+    return () => {
+      wsService.off('pending-order:triggered', handleTriggered)
+      wsService.off('pending-order:expired', handleExpired)
+      wsService.off('pending-order:cancelled', handleCancelled)
+    }
+  }, [addNotification, bottomTab, fetchPendingOrders])
 
   // 渲染排序表头
   const renderSortHeader = (label: string, column: 'name' | 'price' | 'change') => {
@@ -641,12 +798,60 @@ const Dashboard = () => {
 
         {/* 中间主区域 */}
         <main className="terminal-content">
-          {/* 行情滚动条 */}
-          <TickerBar data={marketOverview} onItemClick={(drugId) => {
-            setSelectedDrugId(drugId)
-            setTradePanelHighlight(true)
-            setTimeout(() => setTradePanelHighlight(false), 500)
-          }} />
+          {/* 行情滚动条和通知铃铛 */}
+          <div className="ticker-bar-container">
+            <TickerBar data={marketOverview} onItemClick={(drugId) => {
+              setSelectedDrugId(drugId)
+              setTradePanelHighlight(true)
+              setTimeout(() => setTradePanelHighlight(false), 500)
+            }} />
+            {/* 通知铃铛 */}
+            <div className="notification-bell-wrapper">
+              <div 
+                className="notification-bell" 
+                onClick={() => setShowNotifications(!showNotifications)}
+              >
+                <BellOutlined style={{ fontSize: 18 }} />
+                {unreadCount > 0 && (
+                  <span className="notification-badge">{unreadCount > 99 ? '99+' : unreadCount}</span>
+                )}
+              </div>
+              {/* 通知下拉列表 */}
+              {showNotifications && (
+                <div className="notification-dropdown">
+                  <div className="notification-header">
+                    <span className="notification-title">通知</span>
+                    {unreadCount > 0 && (
+                      <span className="notification-mark-all" onClick={markAllRead}>
+                        全部已读
+                      </span>
+                    )}
+                  </div>
+                  <div className="notification-list">
+                    {notifications.length === 0 ? (
+                      <div className="notification-empty">暂无通知</div>
+                    ) : (
+                      notifications.map((notification) => (
+                        <div
+                          key={notification.id}
+                          className={`notification-item ${notification.read ? 'read' : 'unread'}`}
+                          onClick={() => markNotificationRead(notification.id)}
+                        >
+                          <div className="notification-item-header">
+                            <span className="notification-item-title">{notification.title}</span>
+                            <span className="notification-item-time">
+                              {formatNotificationTime(notification.timestamp)}
+                            </span>
+                          </div>
+                          <div className="notification-item-content">{notification.content}</div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
           {/* 药品信息摘要条 - 币安风格 */}
           {selectedDrug && (
             <div className="drug-summary-bar">
@@ -741,6 +946,12 @@ const Dashboard = () => {
                   onClick={() => setBottomTab('holdings')}
                 >
                   持仓
+                </button>
+                <button
+                  className={`bottom-tab ${bottomTab === 'ranking' ? 'active' : ''}`}
+                  onClick={() => setBottomTab('ranking')}
+                >
+                  行情排行
                 </button>
               </div>
 
@@ -1013,6 +1224,48 @@ const Dashboard = () => {
                         >
                           下一页
                         </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Tab 5: 行情排行 */}
+                {bottomTab === 'ranking' && (
+                  <div className="tab-table">
+                    <div className="table-header ranking-header">
+                      <span className="col-rank">排名</span>
+                      <span className="col-drug">药品名称</span>
+                      <span className="col-price">当前价</span>
+                      <span className="col-change">涨跌幅(%)</span>
+                      <span className="col-status">状态</span>
+                    </div>
+                    {rankingLoading ? (
+                      <div className="empty-table">加载中...</div>
+                    ) : rankingData.length === 0 ? (
+                      <div className="empty-table">暂无行情数据</div>
+                    ) : (
+                      <div className="table-body">
+                        {rankingData.map((drug, index) => {
+                          const rank = index + 1
+                          const isPositive = drug.changePercent >= 0
+                          return (
+                            <div key={drug.id} className="table-row ranking-row">
+                              <span className={`col-rank rank-${rank <= 3 ? rank : 'other'}`}>
+                                {rank}
+                              </span>
+                              <span className="col-drug" title={drug.name}>{drug.name}</span>
+                              <span className="col-price">¥{Number(drug.currentPrice || 0).toFixed(2)}</span>
+                              <span className={`col-change ${isPositive ? 'up' : 'down'}`}>
+                                {isPositive ? '+' : ''}{drug.changePercent}%
+                              </span>
+                              <span className="col-status">
+                                <span className={`status-tag ${drug.status === 'active' ? 'active' : 'inactive'}`}>
+                                  {drug.status === 'active' ? '交易中' : '已暂停'}
+                                </span>
+                              </span>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                   </div>

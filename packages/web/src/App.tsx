@@ -1,13 +1,15 @@
+import React, { Suspense, useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useLocation } from 'react-router-dom'
-import { useEffect, useState } from 'react'
 import BasicLayout from './layouts/BasicLayout'
-import Dashboard from './pages/Dashboard'
-import Market from './pages/Market'
-import Trade from './pages/Trade'
-import Portfolio from './pages/Portfolio'
-import Settlement from './pages/Settlement'
-import Admin from './pages/Admin'
 import Login from './pages/Login'
+
+// 动态导入页面组件（代码拆分）
+const Dashboard = React.lazy(() => import('./pages/Dashboard'))
+const Market = React.lazy(() => import('./pages/Market'))
+const Trade = React.lazy(() => import('./pages/Trade'))
+const Portfolio = React.lazy(() => import('./pages/Portfolio'))
+const Settlement = React.lazy(() => import('./pages/Settlement'))
+const Admin = React.lazy(() => import('./pages/Admin'))
 
 // 获取当前用户角色
 const getUserRole = (): string | null => {
@@ -73,31 +75,47 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>
 }
 
+// 加载中 fallback 组件
+const PageLoading = () => (
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: '100vh',
+    background: '#0D1117',
+    color: '#E6EDF3'
+  }}>
+    加载中...
+  </div>
+)
+
 function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Login />} />
-      <Route
-        path="/"
-        element={
-          <PrivateRoute>
-            <BasicLayout />
-          </PrivateRoute>
-        }
-      >
-        <Route index element={<Dashboard />} />
-        <Route path="market" element={<Market />} />
-        <Route path="trade/:drugId" element={<Trade />} />
-        <Route path="portfolio" element={<Portfolio />} />
-        <Route path="settlement" element={<Settlement />} />
-        <Route path="admin" element={
-          <AdminRoute>
-            <Admin />
-          </AdminRoute>
-        } />
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+    <Suspense fallback={<PageLoading />}>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route
+          path="/"
+          element={
+            <PrivateRoute>
+              <BasicLayout />
+            </PrivateRoute>
+          }
+        >
+          <Route index element={<Dashboard />} />
+          <Route path="market" element={<Market />} />
+          <Route path="trade/:drugId" element={<Trade />} />
+          <Route path="portfolio" element={<Portfolio />} />
+          <Route path="settlement" element={<Settlement />} />
+          <Route path="admin" element={
+            <AdminRoute>
+              <Admin />
+            </AdminRoute>
+          } />
+        </Route>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   )
 }
 

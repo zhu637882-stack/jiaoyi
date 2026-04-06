@@ -7,10 +7,38 @@ import { RechargeDto } from './dto/recharge.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
 import { UserRole } from '../../database/entities/user.entity';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
+import { AuditService } from '../../common/services/audit.service';
 
 @Controller('account')
 export class AccountController {
-  constructor(private accountService: AccountService) {}
+  constructor(
+    private accountService: AccountService,
+    private auditService: AuditService,
+  ) {}
+
+  /**
+   * 管理员获取审计日志
+   * GET /api/account/admin/audit-logs
+   */
+  @Get('admin/audit-logs')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAuditLogs(
+    @Query('action') action?: string,
+    @Query('page') page?: string,
+    @Query('pageSize') pageSize?: string,
+  ) {
+    const result = await this.auditService.getAuditLogs({
+      action,
+      page: page ? parseInt(page, 10) : 1,
+      pageSize: pageSize ? parseInt(pageSize, 10) : 20,
+    });
+    return {
+      success: true,
+      data: result,
+    };
+  }
 
   /**
    * 管理员获取资金总览
@@ -65,6 +93,7 @@ export class AccountController {
 
   @Post('recharge')
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   async recharge(
     @CurrentUser('userId') userId: string,
     @Body() rechargeDto: RechargeDto,
@@ -97,6 +126,7 @@ export class AccountController {
 
   @Post('withdraw')
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   async withdraw(
     @CurrentUser('userId') userId: string,
     @Body() withdrawDto: WithdrawDto,
@@ -105,6 +135,7 @@ export class AccountController {
       userId,
       withdrawDto.amount,
       withdrawDto.description,
+      withdrawDto.password,
     );
   }
 }

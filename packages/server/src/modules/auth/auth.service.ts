@@ -6,6 +6,7 @@ import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { User, UserRole } from '../../database/entities/user.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
+import { AuditService } from '../../common/services/audit.service';
 
 @Injectable()
 export class AuthService {
@@ -16,6 +17,7 @@ export class AuthService {
     private userRepository: Repository<User>,
     @InjectRepository(AccountBalance)
     private accountBalanceRepository: Repository<AccountBalance>,
+    private auditService: AuditService,
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -47,6 +49,18 @@ export class AuthService {
       { userId: user.id, type: 'refresh' },
       { expiresIn: '30d' },
     );
+
+    // 记录审计日志 - 登录
+    await this.auditService.log({
+      userId: user.id,
+      action: 'LOGIN',
+      targetType: 'user',
+      targetId: user.id,
+      detail: {
+        username: user.username,
+        role: user.role,
+      },
+    });
     
     return {
       access_token: accessToken,

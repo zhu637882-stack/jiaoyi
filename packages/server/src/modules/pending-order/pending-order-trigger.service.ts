@@ -13,6 +13,7 @@ import {
   TransactionType,
 } from '../../database/entities/account-transaction.entity';
 import { FundingService } from '../funding/funding.service';
+import { EventsGateway } from '../../common/events/events.gateway';
 
 @Injectable()
 export class PendingOrderTriggerService {
@@ -25,6 +26,7 @@ export class PendingOrderTriggerService {
     private accountBalanceRepository: Repository<AccountBalance>,
     private dataSource: DataSource,
     private fundingService: FundingService,
+    private eventsGateway: EventsGateway,
   ) {}
 
   /**
@@ -222,6 +224,20 @@ export class PendingOrderTriggerService {
 
       this.logger.log(
         `委托单 ${lockedOrder.orderNo} 执行完成，状态更新为 TRIGGERED，关联垫资订单 ${fundingOrder.id}`,
+      );
+
+      // 6. 发送WebSocket通知给用户
+      this.eventsGateway.emitPendingOrderUpdate(
+        lockedOrder.userId,
+        'pending-order:triggered',
+        {
+          orderNo: lockedOrder.orderNo,
+          drugName: drug?.name || '',
+          quantity: lockedOrder.quantity,
+          targetPrice: Number(lockedOrder.targetPrice),
+          executionPrice: executionPrice,
+          type: lockedOrder.type,
+        },
       );
     } catch (error) {
       await queryRunner.rollbackTransaction();

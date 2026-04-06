@@ -5,6 +5,7 @@ import { Repository, DataSource, LessThan, IsNull, Not } from 'typeorm';
 import { PendingOrder, PendingOrderStatus } from '../../database/entities/pending-order.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction, TransactionType } from '../../database/entities/account-transaction.entity';
+import { EventsGateway } from '../../common/events/events.gateway';
 
 @Injectable()
 export class PendingOrderCronService {
@@ -14,6 +15,7 @@ export class PendingOrderCronService {
     @InjectRepository(PendingOrder)
     private pendingOrderRepository: Repository<PendingOrder>,
     private dataSource: DataSource,
+    private eventsGateway: EventsGateway,
   ) {}
 
   /**
@@ -97,6 +99,19 @@ export class PendingOrderCronService {
           await queryRunner.commitTransaction();
           successCount++;
           this.logger.log(`委托单 ${lockedOrder.orderNo} 已过期撤销`);
+
+          // 5. 发送WebSocket通知给用户
+          this.eventsGateway.emitPendingOrderUpdate(
+            lockedOrder.userId,
+            'pending-order:expired',
+            {
+              orderNo: lockedOrder.orderNo,
+              drugName: lockedOrder.drug?.name || '',
+              quantity: lockedOrder.quantity,
+              targetPrice: Number(lockedOrder.targetPrice),
+              type: lockedOrder.type,
+            },
+          );
         } catch (error) {
           await queryRunner.rollbackTransaction();
           failCount++;

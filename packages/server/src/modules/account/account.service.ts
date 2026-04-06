@@ -1,9 +1,11 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction, TransactionType } from '../../database/entities/account-transaction.entity';
 import { User } from '../../database/entities/user.entity';
+import { AuditService } from '../../common/services/audit.service';
 
 @Injectable()
 export class AccountService {
@@ -15,6 +17,7 @@ export class AccountService {
     @InjectRepository(User)
     private userRepository: Repository<User>,
     private dataSource: DataSource,
+    private auditService: AuditService,
   ) {}
 
   async getBalance(userId: string) {
@@ -63,6 +66,22 @@ export class AccountService {
       description: description || '账户充值',
     });
     await this.accountTransactionRepository.save(transaction);
+
+    // 记录审计日志 - 大额充值(>10000)
+    if (amount > 10000) {
+      await this.auditService.log({
+        userId,
+        action: 'RECHARGE',
+        targetType: 'account',
+        targetId: userId,
+        detail: {
+          amount,
+          balanceBefore,
+          balanceAfter,
+          description: description || '账户充值',
+        },
+      });
+    }
 
     return {
       balance: await this.getBalance(userId),
@@ -172,11 +191,32 @@ export class AccountService {
    * @param userId 用户ID
    * @param amount 提现金额
    * @param description 描述
+   * @param password 密码（金额>5000时必填）
    */
-  async withdraw(userId: string, amount: number, description?: string) {
+  async withdraw(userId: string, amount: number, description?: string, password?: string) {
     // 1. 校验金额 > 0
     if (amount <= 0) {
       throw new BadRequestException('提现金额必须大于0');
+    }
+
+    // 2. 金额 > 5000 时必须校验密码
+    if (amount > 5000) {
+      if (!password) {
+        throw new BadRequestException('提现金额超过5000元，需要输入密码');
+      }
+      // 查询用户密码
+      const user = await this.userRepository.findOne({
+        where: { id: userId },
+        select: ['id', 'password'],
+      });
+      if (!user) {
+        throw new NotFoundException('用户不存在');
+      }
+      // 校验密码
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('密码错误');
+      }
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -184,7 +224,7 @@ export class AccountService {
     await queryRunner.startTransaction();
 
     try {
-      // 2. 查询当前余额并加锁
+      // 3. 查询当前余额并加锁
       let balance = await queryRunner.manager.findOne(AccountBalance, {
         where: { userId },
         lock: { mode: 'pessimistic_write' },
@@ -202,19 +242,19 @@ export class AccountService {
         await queryRunner.manager.save(balance);
       }
 
-      // 3. 校验金额 <= availableBalance
+      // 4. 校验金额 <= availableBalance
       const availableBalance = Number(balance.availableBalance);
       if (amount > availableBalance) {
         throw new BadRequestException(`可用余额不足，当前可用余额: ${availableBalance}`);
       }
 
-      // 4. 扣减余额
+      // 5. 扣减余额
       const balanceBefore = availableBalance;
       const balanceAfter = Number((balanceBefore - amount).toFixed(2));
       balance.availableBalance = balanceAfter;
       await queryRunner.manager.save(balance);
 
-      // 5. 创建交易流水(type=WITHDRAW, amount为负数表示支出)
+      // 6. 创建交易流水(type=WITHDRAW, amount为负数表示支出)
       const transaction = queryRunner.manager.create(AccountTransaction, {
         userId,
         type: TransactionType.WITHDRAW,
@@ -226,6 +266,21 @@ export class AccountService {
       await queryRunner.manager.save(transaction);
 
       await queryRunner.commitTransaction();
+
+      // 7. 记录审计日志
+      await this.auditService.log({
+        userId,
+        action: 'WITHDRAW',
+        targetType: 'account',
+        targetId: userId,
+        detail: {
+          amount,
+          balanceBefore,
+          balanceAfter,
+          description: description || '账户提现',
+          requirePassword: amount > 5000,
+        },
+      });
 
       return {
         balance: {

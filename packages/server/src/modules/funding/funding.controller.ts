@@ -12,6 +12,7 @@ import {
 } from '@nestjs/common';
 import { FundingService } from './funding.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
+import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import {
   CreateFundingOrderDto,
@@ -28,6 +29,7 @@ export class FundingController {
    */
   @Post('orders')
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @HttpCode(HttpStatus.CREATED)
   async createOrder(
     @CurrentUser('userId') userId: string,
@@ -48,6 +50,7 @@ export class FundingController {
    */
   @Post('orders/sell')
   @UseGuards(JwtAuthGuard)
+  @Idempotent()
   @HttpCode(HttpStatus.OK)
   async sellOrder(
     @CurrentUser('userId') userId: string,

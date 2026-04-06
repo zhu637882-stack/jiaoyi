@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import './Admin.css'
 import { Card, Tabs, Typography, Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, message, Popconfirm, Statistic, Row, Col, Divider, Alert, Steps } from 'antd'
-import { UserOutlined, MedicineBoxOutlined, SettingOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, WalletOutlined } from '@ant-design/icons'
+import { UserOutlined, MedicineBoxOutlined, SettingOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, WalletOutlined, FileTextOutlined } from '@ant-design/icons'
 import { drugApi, salesApi, settlementApi, adminApi, pendingOrderApi, accountApi } from '../services/api'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
@@ -132,6 +132,29 @@ interface AccountOverview {
   activeUserCount: number
 }
 
+// 审计日志类型
+interface AuditLog {
+  id: string
+  userId: string
+  action: string
+  targetType: string
+  targetId: string
+  detail: string
+  ipAddress: string
+  createdAt: string
+}
+
+// 审计日志动作类型映射
+const auditActionMap: Record<string, { label: string; color: string }> = {
+  LOGIN: { label: '登录', color: '#1890FF' },
+  PRICE_UPDATE: { label: '调价', color: '#FAAD14' },
+  FORCE_CANCEL: { label: '撤单', color: '#FF4D4F' },
+  SETTLEMENT: { label: '清算', color: '#52C41A' },
+  RECHARGE: { label: '充值', color: '#00D4AA' },
+  WITHDRAW: { label: '提现', color: '#FF4D4F' },
+  SELL: { label: '卖出', color: '#722ED1' },
+}
+
 const Admin = () => {
   const [activeTab, setActiveTab] = useState('users')
   const [drugs, setDrugs] = useState<Drug[]>([])
@@ -180,6 +203,14 @@ const Admin = () => {
   const [balancePageSize, setBalancePageSize] = useState(10)
   const [balanceTotal, setBalanceTotal] = useState(0)
 
+  // 审计日志状态
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
+  const [auditLogsLoading, setAuditLogsLoading] = useState(false)
+  const [auditLogFilterAction, setAuditLogFilterAction] = useState<string>('')
+  const [auditLogPage, setAuditLogPage] = useState(1)
+  const [auditLogPageSize, setAuditLogPageSize] = useState(20)
+  const [auditLogTotal, setAuditLogTotal] = useState(0)
+
   // 获取药品列表
   const fetchDrugs = useCallback(async () => {
     setDrugsLoading(true)
@@ -212,6 +243,8 @@ const Admin = () => {
     } else if (activeTab === 'fundMonitor') {
       fetchUserBalances()
       fetchAccountOverview()
+    } else if (activeTab === 'auditLogs') {
+      fetchAuditLogs()
     }
   }, [activeTab, fetchDrugs])
 
@@ -506,6 +539,29 @@ const Admin = () => {
       console.error('获取资金总览失败:', error)
     }
   }, [])
+
+  // ==================== 审计日志 ====================
+
+  // 获取审计日志列表
+  const fetchAuditLogs = useCallback(async () => {
+    setAuditLogsLoading(true)
+    try {
+      const res: any = await accountApi.getAuditLogs({
+        action: auditLogFilterAction || undefined,
+        page: auditLogPage,
+        pageSize: auditLogPageSize,
+      })
+      if (res.success) {
+        setAuditLogs(res.data.items)
+        setAuditLogTotal(res.data.total)
+      }
+    } catch (error) {
+      console.error('获取审计日志失败:', error)
+      message.error('获取审计日志失败')
+    } finally {
+      setAuditLogsLoading(false)
+    }
+  }, [auditLogFilterAction, auditLogPage, auditLogPageSize])
 
   // 预览清算
   const handlePreviewSettlement = async () => {
@@ -1075,6 +1131,84 @@ const Admin = () => {
     },
   ]
 
+  // 审计日志表格列
+  const auditLogColumns: ColumnsType<AuditLog> = [
+    {
+      title: '时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      width: 180,
+      render: (text: string) => (
+        <span className="table-cell-mono">{text ? dayjs(text).format('YYYY-MM-DD HH:mm:ss') : '-'}</span>
+      ),
+    },
+    {
+      title: '操作人',
+      dataIndex: 'userId',
+      key: 'userId',
+      width: 220,
+      render: (text: string) => (
+        <span className="table-cell-code">{text || '-'}</span>
+      ),
+    },
+    {
+      title: '操作类型',
+      dataIndex: 'action',
+      key: 'action',
+      width: 120,
+      render: (action: string) => {
+        const config = auditActionMap[action] || { label: action, color: '#8B949E' }
+        return (
+          <Tag style={{ background: `${config.color}20`, borderColor: config.color, color: config.color }}>
+            {config.label}
+          </Tag>
+        )
+      },
+    },
+    {
+      title: '目标类型',
+      dataIndex: 'targetType',
+      key: 'targetType',
+      width: 120,
+      render: (text: string) => <span className="table-cell-tertiary">{text || '-'}</span>,
+    },
+    {
+      title: '目标ID',
+      dataIndex: 'targetId',
+      key: 'targetId',
+      width: 220,
+      render: (text: string) => (
+        <span className="table-cell-code">{text || '-'}</span>
+      ),
+    },
+    {
+      title: '详情',
+      dataIndex: 'detail',
+      key: 'detail',
+      render: (text: string) => {
+        if (!text) return <span className="table-cell-tertiary">-</span>
+        try {
+          const detail = JSON.parse(text)
+          return (
+            <span className="table-cell-code" style={{ fontSize: 12 }}>
+              {JSON.stringify(detail, null, 2).substring(0, 100)}
+              {JSON.stringify(detail).length > 100 ? '...' : ''}
+            </span>
+          )
+        } catch {
+          return <span className="table-cell-tertiary">{text}</span>
+        }
+      },
+    },
+    {
+      title: 'IP地址',
+      dataIndex: 'ipAddress',
+      key: 'ipAddress',
+      width: 140,
+      render: (text: string) => <span className="table-cell-tertiary">{text || '-'}</span>,
+    },
+  ]
+
   const tabItems = [
     {
       key: 'users',
@@ -1443,6 +1577,56 @@ const Admin = () => {
               onChange: (page, pageSize) => {
                 setBalancePage(page)
                 setBalancePageSize(pageSize || 10)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+        </Card>
+      ),
+    },
+    {
+      key: 'auditLogs',
+      label: (
+        <span>
+          <FileTextOutlined style={{ marginRight: 8 }} />
+          操作日志
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          <div className="admin-action-bar">
+            <Select
+              placeholder="筛选操作类型"
+              allowClear
+              style={{ width: 180 }}
+              onChange={(value) => {
+                setAuditLogFilterAction(value)
+                setAuditLogPage(1)
+              }}
+              value={auditLogFilterAction || undefined}
+            >
+              <Option value="LOGIN">登录</Option>
+              <Option value="PRICE_UPDATE">调价</Option>
+              <Option value="FORCE_CANCEL">撤单</Option>
+              <Option value="RECHARGE">充值</Option>
+              <Option value="WITHDRAW">提现</Option>
+            </Select>
+          </div>
+          <Table
+            columns={auditLogColumns}
+            dataSource={auditLogs}
+            rowKey="id"
+            loading={auditLogsLoading}
+            pagination={{
+              current: auditLogPage,
+              pageSize: auditLogPageSize,
+              total: auditLogTotal,
+              onChange: (page, pageSize) => {
+                setAuditLogPage(page)
+                setAuditLogPageSize(pageSize || 20)
               },
               showSizeChanger: true,
               showTotal: (total) => `共 ${total} 条`,

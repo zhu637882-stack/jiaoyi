@@ -12,6 +12,7 @@ import {
   Button,
   Modal,
   Form,
+  Input,
   InputNumber,
   message,
   Pagination,
@@ -350,7 +351,7 @@ const Portfolio = () => {
   }
 
   // 提现方法
-  const handleWithdraw = async (values: { amount: number }) => {
+  const handleWithdraw = async (values: { amount: number; password?: string }) => {
     const availableBalance = balance?.availableBalance || 0
     if (values.amount <= 0) {
       message.error('提现金额必须大于0')
@@ -360,9 +361,14 @@ const Portfolio = () => {
       message.error('提现金额不能超过可用余额')
       return
     }
+    // 金额 > 5000 时必须输入密码
+    if (values.amount > 5000 && !values.password) {
+      message.error('提现金额超过5000元，需要输入密码')
+      return
+    }
     setWithdrawLoading(true)
     try {
-      await accountApi.withdraw(values.amount, '账户提现')
+      await accountApi.withdraw(values.amount, '账户提现', values.password)
       message.success('提现成功')
       setWithdrawModalVisible(false)
       withdrawForm.resetFields()
@@ -1443,6 +1449,26 @@ const Portfolio = () => {
               step={100}
               size="large"
               prefix="¥"
+            />
+          </Form.Item>
+
+          <Form.Item
+            name="password"
+            label={<Text style={{ color: '#8B949E' }}>密码 {withdrawForm.getFieldValue('amount') > 5000 ? <Text style={{ color: '#FF4D4F' }}>*</Text> : <Text style={{ color: '#848E9C', fontSize: 12 }}>(金额&gt;5000时必填)</Text>}</Text>}
+            rules={
+              withdrawForm.getFieldValue('amount') > 5000
+                ? [{ required: true, message: '请输入密码' }]
+                : []
+            }
+          >
+            <Input.Password
+              style={{
+                width: '100%',
+                background: '#0D1117',
+                borderColor: '#30363D',
+              }}
+              placeholder={withdrawForm.getFieldValue('amount') > 5000 ? '请输入密码' : '金额超过5000元时需要输入密码'}
+              size="large"
             />
           </Form.Item>
 

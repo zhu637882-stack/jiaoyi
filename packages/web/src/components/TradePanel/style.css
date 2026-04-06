@@ -692,3 +692,91 @@
 .price-input.editable.ant-input-number:focus-within {
   border-color: #3C4043 !important;
 }
+
+/* 成功动画覆盖层 */
+.success-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(13, 17, 23, 0.85);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  animation: successFadeInOut 1.5s ease-in-out forwards;
+}
+
+.success-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  animation: successScale 1.5s ease-in-out forwards;
+}
+
+.success-icon {
+  font-size: 56px;
+  color: #00D4AA;
+}
+
+.success-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #E6EDF3;
+}
+
+@keyframes successFadeInOut {
+  0% {
+    opacity: 0;
+  }
+  15% {
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
+@keyframes successScale {
+  0% {
+    transform: scale(0.8);
+  }
+  15% {
+    transform: scale(1);
+  }
+  85% {
+    transform: scale(1);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 限价价差提示 */
+.price-diff-hint {
+  font-size: 11px;
+  margin-top: 4px;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+}
+
+.price-diff-hint.lower {
+  color: #00D4AA;
+}
+
+.price-diff-hint.higher {
+  color: #FF4D4F;
+}
+
+/* 盈亏百分比样式 */
+.holding-value.pnl-profit {
+  color: #FF4D4F;
+}
+
+.holding-value.pnl-loss {
+  color: #00D4AA;
+}

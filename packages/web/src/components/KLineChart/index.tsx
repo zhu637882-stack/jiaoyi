@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
-import { init, dispose, Chart, KLineData as KLineChartsData, DeepPartial, Styles, DataLoader } from 'klinecharts'
 import './style.css'
+
+// 动态导入 klinecharts 类型
+import type { Chart, KLineData as KLineChartsData, DeepPartial, Styles, DataLoader } from 'klinecharts'
 
 // K线数据接口 - 与后端返回格式一致
 export interface KLineData {
@@ -225,9 +227,15 @@ const KLineChart = ({
   // 副图 paneId
   const subPaneIdRef = useRef<string | null>(null)
 
+  // klinecharts 模块 ref
+  const klinechartsRef = useRef<typeof import('klinecharts') | null>(null)
+
   // 指标状态
   const [activeMainIndicators, setActiveMainIndicators] = useState<MainIndicatorKey[]>(['MA'])
   const [activeSubIndicator, setActiveSubIndicator] = useState<SubIndicatorKey | null>(null)
+
+  // klinecharts 加载状态
+  const [klineLoading, setKlineLoading] = useState(true)
 
   // 当前数据点信息（鼠标hover时的数据）
   const [currentData, setCurrentData] = useState<{
@@ -281,97 +289,122 @@ const KLineChart = ({
     dataRef.current = convertedData
   }, [convertedData])
 
-  // 初始化图表
+  // 动态加载 klinecharts 并初始化图表
   useEffect(() => {
     if (!containerRef.current) return
 
-    const chart = init(containerRef.current, {
-      styles: darkThemeConfig,
-    })
-    
-    if (!chart) return
-    chartRef.current = chart
+    let resizeObserver: ResizeObserver | null = null
+    let isDisposed = false
 
-    // 设置右侧偏移距离，最新数据点右侧会有80px的缓冲区
-    chart.setOffsetRightDistance(80)
+    // 动态导入 klinecharts
+    const loadKLineCharts = async () => {
+      try {
+        setKlineLoading(true)
+        const klinecharts = await import('klinecharts')
+        
+        if (isDisposed || !containerRef.current) return
+        
+        klinechartsRef.current = klinecharts
+        const { init } = klinecharts
 
-    // 【关键】先设置交易对和周期，再设置 DataLoader
-    // 因为 setDataLoader 内部会立即调用 resetData，此时需要 symbol/period 已设置
-    chart.setSymbol({
-      ticker: drugName || 'KLine',
-      pricePrecision: 2,
-      volumePrecision: 0,
-    })
-    chart.setPeriod({ type: 'day', span: 1 })
+        const chart = init(containerRef.current!, {
+          styles: darkThemeConfig,
+        })
+        
+        if (!chart) return
+        chartRef.current = chart
+        setKlineLoading(false)
 
-    // 最后设置 DataLoader，此时 resetData 能正确触发 getBars
-    const dataLoader: DataLoader = {
-      getBars: (params) => {
-        // 使用当前数据
-        params.callback(dataRef.current, false)
-        // 初始化加载后动态调整蜡烛宽度并滚动到最新数据
-        setTimeout(() => {
-          if (chartRef.current && containerRef.current) {
-            const dataCount = dataRef.current.length
-            if (dataCount > 0) {
-              const containerWidth = containerRef.current.offsetWidth
-              const availableWidth = containerWidth - 140
-              const idealBarSpace = Math.max(6, Math.min(availableWidth / dataCount, 20))
-              chartRef.current.setBarSpace(idealBarSpace)
-            }
-            chartRef.current.scrollToRealTime()
+        // 设置右侧偏移距离，最新数据点右侧会有80px的缓冲区
+        chart.setOffsetRightDistance(80)
+
+        // 【关键】先设置交易对和周期，再设置 DataLoader
+        // 因为 setDataLoader 内部会立即调用 resetData，此时需要 symbol/period 已设置
+        chart.setSymbol({
+          ticker: drugName || 'KLine',
+          pricePrecision: 2,
+          volumePrecision: 0,
+        })
+        chart.setPeriod({ type: 'day', span: 1 })
+
+        // 最后设置 DataLoader，此时 resetData 能正确触发 getBars
+        const dataLoader: DataLoader = {
+          getBars: (params) => {
+            // 使用当前数据
+            params.callback(dataRef.current, false)
+            // 初始化加载后动态调整蜡烛宽度并滚动到最新数据
+            setTimeout(() => {
+              if (chartRef.current && containerRef.current) {
+                const dataCount = dataRef.current.length
+                if (dataCount > 0) {
+                  const containerWidth = containerRef.current.offsetWidth
+                  const availableWidth = containerWidth - 140
+                  const idealBarSpace = Math.max(6, Math.min(availableWidth / dataCount, 20))
+                  chartRef.current.setBarSpace(idealBarSpace)
+                }
+                chartRef.current.scrollToRealTime()
+              }
+            }, 100)
+          },
+        }
+        chart.setDataLoader(dataLoader)
+
+        // 创建成交量指标（副图，始终显示）
+        chart.createIndicator('VOL', false, { height: 80 })
+
+        // 创建默认主图指标 MA
+        chart.createIndicator('MA', true)
+
+        // 订阅十字光标变化事件
+        chart.subscribeAction('onCrosshairChange', (params) => {
+          const crosshair = params as { dataIndex?: number; kLineData?: KLineChartsData }
+          if (crosshair.dataIndex === undefined || crosshair.dataIndex < 0) {
+            setCurrentData(null)
+            return
           }
-        }, 100)
-      },
+          
+          const dataIndex = crosshair.dataIndex
+          const originalData = sortedData?.[dataIndex]
+          
+          if (!originalData) {
+            setCurrentData(null)
+            return
+          }
+
+          setCurrentData({
+            open: originalData.open,
+            high: originalData.high,
+            low: originalData.low,
+            close: originalData.close,
+            volume: originalData.volume,
+            date: originalData.date,
+            cumulativeReturn: originalData.cumulativeReturn,
+            fundingHeat: originalData.fundingHeat,
+            dailyReturn: originalData.dailyReturn,
+            totalFundingAmount: originalData.totalFundingAmount,
+          })
+        })
+
+        // 响应式处理
+        resizeObserver = new ResizeObserver(() => {
+          chart.resize()
+        })
+        resizeObserver.observe(containerRef.current)
+      } catch (error) {
+        console.error('加载 klinecharts 失败:', error)
+        setKlineLoading(false)
+      }
     }
-    chart.setDataLoader(dataLoader)
 
-    // 创建成交量指标（副图，始终显示）
-    chart.createIndicator('VOL', false, { height: 80 })
-
-    // 创建默认主图指标 MA
-    chart.createIndicator('MA', true)
-
-    // 订阅十字光标变化事件
-    chart.subscribeAction('onCrosshairChange', (params) => {
-      const crosshair = params as { dataIndex?: number; kLineData?: KLineChartsData }
-      if (crosshair.dataIndex === undefined || crosshair.dataIndex < 0) {
-        setCurrentData(null)
-        return
-      }
-      
-      const dataIndex = crosshair.dataIndex
-      const originalData = sortedData?.[dataIndex]
-      
-      if (!originalData) {
-        setCurrentData(null)
-        return
-      }
-
-      setCurrentData({
-        open: originalData.open,
-        high: originalData.high,
-        low: originalData.low,
-        close: originalData.close,
-        volume: originalData.volume,
-        date: originalData.date,
-        cumulativeReturn: originalData.cumulativeReturn,
-        fundingHeat: originalData.fundingHeat,
-        dailyReturn: originalData.dailyReturn,
-        totalFundingAmount: originalData.totalFundingAmount,
-      })
-    })
-
-    // 响应式处理
-    const resizeObserver = new ResizeObserver(() => {
-      chart.resize()
-    })
-    resizeObserver.observe(containerRef.current)
+    loadKLineCharts()
 
     return () => {
-      resizeObserver.disconnect()
-      if (containerRef.current) {
-        dispose(containerRef.current)
+      isDisposed = true
+      if (resizeObserver) {
+        resizeObserver.disconnect()
+      }
+      if (containerRef.current && klinechartsRef.current) {
+        klinechartsRef.current.dispose(containerRef.current)
       }
       chartRef.current = null
     }
@@ -595,14 +628,22 @@ const KLineChart = ({
           ref={containerRef}
           className="kline-main-chart"
           style={{
-            opacity: loading || !data || data.length === 0 ? 0 : 1,
-            visibility: loading || !data || data.length === 0 ? 'hidden' : 'visible',
+            opacity: loading || klineLoading || !data || data.length === 0 ? 0 : 1,
+            visibility: loading || klineLoading || !data || data.length === 0 ? 'hidden' : 'visible',
             transition: 'opacity 0.2s ease'
           }}
         />
 
-        {/* 加载状态 */}
-        {loading && (
+        {/* klinecharts 库加载状态 */}
+        {klineLoading && (
+          <div className="kline-chart-loading">
+            <div className="loading-spinner" />
+            <span>加载图表组件...</span>
+          </div>
+        )}
+
+        {/* 数据加载状态 */}
+        {!klineLoading && loading && (
           <div className="kline-chart-loading">
             <div className="loading-spinner" />
             <span>加载图表数据...</span>
@@ -610,7 +651,7 @@ const KLineChart = ({
         )}
 
         {/* 空数据状态 */}
-        {!loading && (!data || data.length === 0) && (
+        {!klineLoading && !loading && (!data || data.length === 0) && (
           <div className="kline-chart-loading">
             <span>暂无数据</span>
           </div>

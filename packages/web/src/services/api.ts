@@ -1,4 +1,15 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import { message } from 'antd'
+
+// 错误码映射表
+const errorMessages: Record<string, string> = {
+  'INSUFFICIENT_BALANCE': '余额不足',
+  'DRUG_NOT_FOUND': '药品不存在',
+  'ORDER_NOT_FOUND': '订单不存在',
+  'INVALID_STATUS': '订单状态不允许此操作',
+  'INSUFFICIENT_HOLDINGS': '持仓数量不足',
+  'UNAUTHORIZED': '请先登录',
+}
 
 // 创建 axios 实例
 const api: AxiosInstance = axios.create({
@@ -9,12 +20,16 @@ const api: AxiosInstance = axios.create({
   },
 })
 
-// 请求拦截器 - 添加 JWT Token
+// 请求拦截器 - 添加 JWT Token 和幂等键
 api.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('access_token')
     if (token) {
       config.headers.Authorization = `Bearer ${token}`
+    }
+    // 为 POST/PUT/DELETE 请求自动添加幂等键
+    if (['post', 'put', 'delete'].includes(config.method?.toLowerCase() || '')) {
+      config.headers['X-Request-Id'] = crypto.randomUUID()
     }
     return config
   },
@@ -53,6 +68,14 @@ api.interceptors.response.use(
         window.location.href = '/login'
       }
     }
+
+    // 统一错误处理（非401情况）
+    const errorCode = error.response?.data?.code
+    const errorMessage = error.response?.data?.message
+    const translatedMessage = errorCode && errorMessages[errorCode]
+      ? errorMessages[errorCode]
+      : errorMessage || '请求失败，请稍后重试'
+    message.error(translatedMessage)
 
     return Promise.reject(error)
   }
@@ -232,8 +255,8 @@ export const accountApi = {
   recharge: (amount: number, description?: string) =>
     http.post('/account/recharge', { amount, description }),
   
-  withdraw: (amount: number, description?: string) =>
-    http.post('/account/withdraw', { amount, description }),
+  withdraw: (amount: number, description?: string, password?: string) =>
+    http.post('/account/withdraw', { amount, description, password }),
   
   getTransactions: (params?: { type?: string; page?: number; pageSize?: number }) =>
     http.get('/account/transactions', { params }),
@@ -246,6 +269,8 @@ export const accountApi = {
     http.get('/account/admin/overview'),
   adminGetBalances: (params?: { page?: number; pageSize?: number; sortBy?: string; sortOrder?: 'ASC' | 'DESC' }) =>
     http.get('/account/admin/balances', { params }),
+  getAuditLogs: (params?: { action?: string; page?: number; pageSize?: number }) =>
+    http.get('/account/admin/audit-logs', { params }),
 }
 
 // 持仓相关 API
@@ -366,6 +391,86 @@ export const pendingOrderApi = {
     http.delete(`/pending-orders/admin/${id}`),
   adminGetStats: () =>
     http.get('/pending-orders/admin/stats'),
+}
+
+// 创建 silentHttp 实例（不自动弹出错误提示）
+const silentApi: AxiosInstance = axios.create({
+  baseURL: '/api',
+  timeout: 10000,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+// silentHttp 请求拦截器 - 只添加 JWT Token
+silentApi.interceptors.request.use(
+  (config) => {
+    const token = localStorage.getItem('access_token')
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`
+    }
+    // 为 POST/PUT/DELETE 请求自动添加幂等键
+    if (['post', 'put', 'delete'].includes(config.method?.toLowerCase() || '')) {
+      config.headers['X-Request-Id'] = crypto.randomUUID()
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+// silentHttp 响应拦截器 - 只处理 Token 刷新，不弹出错误提示
+silentApi.interceptors.response.use(
+  (response: AxiosResponse) => {
+    return response.data
+  },
+  async (error) => {
+    const originalRequest = error.config
+
+    // Token 过期，尝试刷新
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true
+      const refreshToken = localStorage.getItem('refresh_token')
+      if (refreshToken) {
+        try {
+          const response = await axios.post('/api/auth/refresh', { refresh_token: refreshToken })
+          const { access_token } = response.data
+          localStorage.setItem('access_token', access_token)
+          originalRequest.headers['Authorization'] = `Bearer ${access_token}`
+          return silentApi(originalRequest)
+        } catch (refreshError) {
+          localStorage.removeItem('access_token')
+          localStorage.removeItem('refresh_token')
+          window.location.href = '/login'
+          return Promise.reject(refreshError)
+        }
+      } else {
+        localStorage.removeItem('access_token')
+        window.location.href = '/login'
+      }
+    }
+
+    return Promise.reject(error)
+  }
+)
+
+// silentHttp 方法封装
+export const silentHttp = {
+  get: <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+    silentApi.get(url, config),
+  
+  post: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+    silentApi.post(url, data, config),
+  
+  put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+    silentApi.put(url, data, config),
+  
+  delete: <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+    silentApi.delete(url, config),
+  
+  patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+    silentApi.patch(url, data, config),
 }
 
 export default api

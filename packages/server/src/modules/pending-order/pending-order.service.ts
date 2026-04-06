@@ -19,6 +19,7 @@ import {
 import { User } from '../../database/entities/user.entity';
 import { CreatePendingOrderDto } from './dto/create-pending-order.dto';
 import { FundingService } from '../funding/funding.service';
+import { AuditService } from '../../common/services/audit.service';
 
 @Injectable()
 export class PendingOrderService {
@@ -35,6 +36,7 @@ export class PendingOrderService {
     private userRepository: Repository<User>,
     private dataSource: DataSource,
     private fundingService: FundingService,
+    private auditService: AuditService,
   ) {}
 
   /**
@@ -519,6 +521,19 @@ export class PendingOrderService {
       const savedOrder = await queryRunner.manager.save(order);
 
       await queryRunner.commitTransaction();
+
+      // 记录审计日志 - 强制撤单
+      await this.auditService.log({
+        action: 'FORCE_CANCEL',
+        targetType: 'pending_order',
+        targetId: orderId,
+        detail: {
+          orderNo: order.orderNo,
+          userId: order.userId,
+          drugId: order.drugId,
+          unfrozenAmount: unfrozenAmount,
+        },
+      });
 
       return savedOrder;
     } catch (error) {

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ScheduleModule } from '@nestjs/schedule';
+import { APP_GUARD } from '@nestjs/core';
 import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { DrugModule } from './modules/drug/drug.module';
@@ -14,6 +15,8 @@ import { MarketModule } from './modules/market/market.module';
 import { PaymentModule } from './modules/payment/payment.module';
 import { DatabaseModule } from './database/database.module';
 import { EventsModule } from './common/events/events.module';
+import { AuditModule } from './common/services/audit.module';
+import { IdempotencyGuard } from './common/guards/idempotency.guard';
 
 @Module({
   imports: [
@@ -41,6 +44,7 @@ import { EventsModule } from './common/events/events.module';
     }),
     DatabaseModule,
     EventsModule,
+    AuditModule,
     AuthModule,
     UserModule,
     DrugModule,
@@ -51,6 +55,9 @@ import { EventsModule } from './common/events/events.module';
     AccountModule,
     MarketModule,
     PaymentModule,
+  ],
+  providers: [
+    { provide: APP_GUARD, useClass: IdempotencyGuard },
   ],
 })
 export class AppModule {}

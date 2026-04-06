@@ -123,6 +123,14 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     }
   }
 
+  // 推送委托单更新通知到指定用户
+  emitPendingOrderUpdate(userId: string, event: string, data: any) {
+    this.server.to(`user:${userId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   // 定时推送行情ticker（每5秒）
   private startTickerBroadcast() {
     if (this.tickerInterval) {

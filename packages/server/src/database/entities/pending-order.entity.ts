@@ -27,6 +27,7 @@ export enum PendingOrderStatus {
 @Entity('pending_orders')
 @Index(['drugId', 'status', 'createdAt'])
 @Index(['userId', 'status'])
+@Index('IDX_pending_orders_status_expireAt', ['status', 'expireAt'])
 export class PendingOrder {
   @PrimaryGeneratedColumn('uuid')
   id: string;

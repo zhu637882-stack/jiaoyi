@@ -12,6 +12,7 @@ import {
 } from 'antd'
 import {
   ShoppingCartOutlined,
+  CheckCircleOutlined,
 } from '@ant-design/icons'
 import { fundingApi, accountApi, pendingOrderApi } from '../../services/api'
 import './style.css'
@@ -34,6 +35,7 @@ interface TradePanelProps {
 interface HoldingSummary {
   totalQuantity: number
   totalProfit: number
+  averagePrice?: number
 }
 
 const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
@@ -53,6 +55,10 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
   const [orderType, setOrderType] = useState<'market' | 'limit'>('market')
   const [limitPrice, setLimitPrice] = useState<number>(0)
   const [expireOption, setExpireOption] = useState<string>('7d')
+
+  // 成功动画 state
+  const [showSuccess, setShowSuccess] = useState(false)
+  const [successMessage, setSuccessMessage] = useState('')
 
   // 获取余额
   const fetchBalance = useCallback(async () => {
@@ -76,7 +82,10 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
         const holdings = response.data
         const totalQuantity = holdings.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0)
         const totalProfit = holdings.reduce((sum: number, h: any) => sum + (h.totalProfit || 0) + (h.totalInterest || 0), 0)
-        setHoldingSummary({ totalQuantity, totalProfit })
+        // 计算平均买入价用于盈亏百分比计算
+        const totalCost = holdings.reduce((sum: number, h: any) => sum + (h.quantity || 0) * (h.averagePrice || 0), 0)
+        const avgPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0
+        setHoldingSummary({ totalQuantity, totalProfit, averagePrice: avgPrice })
       } else {
         setHoldingSummary(null)
       }
@@ -123,6 +132,20 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     const price = tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice
     return Number(Number(quantity * price || 0).toFixed(2))
   }, [quantity, drug, tradeMode])
+
+  // 计算限价价差百分比
+  const priceDiffInfo = useMemo(() => {
+    if (orderType !== 'limit' || !drug || !limitPrice) return null
+    const currentPrice = tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice
+    if (!currentPrice || currentPrice === 0) return null
+    const diffPercent = ((limitPrice - currentPrice) / currentPrice) * 100
+    const isLower = limitPrice < currentPrice
+    return {
+      diffPercent: Math.abs(diffPercent).toFixed(2),
+      isLower,
+      isBuy: tradeMode === 'buy',
+    }
+  }, [orderType, limitPrice, drug, tradeMode])
 
   // 滑块变化处理
   const handleSliderChange = (value: number) => {
@@ -202,6 +225,10 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
             fetchBalance()
             fetchHoldingSummary(drug.drugId)
             onOrderSuccess?.()
+            // 显示成功动画
+            setSuccessMessage('下单成功')
+            setShowSuccess(true)
+            setTimeout(() => setShowSuccess(false), 1500)
           }
         } catch (error: any) {
           message.error(error.response?.data?.message || '卖出失败')
@@ -227,6 +254,10 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
         fetchBalance()
         fetchHoldingSummary(drug.drugId)
         onOrderSuccess?.()
+        // 显示成功动画
+        setSuccessMessage('下单成功')
+        setShowSuccess(true)
+        setTimeout(() => setShowSuccess(false), 1500)
       }
     } catch (error: any) {
       message.error(error.response?.data?.message || '创建订单失败')
@@ -262,6 +293,10 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
         setSliderValue(0)
         fetchBalance()
         onOrderSuccess?.()
+        // 显示成功动画
+        setSuccessMessage('委托已提交')
+        setShowSuccess(true)
+        setTimeout(() => setShowSuccess(false), 1500)
       }
     } catch (error: any) {
       message.error(error.response?.data?.message || '创建委托单失败')
@@ -344,6 +379,14 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
               }
             }}
           />
+          {/* 限价价差提示 */}
+          {priceDiffInfo && (
+            <div className={`price-diff-hint ${priceDiffInfo.isLower ? 'lower' : 'higher'}`}>
+              {priceDiffInfo.isLower
+                ? `低于当前价 ${priceDiffInfo.diffPercent}%`
+                : `高于当前价 ${priceDiffInfo.diffPercent}%`}
+            </div>
+          )}
         </div>
 
         {/* 有效期选择器 - 仅限价模式显示 */}
@@ -464,6 +507,21 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
                 {holdingSummary.totalProfit >= 0 ? '+' : ''}¥{Number(holdingSummary.totalProfit || 0).toFixed(2)}
               </span>
             </div>
+            {/* 实时盈亏百分比 */}
+            {holdingSummary.averagePrice && drug && (
+              <div className="holding-row">
+                <span className="holding-label">盈亏</span>
+                {(() => {
+                  const pnlPercent = ((drug.sellingPrice - holdingSummary.averagePrice) / holdingSummary.averagePrice) * 100
+                  const isProfit = pnlPercent >= 0
+                  return (
+                    <span className={`holding-value ${isProfit ? 'pnl-profit' : 'pnl-loss'}`}>
+                      {isProfit ? '+' : ''}{pnlPercent.toFixed(2)}%
+                    </span>
+                  )
+                })()}
+              </div>
+            )}
           </div>
         ) : (
           <div className="holding-empty">暂无持仓</div>
@@ -548,6 +606,16 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
           </div>
         </div>
       </Modal>
+
+      {/* 成功动画覆盖层 */}
+      {showSuccess && (
+        <div className="success-overlay">
+          <div className="success-content">
+            <CheckCircleOutlined className="success-icon" />
+            <div className="success-text">{successMessage}</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
