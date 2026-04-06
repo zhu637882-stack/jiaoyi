@@ -430,6 +430,7 @@ export class FundingService {
 
   /**
    * 获取某药品的我的持仓订单
+   * 返回该药品该用户所有 holding/partial_settled 状态的持仓（不限制日期）
    */
   async getDrugHoldings(userId: string, drugId: string) {
     const orders = await this.fundingOrderRepository
@@ -442,19 +443,28 @@ export class FundingService {
       .orderBy('order.fundedAt', 'DESC')
       .getMany();
 
-    return orders.map((order) => ({
-      id: order.id,
-      orderNo: order.orderNo,
-      quantity: order.quantity,
-      amount: Number(order.amount),
-      unsettledAmount: Number(order.unsettledAmount),
-      settledQuantity: order.settledQuantity,
-      status: order.status,
-      queuePosition: order.queuePosition,
-      fundedAt: order.fundedAt,
-      totalProfit: Number(order.totalProfit),
-      totalInterest: Number(order.totalInterest),
-    }));
+    return orders.map((order) => {
+      // 实际持仓数量 = 原始数量 - 已结算数量
+      const availableQuantity = order.quantity - order.settledQuantity;
+      // 计算平均买入价（用于前端计算盈亏百分比）
+      const averagePrice = order.quantity > 0 ? Number(order.amount) / order.quantity : 0;
+
+      return {
+        id: order.id,
+        orderNo: order.orderNo,
+        quantity: availableQuantity, // 返回实际持仓数量
+        originalQuantity: order.quantity, // 原始订单数量
+        amount: Number(order.amount),
+        unsettledAmount: Number(order.unsettledAmount),
+        settledQuantity: order.settledQuantity,
+        status: order.status,
+        queuePosition: order.queuePosition,
+        fundedAt: order.fundedAt,
+        totalProfit: Number(order.totalProfit),
+        totalInterest: Number(order.totalInterest),
+        averagePrice, // 平均买入价
+      };
+    });
   }
 
   /**

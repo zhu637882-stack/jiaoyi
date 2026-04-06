@@ -73,16 +73,17 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     }
   }, [])
 
-  // 获取当前药品持仓概要
+  // 获取当前药品持仓概要（该药品的全部持仓，不限日期）
   const fetchHoldingSummary = useCallback(async (drugId: string) => {
     try {
       setLoadingHolding(true)
       const response = await fundingApi.getDrugHoldings(drugId)
       if (response.success && response.data && response.data.length > 0) {
         const holdings = response.data
+        // 后端已返回实际持仓数量（quantity = 原始数量 - 已结算数量）
         const totalQuantity = holdings.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0)
         const totalProfit = holdings.reduce((sum: number, h: any) => sum + (h.totalProfit || 0) + (h.totalInterest || 0), 0)
-        // 计算平均买入价用于盈亏百分比计算
+        // 使用后端返回的平均买入价计算加权平均价
         const totalCost = holdings.reduce((sum: number, h: any) => sum + (h.quantity || 0) * (h.averagePrice || 0), 0)
         const avgPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0
         setHoldingSummary({ totalQuantity, totalProfit, averagePrice: avgPrice })
