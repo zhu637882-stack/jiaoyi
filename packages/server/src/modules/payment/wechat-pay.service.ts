@@ -8,17 +8,40 @@ import * as crypto from 'crypto';
 export class WechatPayService {
   private readonly logger = new Logger(WechatPayService.name);
   private apiKey: string;
+  private paymentMode: string;
 
   constructor(private configService: ConfigService) {
     this.apiKey = this.configService.get('WECHAT_API_KEY') || '';
+    this.paymentMode = this.configService.get('PAYMENT_MODE') || 'real';
   }
 
   /**
    * 检测是否为Mock模式
-   * 当API密钥不存在或包含placeholder时，使用Mock模式
+   * 条件：
+   * 1. PAYMENT_MODE 环境变量设置为 'mock'
+   * 2. API密钥不存在
+   * 3. API密钥包含 placeholder 或以 your_ 开头
    */
   private isMockMode(): boolean {
-    return !this.apiKey || this.apiKey.includes('placeholder');
+    // 1. PAYMENT_MODE 显式设置为 mock
+    if (this.paymentMode.toLowerCase() === 'mock') {
+      this.logger.warn('[支付配置] PAYMENT_MODE 设置为 mock，使用 Mock 模式');
+      return true;
+    }
+
+    // 2. API密钥不存在
+    if (!this.apiKey) {
+      this.logger.warn('[支付配置] WECHAT_API_KEY 未配置，使用 Mock 模式');
+      return true;
+    }
+
+    // 3. API密钥包含 placeholder 或以 your_ 开头
+    if (this.apiKey.includes('placeholder') || this.apiKey.startsWith('your_')) {
+      this.logger.warn('[支付配置] WECHAT_API_KEY 为占位符值，使用 Mock 模式');
+      return true;
+    }
+
+    return false;
   }
 
   /**

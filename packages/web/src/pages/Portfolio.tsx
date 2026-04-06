@@ -1289,27 +1289,6 @@ const Portfolio = () => {
                 确认充值
               </Button>
             </Form.Item>
-            <Form.Item style={{ marginBottom: 0, marginTop: 12 }}>
-              <Button
-                size="large"
-                block
-                onClick={() => {
-                  rechargeForm.validateFields().then((values) => {
-                    handleRecharge(values)
-                  })
-                }}
-                style={{
-                  background: 'transparent',
-                  border: '1px dashed #30363D',
-                  height: 44,
-                  fontSize: 14,
-                  color: '#8B949E',
-                  transition: 'all 0.3s ease',
-                }}
-              >
-                模拟充值（测试）
-              </Button>
-            </Form.Item>
           </Form>
         )}
 

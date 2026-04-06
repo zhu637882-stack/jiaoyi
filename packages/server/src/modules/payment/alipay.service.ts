@@ -7,9 +7,11 @@ export class AlipayService {
   private readonly logger = new Logger(AlipayService.name);
   private alipaySdk: any;
   private privateKey: string;
+  private paymentMode: string;
 
   constructor(private configService: ConfigService) {
     this.privateKey = this.configService.get('ALIPAY_PRIVATE_KEY') || '';
+    this.paymentMode = this.configService.get('PAYMENT_MODE') || 'real';
     this.alipaySdk = new AlipaySdk({
       appId: this.configService.get('ALIPAY_APP_ID'),
       privateKey: this.privateKey,
@@ -20,10 +22,31 @@ export class AlipayService {
 
   /**
    * 检测是否为Mock模式
-   * 当私钥不存在或包含placeholder时，使用Mock模式
+   * 条件：
+   * 1. PAYMENT_MODE 环境变量设置为 'mock'
+   * 2. 私钥不存在
+   * 3. 私钥包含 placeholder 或以 your_ 开头
    */
   private isMockMode(): boolean {
-    return !this.privateKey || this.privateKey.includes('placeholder');
+    // 1. PAYMENT_MODE 显式设置为 mock
+    if (this.paymentMode.toLowerCase() === 'mock') {
+      this.logger.warn('[支付配置] PAYMENT_MODE 设置为 mock，使用 Mock 模式');
+      return true;
+    }
+
+    // 2. 私钥不存在
+    if (!this.privateKey) {
+      this.logger.warn('[支付配置] ALIPAY_PRIVATE_KEY 未配置，使用 Mock 模式');
+      return true;
+    }
+
+    // 3. 私钥包含 placeholder 或以 your_ 开头
+    if (this.privateKey.includes('placeholder') || this.privateKey.startsWith('your_')) {
+      this.logger.warn('[支付配置] ALIPAY_PRIVATE_KEY 为占位符值，使用 Mock 模式');
+      return true;
+    }
+
+    return false;
   }
 
   /**
