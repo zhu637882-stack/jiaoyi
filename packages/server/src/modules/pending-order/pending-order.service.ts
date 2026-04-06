@@ -293,16 +293,20 @@ export class PendingOrderService {
     await queryRunner.startTransaction();
 
     try {
-      // 1. 查询委托单（带锁）
+      // 1. 查询委托单（带锁）- 不使用 relations 避免外连接悲观锁问题
       const order = await queryRunner.manager.findOne(PendingOrder, {
         where: { id: orderId, userId },
         lock: { mode: 'pessimistic_write' },
-        relations: ['drug'],
       });
 
       if (!order) {
         throw new NotFoundException('委托订单不存在');
       }
+
+      // 单独查询关联的 drug
+      const drug = await queryRunner.manager.findOne(Drug, {
+        where: { id: order.drugId },
+      });
 
       // 2. 校验状态
       if (![PendingOrderStatus.PENDING, PendingOrderStatus.PARTIAL].includes(order.status)) {
@@ -340,7 +344,7 @@ export class PendingOrderService {
           balanceBefore: availableBefore,
           balanceAfter: balance.availableBalance,
           relatedOrderId: order.id,
-          description: `撤销委托解冻资金 ${order.drug?.name || ''} ${unfilledQuantity}盒 @ ${order.targetPrice}元，订单号：${order.orderNo}`,
+          description: `撤销委托解冻资金 ${drug?.name || ''} ${unfilledQuantity}盒 @ ${order.targetPrice}元，订单号：${order.orderNo}`,
         });
 
         await queryRunner.manager.save(transaction);
@@ -375,5 +379,56 @@ export class PendingOrderService {
     });
 
     return count;
+  }
+
+  /**
+   * 测试触发委托单（仅用于调试）
+   */
+  async testTriggerPendingOrders(drugId: string): Promise<any> {
+    console.log(`[TestTrigger] 开始测试触发药品 ${drugId} 的委托单`);
+
+    // 查询该药品的pending委托单
+    const pendingOrders = await this.pendingOrderRepository.find({
+      where: {
+        drugId,
+        status: PendingOrderStatus.PENDING,
+      },
+      order: {
+        createdAt: 'ASC',
+      },
+    });
+
+    console.log(`[TestTrigger] 找到 ${pendingOrders.length} 个pending委托单`);
+
+    // 获取药品当前价格
+    const drug = await this.drugRepository.findOne({ where: { id: drugId } });
+    if (!drug) {
+      return { error: '药品不存在' };
+    }
+
+    console.log(`[TestTrigger] 药品当前进货价: ${drug.purchasePrice}, 类型: ${typeof drug.purchasePrice}`);
+
+    const results = [];
+    for (const order of pendingOrders) {
+      const targetPrice = Number(order.targetPrice);
+      const currentPrice = Number(drug.purchasePrice);
+
+      console.log(`[TestTrigger] 委托单 ${order.orderNo}: targetPrice=${targetPrice}(${typeof targetPrice}), currentPrice=${currentPrice}(${typeof currentPrice})`);
+      console.log(`[TestTrigger] 触发条件检查: ${currentPrice} <= ${targetPrice} = ${currentPrice <= targetPrice}`);
+
+      results.push({
+        orderNo: order.orderNo,
+        targetPrice,
+        currentPrice,
+        shouldTrigger: currentPrice <= targetPrice,
+        status: order.status,
+      });
+    }
+
+    return {
+      drugId,
+      currentPrice: Number(drug.purchasePrice),
+      pendingOrders: results,
+    };
   }
 }

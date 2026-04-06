@@ -210,6 +210,10 @@ export class DrugService {
     const oldPurchasePrice = drug.purchasePrice;
     const oldSellingPrice = drug.sellingPrice;
 
+    this.logger.debug(
+      `更新药品 ${id} 前的价格: 进货价=${oldPurchasePrice}(${typeof oldPurchasePrice}), 售价=${oldSellingPrice}(${typeof oldSellingPrice})`,
+    );
+
     // 如果更新编码，检查是否与其他药品冲突
     if (updateDrugDto.code && updateDrugDto.code !== drug.code) {
       const existingDrug = await this.drugRepository.findOne({
@@ -230,27 +234,44 @@ export class DrugService {
     const newPurchasePrice = updateDrugDto.purchasePrice;
     const newSellingPrice = updateDrugDto.sellingPrice;
 
-    if (
-      (newPurchasePrice !== undefined && newPurchasePrice !== oldPurchasePrice) ||
-      (newSellingPrice !== undefined && newSellingPrice !== oldSellingPrice)
-    ) {
-      this.logger.log(
-        `药品 ${id} 价格发生变化: 进货价 ${oldPurchasePrice} -> ${newPurchasePrice ?? oldPurchasePrice}, 售价 ${oldSellingPrice} -> ${newSellingPrice ?? oldSellingPrice}，开始检查条件委托单`,
-      );
+    // 使用 Number() 确保类型一致的比较
+    const oldPurchasePriceNum = Number(oldPurchasePrice);
+    const oldSellingPriceNum = Number(oldSellingPrice);
+    const newPurchasePriceNum = newPurchasePrice !== undefined ? Number(newPurchasePrice) : oldPurchasePriceNum;
+    const newSellingPriceNum = newSellingPrice !== undefined ? Number(newSellingPrice) : oldSellingPriceNum;
 
-      // 触发条件委托单检查（不在同一事务中，避免触发失败影响价格更新）
-      this.pendingOrderTriggerService
-        .triggerPendingOrders(
+    this.logger.debug(
+      `价格比较: oldPurchasePriceNum=${oldPurchasePriceNum}, newPurchasePriceNum=${newPurchasePriceNum}, ` +
+      `oldSellingPriceNum=${oldSellingPriceNum}, newSellingPriceNum=${newSellingPriceNum}`,
+    );
+    console.log(`[DrugService] 价格比较: oldPurchasePriceNum=${oldPurchasePriceNum}, newPurchasePriceNum=${newPurchasePriceNum}`);
+
+    // 简化逻辑：只要有价格更新字段，就检查委托单（而不是比较新旧价格）
+    // 这样可以避免类型转换带来的问题
+    if (newPurchasePrice !== undefined || newSellingPrice !== undefined) {
+      this.logger.log(
+        `药品 ${id} 价格更新，检查条件委托单。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}`,
+      );
+      console.log(`[DrugService v2] 触发检查: drugId=${id}, newPurchasePriceNum=${newPurchasePriceNum}`);
+
+      // 触发条件委托单检查（改为同步执行以便调试）
+      try {
+        await this.pendingOrderTriggerService.triggerPendingOrders(
           id,
-          newPurchasePrice ?? oldPurchasePrice,
-          newSellingPrice ?? oldSellingPrice,
-        )
-        .catch((error) => {
-          this.logger.error(
-            `触发药品 ${id} 的条件委托单失败: ${error.message}`,
-            error.stack,
-          );
-        });
+          newPurchasePriceNum,
+          newSellingPriceNum,
+        );
+        this.logger.log(`药品 ${id} 条件委托单检查完成`);
+      } catch (error) {
+        this.logger.error(
+          `触发药品 ${id} 的条件委托单失败: ${error.message}`,
+          error.stack,
+        );
+        // 把错误信息附加到返回结果中
+        (updatedDrug as any).triggerError = error.message;
+      }
+    } else {
+      this.logger.debug(`药品 ${id} 价格未变化，跳过触发检查`);
     }
 
     return updatedDrug;

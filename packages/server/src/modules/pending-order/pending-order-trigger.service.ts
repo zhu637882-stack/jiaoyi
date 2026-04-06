@@ -7,6 +7,7 @@ import {
   PendingOrderStatus,
 } from '../../database/entities/pending-order.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
+import { Drug } from '../../database/entities/drug.entity';
 import {
   AccountTransaction,
   TransactionType,
@@ -47,29 +48,40 @@ export class PendingOrderTriggerService {
     });
 
     if (pendingOrders.length === 0) {
+      this.logger.log(`没有找到药品 ${drugId} 的pending委托单`);
       return;
     }
 
     this.logger.log(
       `开始检查药品 ${drugId} 的委托单，新进货价: ${newPurchasePrice}, 新售价: ${newSellingPrice}，共 ${pendingOrders.length} 个待处理委托单`,
     );
+    console.log(`[TriggerService] 找到 ${pendingOrders.length} 个pending委托单，新进货价=${newPurchasePrice}`);
 
     // 2. 筛选出满足触发条件的委托单
     const triggeredOrders: PendingOrder[] = [];
 
     for (const order of pendingOrders) {
+      // 确保类型转换正确
+      const targetPrice = Number(order.targetPrice);
+      
       if (order.type === PendingOrderType.LIMIT_BUY) {
         // 买入委托：当进货价 <= 目标价时触发
         // 用户设定：当价格降到 X 元时买入
         // 触发条件：newPurchasePrice <= order.targetPrice
-        if (newPurchasePrice <= order.targetPrice) {
+        if (newPurchasePrice <= targetPrice) {
+          this.logger.log(
+            `委托单 ${order.orderNo} 满足触发条件: 进货价 ${newPurchasePrice} <= 目标价 ${targetPrice}`,
+          );
           triggeredOrders.push(order);
         }
       } else if (order.type === PendingOrderType.LIMIT_SELL) {
         // 卖出委托：当售价 >= 目标价时触发
         // 用户设定：当价格涨到 Y 元时卖出
         // 触发条件：newSellingPrice >= order.targetPrice
-        if (newSellingPrice >= order.targetPrice) {
+        if (newSellingPrice >= targetPrice) {
+          this.logger.log(
+            `委托单 ${order.orderNo} 满足触发条件: 售价 ${newSellingPrice} >= 目标价 ${targetPrice}`,
+          );
           triggeredOrders.push(order);
         }
       }
@@ -104,10 +116,10 @@ export class PendingOrderTriggerService {
 
     try {
       // 使用悲观锁重新查询委托单，确保状态未被其他进程修改
+      // 不使用 relations 避免外连接悲观锁问题
       const lockedOrder = await queryRunner.manager.findOne(PendingOrder, {
         where: { id: order.id },
         lock: { mode: 'pessimistic_write' },
-        relations: ['drug'],
       });
 
       if (!lockedOrder || lockedOrder.status !== PendingOrderStatus.PENDING) {
@@ -115,6 +127,11 @@ export class PendingOrderTriggerService {
         await queryRunner.rollbackTransaction();
         return;
       }
+
+      // 单独查询关联的 drug
+      const drug = await queryRunner.manager.findOne(Drug, {
+        where: { id: lockedOrder.drugId },
+      });
 
       const userId = lockedOrder.userId;
       const drugId = lockedOrder.drugId;
@@ -165,7 +182,7 @@ export class PendingOrderTriggerService {
         balanceBefore: availableBefore,
         balanceAfter: balance.availableBalance,
         relatedOrderId: lockedOrder.id,
-        description: `委托触发解冻资金 ${lockedOrder.drug?.name || ''} ${quantity}盒，订单号：${lockedOrder.orderNo}`,
+        description: `委托触发解冻资金 ${drug?.name || ''} ${quantity}盒，订单号：${lockedOrder.orderNo}`,
       });
 
       await queryRunner.manager.save(unfrozenTransaction);

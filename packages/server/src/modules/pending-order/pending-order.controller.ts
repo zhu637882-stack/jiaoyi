@@ -24,6 +24,26 @@ export class PendingOrderController {
   constructor(private readonly pendingOrderService: PendingOrderService) {}
 
   /**
+   * 测试触发委托单（仅用于调试）
+   * POST /api/pending-orders/test-trigger
+   */
+  @Post('test-trigger')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  async testTrigger(
+    @CurrentUser('userId') userId: string,
+    @Body() body: { drugId: string },
+  ) {
+    // 仅管理员可调用
+    const result = await this.pendingOrderService.testTriggerPendingOrders(body.drugId);
+    return {
+      success: true,
+      data: result,
+      message: '测试触发完成',
+    };
+  }
+
+  /**
    * 创建条件委托订单
    * POST /api/pending-orders
    */
