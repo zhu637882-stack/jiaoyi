@@ -336,6 +336,10 @@ export const paymentApi = {
   // 查询微信支付订单状态
   queryWechatOrder: (outTradeNo: string) =>
     http.get(`/payment/wechat/query/${outTradeNo}`),
+
+  // Mock模式确认支付（测试环境）
+  confirmMockPayment: (outTradeNo: string) =>
+    http.post(`/payment/mock/confirm/${outTradeNo}`),
 }
 
 // 清算相关 API

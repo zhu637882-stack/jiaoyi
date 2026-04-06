@@ -84,4 +84,14 @@ export class PaymentController {
   async queryWechatOrder(@Param('outTradeNo') outTradeNo: string) {
     return this.paymentService.queryWechatOrder(outTradeNo);
   }
+
+  /**
+   * Mock模式确认支付
+   * 用于测试环境下模拟支付完成
+   */
+  @Post('mock/confirm/:outTradeNo')
+  @UseGuards(JwtAuthGuard)
+  async confirmMockPayment(@Param('outTradeNo') outTradeNo: string) {
+    return this.paymentService.confirmMockPayment(outTradeNo);
+  }
 }

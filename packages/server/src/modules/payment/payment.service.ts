@@ -50,9 +50,22 @@ export class PaymentService {
       `药赚赚账户充值-${outTradeNo}`,
     );
 
-    // Mock模式：直接完成充值
+    // Mock模式：创建pending状态订单，等待用户确认
     if (result.mockMode) {
-      return this.handleMockPayment(userId, outTradeNo, amount, PaymentChannel.ALIPAY, result.qrCode);
+      const paymentOrder = this.paymentOrderRepository.create({
+        userId,
+        outTradeNo,
+        channel: PaymentChannel.ALIPAY,
+        amount,
+        status: PaymentStatus.PENDING,
+      });
+      await this.paymentOrderRepository.save(paymentOrder);
+      this.logger.log(`[Mock模式] 创建支付宝订单: ${outTradeNo}, 金额: ${amount}, 状态: pending`);
+      return {
+        outTradeNo,
+        qrCode: result.qrCode,
+        mockMode: true,
+      };
     }
 
     // 正常模式：创建待支付订单记录
@@ -93,12 +106,20 @@ export class PaymentService {
       clientIp,
     );
 
-    // Mock模式：直接完成充值
+    // Mock模式：创建pending状态订单，等待用户确认
     if (result.mockMode) {
-      const mockResult = await this.handleMockPayment(userId, outTradeNo, amount, PaymentChannel.WECHAT, result.codeUrl);
+      const paymentOrder = this.paymentOrderRepository.create({
+        userId,
+        outTradeNo,
+        channel: PaymentChannel.WECHAT,
+        amount,
+        status: PaymentStatus.PENDING,
+      });
+      await this.paymentOrderRepository.save(paymentOrder);
+      this.logger.log(`[Mock模式] 创建微信支付订单: ${outTradeNo}, 金额: ${amount}, 状态: pending`);
       return {
-        outTradeNo: mockResult.outTradeNo,
-        codeUrl: mockResult.qrCode,
+        outTradeNo,
+        codeUrl: result.codeUrl,
         mockMode: true,
       };
     }
@@ -196,6 +217,101 @@ export class PaymentService {
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(`[Mock模式] 支付处理失败: ${outTradeNo}`, error);
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * Mock模式确认支付
+   * 用户点击"模拟支付完成"按钮后调用，将订单状态改为已支付
+   */
+  async confirmMockPayment(outTradeNo: string): Promise<{
+    status: string;
+    amount: number;
+  }> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 用悲观锁锁定订单行
+      const order = await queryRunner.manager.findOne(PaymentOrder, {
+        where: { outTradeNo },
+        lock: { mode: 'pessimistic_write' }
+      });
+
+      if (!order) {
+        await queryRunner.rollbackTransaction();
+        throw new BadRequestException('订单不存在');
+      }
+
+      // 检查订单状态
+      if (order.status === PaymentStatus.PAID) {
+        await queryRunner.commitTransaction();
+        return {
+          status: PaymentStatus.PAID,
+          amount: Number(order.amount),
+        };
+      }
+
+      if (order.status !== PaymentStatus.PENDING) {
+        await queryRunner.rollbackTransaction();
+        throw new BadRequestException('订单状态不正确，无法确认支付');
+      }
+
+      // 更新订单状态为已支付
+      order.status = PaymentStatus.PAID;
+      order.tradeNo = `MOCK_CONFIRMED_${Date.now()}`;
+      order.paidAt = new Date();
+      order.notifyData = JSON.stringify({ mockMode: true, confirmedAt: new Date().toISOString() });
+      await queryRunner.manager.save(order);
+
+      // 充值到用户余额
+      let balance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId: order.userId },
+        lock: { mode: 'pessimistic_write' }
+      });
+
+      if (!balance) {
+        balance = queryRunner.manager.create(AccountBalance, {
+          userId: order.userId,
+          availableBalance: 0,
+          frozenBalance: 0,
+          totalProfit: 0,
+          totalInvested: 0,
+        });
+        await queryRunner.manager.save(balance);
+      }
+
+      const balanceBefore = Number(balance.availableBalance);
+      balance.availableBalance = Number((balanceBefore + Number(order.amount)).toFixed(2));
+      await queryRunner.manager.save(balance);
+
+      // 记录资金流水
+      const transaction = queryRunner.manager.create(AccountTransaction, {
+        userId: order.userId,
+        type: TransactionType.RECHARGE,
+        amount: order.amount,
+        balanceBefore,
+        balanceAfter: balance.availableBalance,
+        description: `${order.channel === PaymentChannel.ALIPAY ? '支付宝' : '微信支付'}充值(Mock确认) (${outTradeNo})`,
+        relatedOrderId: order.id,
+      });
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+
+      this.logger.log(`[Mock模式] 支付确认成功: ${outTradeNo}, 充值金额: ${order.amount}`);
+
+      return {
+        status: PaymentStatus.PAID,
+        amount: Number(order.amount),
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      this.logger.error(`[Mock模式] 支付确认失败: ${outTradeNo}`, error);
       throw error;
     } finally {
       await queryRunner.release();

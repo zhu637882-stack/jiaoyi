@@ -269,6 +269,8 @@ const Portfolio = () => {
   const [qrCode, setQrCode] = useState<string>('')
   const [outTradeNo, setOutTradeNo] = useState<string>('')
   const [paymentLoading, setPaymentLoading] = useState(false)
+  const [mockMode, setMockMode] = useState(false)
+  const [confirmMockLoading, setConfirmMockLoading] = useState(false)
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
 
@@ -438,6 +440,8 @@ const Portfolio = () => {
     setOutTradeNo('')
     setPaymentAmount(0)
     setPaymentLoading(false)
+    setMockMode(false)
+    setConfirmMockLoading(false)
     stopPolling()
   }, [stopPolling])
 
@@ -448,7 +452,7 @@ const Portfolio = () => {
       setPaymentLoading(true)
       setPaymentAmount(values.amount)
 
-      let result: { outTradeNo: string; qrCode?: string; codeUrl?: string }
+      let result: { outTradeNo: string; qrCode?: string; codeUrl?: string; mockMode?: boolean }
       if (paymentChannel === 'alipay') {
         result = await paymentApi.createAlipayOrder(values.amount)
         setQrCode(result.qrCode || '')
@@ -458,12 +462,27 @@ const Portfolio = () => {
       }
 
       setOutTradeNo(result.outTradeNo)
+      setMockMode(result.mockMode || false)
       setPaymentStep('paying')
       startPolling(result.outTradeNo, paymentChannel)
     } catch (error: any) {
       message.error(error.response?.data?.message || '创建支付订单失败')
     } finally {
       setPaymentLoading(false)
+    }
+  }
+
+  // Mock模式确认支付
+  const handleConfirmMockPayment = async () => {
+    if (!outTradeNo) return
+    setConfirmMockLoading(true)
+    try {
+      await paymentApi.confirmMockPayment(outTradeNo)
+      message.success('模拟支付成功！')
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '确认支付失败')
+    } finally {
+      setConfirmMockLoading(false)
     }
   }
 
@@ -1351,6 +1370,28 @@ const Portfolio = () => {
               <Spin indicator={<LoadingOutlined style={{ fontSize: 16, color: paymentChannel === 'alipay' ? '#1890FF' : '#52C41A' }} spin />} />
               <Text style={{ color: '#8B949E', marginLeft: 8 }}>等待支付中...</Text>
             </div>
+
+            {/* Mock模式：模拟支付完成按钮 */}
+            {mockMode && (
+              <div style={{ marginTop: 16 }}>
+                <Button
+                  type="primary"
+                  size="large"
+                  loading={confirmMockLoading}
+                  onClick={handleConfirmMockPayment}
+                  style={{
+                    background: 'linear-gradient(135deg, #F0B90B 0%, #D4A00A 100%)',
+                    border: 'none',
+                    height: 44,
+                    fontSize: 16,
+                    fontWeight: 500,
+                    boxShadow: '0 4px 12px rgba(240, 185, 11, 0.3)',
+                  }}
+                >
+                  模拟支付完成（测试）
+                </Button>
+              </div>
+            )}
 
             {/* 订单号 */}
             <div style={{ marginTop: 16 }}>
