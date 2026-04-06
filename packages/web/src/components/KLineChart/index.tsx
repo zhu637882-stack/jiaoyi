@@ -35,10 +35,10 @@ interface KLineChartProps {
 type MainIndicatorKey = 'MA' | 'BOLL'
 type SubIndicatorKey = 'MACD' | 'RSI' | 'KDJ'
 
-// 颜色常量 - 统一主题配色
+// 颜色常量 - 统一主题配色（中国标准：涨红跌绿）
 const COLORS = {
-  UP: '#00D4AA',
-  DOWN: '#FF4D4F',
+  UP: '#FF4D4F',
+  DOWN: '#00D4AA',
   TEXT: '#8B949E',
   TEXT_LIGHT: '#E6EDF3',
   GRID: '#21262D',

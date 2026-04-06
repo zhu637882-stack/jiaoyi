@@ -56,8 +56,8 @@ const renderProfitCell = (value: number) => {
   const isNegative = value < 0
   return (
     <span style={{
-      color: isPositive ? '#0ECB81' : isNegative ? '#F6465D' : '#848E9C',
-      background: isPositive ? 'rgba(14,203,129,0.1)' : isNegative ? 'rgba(246,70,93,0.1)' : 'transparent',
+      color: isPositive ? '#FF4D4F' : isNegative ? '#00D4AA' : '#848E9C',
+      background: isPositive ? 'rgba(255,77,79,0.1)' : isNegative ? 'rgba(0,212,170,0.1)' : 'transparent',
       padding: '2px 8px',
       borderRadius: '4px',
       fontWeight: 500,
@@ -125,7 +125,7 @@ const StatCard = ({
   isProfit?: boolean
 }) => {
   const displayValue = useCountUp(value)
-  const displayColor = isProfit ? (value >= 0 ? '#0ECB81' : '#F6465D') : color
+  const displayColor = isProfit ? (value >= 0 ? '#FF4D4F' : '#00D4AA') : color
   const displayPrefix = isProfit ? (value >= 0 ? '+¥' : '¥') : prefix
   
   return (
@@ -165,12 +165,12 @@ const StatCard = ({
 
 // 交易类型映射
 const transactionTypeMap: Record<string, { label: string; color: string }> = {
-  recharge: { label: '充值', color: '#0ECB81' },
-  withdraw: { label: '提现', color: '#F6465D' },
+  recharge: { label: '充值', color: '#FF4D4F' },
+  withdraw: { label: '提现', color: '#00D4AA' },
   funding: { label: '投资', color: '#F0B90B' },
-  principal_return: { label: '本金返还', color: '#0ECB81' },
-  profit_share: { label: '收益分配', color: '#0ECB81' },
-  loss_share: { label: '亏损分摊', color: '#F6465D' },
+  principal_return: { label: '本金返还', color: '#FF4D4F' },
+  profit_share: { label: '收益分配', color: '#FF4D4F' },
+  loss_share: { label: '亏损分摊', color: '#00D4AA' },
   interest: { label: '利息', color: '#F0B90B' },
 }
 

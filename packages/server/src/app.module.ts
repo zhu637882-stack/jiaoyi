@@ -5,6 +5,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { UserModule } from './modules/user/user.module';
 import { DrugModule } from './modules/drug/drug.module';
 import { FundingModule } from './modules/funding/funding.module';
+import { PendingOrderModule } from './modules/pending-order/pending-order.module';
 import { SalesModule } from './modules/sales/sales.module';
 import { SettlementModule } from './modules/settlement/settlement.module';
 import { AccountModule } from './modules/account/account.module';
@@ -42,6 +43,7 @@ import { EventsModule } from './common/events/events.module';
     UserModule,
     DrugModule,
     FundingModule,
+    PendingOrderModule,
     SalesModule,
     SettlementModule,
     AccountModule,

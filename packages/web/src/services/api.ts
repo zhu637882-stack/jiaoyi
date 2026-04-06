@@ -336,4 +336,18 @@ export const settlementApi = {
   getMySettlementStats: () => http.get('/settlements/my/stats'),
 }
 
+// 委托订单相关 API
+export const pendingOrderApi = {
+  create: (data: { drugId: string; type: string; targetPrice: number; quantity: number; expireAt?: string }) =>
+    http.post('/pending-orders', data),
+  getList: (params?: { status?: string; page?: number; pageSize?: number }) =>
+    http.get('/pending-orders', { params }),
+  getDetail: (id: string) =>
+    http.get(`/pending-orders/${id}`),
+  cancel: (id: string) =>
+    http.delete(`/pending-orders/${id}`),
+  getActiveCount: () =>
+    http.get('/pending-orders/active/count'),
+}
+
 export default api

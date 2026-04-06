@@ -3,6 +3,7 @@ import {
   NotFoundException,
   BadRequestException,
   ForbiddenException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, Like } from 'typeorm';
@@ -14,14 +15,18 @@ import {
   UpdateDrugStatusDto,
   QueryDrugDto,
 } from './dto';
+import { PendingOrderTriggerService } from '../pending-order/pending-order-trigger.service';
 
 @Injectable()
 export class DrugService {
+  private readonly logger = new Logger(DrugService.name);
+
   constructor(
     @InjectRepository(Drug)
     private readonly drugRepository: Repository<Drug>,
     @InjectRepository(MarketSnapshot)
     private readonly marketSnapshotRepository: Repository<MarketSnapshot>,
+    private readonly pendingOrderTriggerService: PendingOrderTriggerService,
   ) {}
 
   /**
@@ -201,6 +206,10 @@ export class DrugService {
       throw new NotFoundException('药品不存在');
     }
 
+    // 记录更新前的价格
+    const oldPurchasePrice = drug.purchasePrice;
+    const oldSellingPrice = drug.sellingPrice;
+
     // 如果更新编码，检查是否与其他药品冲突
     if (updateDrugDto.code && updateDrugDto.code !== drug.code) {
       const existingDrug = await this.drugRepository.findOne({
@@ -215,7 +224,36 @@ export class DrugService {
     // 更新字段
     Object.assign(drug, updateDrugDto);
 
-    return this.drugRepository.save(drug);
+    const updatedDrug = await this.drugRepository.save(drug);
+
+    // 检查价格是否发生变化，如果变化则触发条件委托单检查
+    const newPurchasePrice = updateDrugDto.purchasePrice;
+    const newSellingPrice = updateDrugDto.sellingPrice;
+
+    if (
+      (newPurchasePrice !== undefined && newPurchasePrice !== oldPurchasePrice) ||
+      (newSellingPrice !== undefined && newSellingPrice !== oldSellingPrice)
+    ) {
+      this.logger.log(
+        `药品 ${id} 价格发生变化: 进货价 ${oldPurchasePrice} -> ${newPurchasePrice ?? oldPurchasePrice}, 售价 ${oldSellingPrice} -> ${newSellingPrice ?? oldSellingPrice}，开始检查条件委托单`,
+      );
+
+      // 触发条件委托单检查（不在同一事务中，避免触发失败影响价格更新）
+      this.pendingOrderTriggerService
+        .triggerPendingOrders(
+          id,
+          newPurchasePrice ?? oldPurchasePrice,
+          newSellingPrice ?? oldSellingPrice,
+        )
+        .catch((error) => {
+          this.logger.error(
+            `触发药品 ${id} 的条件委托单失败: ${error.message}`,
+            error.stack,
+          );
+        });
+    }
+
+    return updatedDrug;
   }
 
   /**

@@ -8,11 +8,12 @@ import {
   Typography,
   Slider,
   Spin,
+  Select,
 } from 'antd'
 import {
   ShoppingCartOutlined,
 } from '@ant-design/icons'
-import { fundingApi, accountApi } from '../../services/api'
+import { fundingApi, accountApi, pendingOrderApi } from '../../services/api'
 import './style.css'
 
 const { Text, Title } = Typography
@@ -47,6 +48,11 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
   const [holdingSummary, setHoldingSummary] = useState<HoldingSummary | null>(null)
   const [loadingBalance, setLoadingBalance] = useState(false)
   const [loadingHolding, setLoadingHolding] = useState(false)
+
+  // 限价委托相关 state
+  const [orderType, setOrderType] = useState<'market' | 'limit'>('market')
+  const [limitPrice, setLimitPrice] = useState<number>(0)
+  const [expireOption, setExpireOption] = useState<string>('7d')
 
   // 获取余额
   const fetchBalance = useCallback(async () => {
@@ -92,6 +98,13 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     }
   }, [drug?.drugId, fetchBalance, fetchHoldingSummary])
 
+  // 当药品变化或交易模式切换时，重置限价
+  useEffect(() => {
+    if (drug) {
+      setLimitPrice(tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice)
+    }
+  }, [drug?.drugId, tradeMode, drug])
+
   // 计算最大可垫资数量（买入时）
   useEffect(() => {
     if (drug && balance && tradeMode === 'buy') {
@@ -136,6 +149,15 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     setTradeMode(mode)
     setQuantity(1)
     setSliderValue(0)
+    setOrderType('market')
+  }
+
+  // 订单类型切换
+  const handleOrderTypeChange = (type: 'market' | 'limit') => {
+    setOrderType(type)
+    if (type === 'market' && drug) {
+      setLimitPrice(tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice)
+    }
   }
 
   // 提交订单
@@ -191,6 +213,50 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     }
   }
 
+  // 限价委托提交
+  const handleConfirmLimitOrder = async () => {
+    if (!drug) return
+    setSubmitting(true)
+    try {
+      // 计算过期时间
+      let expireAt: string | undefined
+      if (expireOption !== 'forever') {
+        const hours: Record<string, number> = { '24h': 24, '7d': 168, '30d': 720 }
+        expireAt = new Date(Date.now() + hours[expireOption] * 3600 * 1000).toISOString()
+      }
+
+      const response = await pendingOrderApi.create({
+        drugId: drug.drugId,
+        type: isBuy ? 'limit_buy' : 'limit_sell',
+        targetPrice: limitPrice,
+        quantity,
+        expireAt,
+      })
+
+      if (response.success) {
+        message.success('委托单创建成功')
+        setConfirmModalVisible(false)
+        setQuantity(1)
+        setSliderValue(0)
+        fetchBalance()
+        onOrderSuccess?.()
+      }
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '创建委托单失败')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // 确认订单/委托
+  const handleConfirm = () => {
+    if (orderType === 'limit') {
+      handleConfirmLimitOrder()
+    } else {
+      handleConfirmOrder()
+    }
+  }
+
   if (!drug) {
     return (
       <div className="trade-panel-empty">
@@ -222,19 +288,59 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
         </div>
       </div>
 
+      {/* 订单类型切换 - 市价/限价 */}
+      <div className="order-type-tabs">
+        <div
+          className={`order-type-tab ${orderType === 'market' ? 'active' : ''}`}
+          onClick={() => handleOrderTypeChange('market')}
+        >
+          市价
+        </div>
+        <div className="order-type-divider">|</div>
+        <div
+          className={`order-type-tab ${orderType === 'limit' ? 'active' : ''}`}
+          onClick={() => handleOrderTypeChange('limit')}
+        >
+          限价
+        </div>
+      </div>
+
       {/* 表单区域 */}
       <div className="panel-section form-section">
         {/* 价格输入框 */}
         <div className="form-item">
           <div className="form-label">价格</div>
           <InputNumber
-            value={isBuy ? drug.purchasePrice : drug.sellingPrice}
-            disabled
-            className="price-input"
+            value={orderType === 'limit' ? limitPrice : (isBuy ? drug.purchasePrice : drug.sellingPrice)}
+            disabled={orderType === 'market'}
+            className={`price-input ${orderType === 'limit' ? 'editable' : ''}`}
             precision={2}
             addonAfter="CNY"
+            onChange={(value) => {
+              if (orderType === 'limit' && value !== null) {
+                setLimitPrice(value)
+              }
+            }}
           />
         </div>
+
+        {/* 有效期选择器 - 仅限价模式显示 */}
+        {orderType === 'limit' && (
+          <div className="form-item">
+            <div className="form-label">有效期</div>
+            <Select
+              value={expireOption}
+              onChange={setExpireOption}
+              className="expire-select"
+              options={[
+                { value: '24h', label: '24小时' },
+                { value: '7d', label: '7天' },
+                { value: '30d', label: '30天' },
+                { value: 'forever', label: '长期有效' },
+              ]}
+            />
+          </div>
+        )}
 
         {/* 数量输入框 */}
         <div className="form-item">
@@ -299,10 +405,14 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
           className={`submit-btn ${isBuy ? 'buy-btn' : 'sell-btn'}`}
         >
           <span className="btn-text-long">
-            {isBuy ? `垫资买入 ${drug.drugName}` : `解套卖出 ${drug.drugName}`}
+            {orderType === 'limit'
+              ? (isBuy ? `委托买入 ${drug.drugName}` : `委托卖出 ${drug.drugName}`)
+              : (isBuy ? `垫资买入 ${drug.drugName}` : `解套卖出 ${drug.drugName}`)}
           </span>
           <span className="btn-text-short" style={{ display: 'none' }}>
-            {isBuy ? '垫资买入' : '解套卖出'}
+            {orderType === 'limit'
+              ? (isBuy ? '委托买入' : '委托卖出')
+              : (isBuy ? '垫资买入' : '解套卖出')}
           </span>
         </Button>
 
@@ -370,7 +480,9 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
               <ShoppingCartOutlined />
             </div>
             <Title level={4} className="confirm-title">
-              {isBuy ? '确认垫资' : '确认解套'}
+              {orderType === 'limit'
+                ? '确认委托'
+                : (isBuy ? '确认垫资' : '确认解套')}
             </Title>
           </div>
 
@@ -383,10 +495,17 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
               <Text className="confirm-label">数量</Text>
               <Text className="confirm-value">{quantity} 盒</Text>
             </div>
-            <div className="confirm-row">
-              <Text className="confirm-label">金额</Text>
-              <Text className="confirm-amount">¥{Number(estimatedAmount || 0).toFixed(2)}</Text>
-            </div>
+            {orderType === 'limit' ? (
+              <div className="confirm-row">
+                <Text className="confirm-label">目标价格</Text>
+                <Text className="confirm-amount">¥{Number(limitPrice || 0).toFixed(2)}</Text>
+              </div>
+            ) : (
+              <div className="confirm-row">
+                <Text className="confirm-label">金额</Text>
+                <Text className="confirm-amount">¥{Number(estimatedAmount || 0).toFixed(2)}</Text>
+              </div>
+            )}
           </div>
 
           <div className="confirm-actions">
@@ -400,7 +519,7 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
               type="primary"
               className={`confirm-btn ${isBuy ? 'buy-confirm' : 'sell-confirm'}`}
               loading={submitting}
-              onClick={handleConfirmOrder}
+              onClick={handleConfirm}
             >
               确认
             </Button>

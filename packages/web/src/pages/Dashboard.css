@@ -228,12 +228,12 @@
 }
 
 .drug-item-change.up {
-  background: #0ECB81;
+  background: #FF4D4F;
   color: #fff;
 }
 
 .drug-item-change.down {
-  background: #F6465D;
+  background: #00D4AA;
   color: #fff;
 }
 
@@ -331,11 +331,11 @@
 }
 
 .stat-value.up {
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .stat-value.down {
-  color: #F6465D;
+  color: #00D4AA;
 }
 
 /* K线图表区域 - flex: 6 */
@@ -520,6 +520,345 @@
   justify-content: center;
   color: #848E9C;
   font-size: 13px;
+}
+
+/* ==================== 底部Tab面板表格样式 ==================== */
+
+/* 表格列宽定义 - 当前委托/历史委托 */
+.pending-order-header .col-time,
+.pending-order-row .col-time {
+  flex: 0 0 90px;
+  min-width: 90px;
+}
+
+.pending-order-header .col-drug,
+.pending-order-row .col-drug {
+  flex: 1;
+  min-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pending-order-header .col-type,
+.pending-order-row .col-type {
+  flex: 0 0 60px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.pending-order-header .col-price,
+.pending-order-row .col-price {
+  flex: 0 0 80px;
+  min-width: 80px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.pending-order-header .col-qty,
+.pending-order-row .col-qty {
+  flex: 0 0 60px;
+  min-width: 60px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.pending-order-header .col-frozen,
+.pending-order-row .col-frozen {
+  flex: 0 0 90px;
+  min-width: 90px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.pending-order-header .col-status,
+.pending-order-row .col-status {
+  flex: 0 0 70px;
+  min-width: 70px;
+  text-align: center;
+}
+
+.pending-order-header .col-action,
+.pending-order-row .col-action {
+  flex: 0 0 60px;
+  min-width: 60px;
+  text-align: center;
+}
+
+.pending-order-header .col-executed,
+.pending-order-row .col-executed {
+  flex: 0 0 70px;
+  min-width: 70px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.pending-order-header .col-triggered,
+.pending-order-row .col-triggered {
+  flex: 0 0 90px;
+  min-width: 90px;
+  text-align: center;
+}
+
+/* 表格列宽定义 - 资金记录 */
+.transaction-header .col-time,
+.transaction-row .col-time {
+  flex: 0 0 90px;
+  min-width: 90px;
+}
+
+.transaction-header .col-type,
+.transaction-row .col-type {
+  flex: 0 0 70px;
+  min-width: 70px;
+  text-align: center;
+}
+
+.transaction-header .col-amount,
+.transaction-row .col-amount {
+  flex: 0 0 100px;
+  min-width: 100px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.transaction-header .col-before,
+.transaction-row .col-before {
+  flex: 0 0 100px;
+  min-width: 100px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.transaction-header .col-after,
+.transaction-row .col-after {
+  flex: 0 0 100px;
+  min-width: 100px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.transaction-header .col-desc,
+.transaction-row .col-desc {
+  flex: 1;
+  min-width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 表格列宽定义 - 持仓 */
+.holding-header .col-drug,
+.holding-row .col-drug {
+  flex: 1;
+  min-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.holding-header .col-qty,
+.holding-row .col-qty {
+  flex: 0 0 70px;
+  min-width: 70px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.holding-header .col-amount,
+.holding-row .col-amount {
+  flex: 0 0 100px;
+  min-width: 100px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+.holding-header .col-status,
+.holding-row .col-status {
+  flex: 0 0 70px;
+  min-width: 70px;
+  text-align: center;
+}
+
+.holding-header .col-profit,
+.holding-row .col-profit {
+  flex: 0 0 100px;
+  min-width: 100px;
+  text-align: right;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+/* 类型标签 */
+.type-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.type-tag.limit_buy {
+  background: rgba(255, 77, 79, 0.15);
+  color: #FF4D4F;
+  border: 1px solid rgba(255, 77, 79, 0.3);
+}
+
+.type-tag.limit_sell {
+  background: rgba(0, 212, 170, 0.15);
+  color: #00D4AA;
+  border: 1px solid rgba(0, 212, 170, 0.3);
+}
+
+/* 状态标签 */
+.status-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.status-tag.pending {
+  background: rgba(240, 185, 11, 0.15);
+  color: #F0B90B;
+  border: 1px solid rgba(240, 185, 11, 0.3);
+}
+
+.status-tag.triggered {
+  background: rgba(0, 212, 170, 0.15);
+  color: #00D4AA;
+  border: 1px solid rgba(0, 212, 170, 0.3);
+}
+
+.status-tag.cancelled {
+  background: rgba(132, 142, 156, 0.15);
+  color: #848E9C;
+  border: 1px solid rgba(132, 142, 156, 0.3);
+}
+
+.status-tag.expired {
+  background: rgba(250, 173, 20, 0.15);
+  color: #FAAD14;
+  border: 1px solid rgba(250, 173, 20, 0.3);
+}
+
+.status-tag.holding {
+  background: rgba(0, 212, 170, 0.15);
+  color: #00D4AA;
+  border: 1px solid rgba(0, 212, 170, 0.3);
+}
+
+/* 交易类型标签 */
+.transaction-type-tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* 撤单按钮 */
+.cancel-btn {
+  padding: 4px 10px;
+  background: transparent;
+  border: 1px solid #FF4D4F;
+  color: #FF4D4F;
+  border-radius: 4px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.cancel-btn:hover {
+  background: rgba(255, 77, 79, 0.15);
+}
+
+.cancel-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 金额正负样式 */
+.positive {
+  color: #FF4D4F;
+}
+
+.negative {
+  color: #00D4AA;
+}
+
+/* 分页样式 */
+.tab-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 8px 16px;
+  border-top: 1px solid #2B3139;
+  background: #181A20;
+  flex-shrink: 0;
+}
+
+.page-btn {
+  padding: 4px 12px;
+  background: #2B3139;
+  border: 1px solid #474D57;
+  color: #EAECEF;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.page-btn:hover:not(:disabled) {
+  background: #474D57;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.page-info {
+  color: #848E9C;
+  font-size: 12px;
+  font-family: 'SF Mono', Monaco, monospace;
+}
+
+/* 响应式调整 */
+@media (max-width: 1200px) {
+  .bottom-area {
+    flex-direction: column;
+  }
+
+  .orderbook-section {
+    width: 100%;
+    height: 200px;
+    border-right: none;
+    border-bottom: 1px solid #2B3139;
+  }
+
+  .bottom-tab-panel {
+    flex: 1;
+  }
+}
+
+@media (max-width: 768px) {
+  .pending-order-header .col-frozen,
+  .pending-order-row .col-frozen,
+  .pending-order-header .col-triggered,
+  .pending-order-row .col-triggered,
+  .transaction-header .col-before,
+  .transaction-row .col-before,
+  .transaction-header .col-after,
+  .transaction-row .col-after {
+    display: none;
+  }
+
+  .holding-header .col-amount,
+  .holding-row .col-amount {
+    display: none;
+  }
 }
 
 

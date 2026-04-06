@@ -1,17 +1,73 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Skeleton, Drawer } from 'antd'
+import { Skeleton, Drawer, message } from 'antd'
 import {
   ShoppingCartOutlined,
   StarOutlined,
   StarFilled,
 } from '@ant-design/icons'
-import { marketApi } from '../services/api'
+import { marketApi, pendingOrderApi, accountApi, fundingApi } from '../services/api'
 import { useWebSocket } from '../hooks/useWebSocket'
 import KLineChart, { KLineData } from '../components/KLineChart'
 import TickerBar from '../components/TickerBar'
 import OrderBook from '../components/OrderBook'
 import TradePanel from '../components/TradePanel'
 import './Dashboard.css'
+
+// 交易类型映射
+const transactionTypeMap: Record<string, { label: string; color: string }> = {
+  recharge: { label: '充值', color: '#FF4D4F' },
+  withdraw: { label: '提现', color: '#00D4AA' },
+  funding: { label: '投资', color: '#F0B90B' },
+  principal_return: { label: '本金返还', color: '#FF4D4F' },
+  profit_share: { label: '收益分配', color: '#FF4D4F' },
+  loss_share: { label: '亏损分摊', color: '#00D4AA' },
+  interest: { label: '利息', color: '#F0B90B' },
+}
+
+// 委托单类型定义
+interface PendingOrder {
+  id: string
+  drugId: string
+  drugName: string
+  type: 'limit_buy' | 'limit_sell'
+  targetPrice: number
+  quantity: number
+  frozenAmount: number
+  status: 'pending' | 'triggered' | 'cancelled' | 'expired'
+  createdAt: string
+  triggeredAt?: string
+  executedQuantity?: number
+}
+
+// 资金记录类型定义
+interface Transaction {
+  id: string
+  type: string
+  amount: number
+  balanceBefore: number
+  balanceAfter: number
+  description: string
+  createdAt: string
+}
+
+// 持仓类型定义
+interface Holding {
+  id: string
+  drugId: string
+  drugName: string
+  quantity: number
+  amount: number
+  status: string
+  totalProfit: number
+}
+
+// 分页类型定义
+interface PaginationData {
+  page: number
+  pageSize: number
+  total: number
+  totalPages: number
+}
 
 // 类型定义
 interface MarketOverviewItem {
@@ -71,7 +127,6 @@ const Dashboard = () => {
   const [, setMarketStats] = useState<MarketStats | null>(null)
   const [kLineData, setKLineData] = useState<KLineData[]>([])
   const [depthData, setDepthData] = useState<DepthData | null>(null)
-  const [activities, setActivities] = useState<ActivityItem[]>([])
   const [selectedDrugId, setSelectedDrugId] = useState<string>('')
   const [kLinePeriod, setKLinePeriod] = useState<'15m' | '1h' | '4h' | '1d' | '1w' | '1mo' | '7d' | '30d' | '90d' | 'all'>('1d')
 
@@ -84,12 +139,51 @@ const Dashboard = () => {
   // 底部Tab状态
   const [bottomTab, setBottomTab] = useState<'orders' | 'history' | 'funds' | 'holdings'>('orders')
 
+  // 当前委托状态
+  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([])
+  const [pendingOrdersLoading, setPendingOrdersLoading] = useState(false)
+  const [pendingOrdersPagination, setPendingOrdersPagination] = useState<PaginationData>({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
+  })
+
+  // 历史委托状态
+  const [historyOrders, setHistoryOrders] = useState<PendingOrder[]>([])
+  const [historyOrdersLoading, setHistoryOrdersLoading] = useState(false)
+  const [historyOrdersPagination, setHistoryOrdersPagination] = useState<PaginationData>({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
+  })
+
+  // 资金记录状态
+  const [transactions, setTransactions] = useState<Transaction[]>([])
+  const [transactionsLoading, setTransactionsLoading] = useState(false)
+  const [transactionsPagination, setTransactionsPagination] = useState<PaginationData>({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
+  })
+
+  // 持仓状态
+  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [holdingsLoading, setHoldingsLoading] = useState(false)
+  const [holdingsPagination, setHoldingsPagination] = useState<PaginationData>({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
+  })
+
   // 加载状态
   const [loadingOverview, setLoadingOverview] = useState(true)
   const [, setLoadingStats] = useState(true)
   const [loadingKLine, setLoadingKLine] = useState(true)
   const [loadingDepth, setLoadingDepth] = useState(true)
-  const [, setLoadingActivities] = useState(true)
 
   // 响应式状态
   const [isMobile, setIsMobile] = useState(false)
@@ -121,37 +215,20 @@ const Dashboard = () => {
     },
     onFundingUpdate: (data) => {
       if (data) {
-        const newActivity: ActivityItem = {
-          id: Date.now().toString(),
-          type: 'funding',
-          time: new Date().toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          }),
-          userName: data.userName || '用户',
-          drugName: data.drugName || '未知药品',
-          amount: data.amount,
-          quantity: data.quantity,
+        // 资金更新时刷新当前委托和持仓
+        if (bottomTab === 'orders') {
+          fetchPendingOrders()
+        } else if (bottomTab === 'holdings') {
+          fetchHoldings()
         }
-        setActivities((prev) => [newActivity, ...prev].slice(0, 20))
       }
     },
     onSettlementComplete: (data) => {
       if (data) {
-        const newActivity: ActivityItem = {
-          id: Date.now().toString(),
-          type: 'settlement',
-          time: new Date().toLocaleTimeString('zh-CN', {
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-          }),
-          userName: data.userName || '系统',
-          drugName: data.drugName || '未知药品',
-          profit: data.profit,
+        // 清算完成时刷新持仓
+        if (bottomTab === 'holdings') {
+          fetchHoldings()
         }
-        setActivities((prev) => [newActivity, ...prev].slice(0, 20))
       }
     },
   })
@@ -276,56 +353,6 @@ const Dashboard = () => {
     fetchMarketOverview()
     fetchMarketStats()
     subscribeTicker()
-
-    // 模拟活动数据
-    setTimeout(() => {
-      setActivities([
-        {
-          id: '1',
-          type: 'funding',
-          time: '14:32:15',
-          userName: '张**',
-          drugName: '阿莫西林胶囊',
-          amount: 50000,
-          quantity: 100,
-        },
-        {
-          id: '2',
-          type: 'settlement',
-          time: '14:28:42',
-          userName: '李**',
-          drugName: '头孢克肟片',
-          profit: 1250.5,
-        },
-        {
-          id: '3',
-          type: 'funding',
-          time: '14:25:08',
-          userName: '王**',
-          drugName: '布洛芬缓释片',
-          amount: 30000,
-          quantity: 60,
-        },
-        {
-          id: '4',
-          type: 'funding',
-          time: '14:18:33',
-          userName: '陈**',
-          drugName: '阿莫西林胶囊',
-          amount: 80000,
-          quantity: 160,
-        },
-        {
-          id: '5',
-          type: 'settlement',
-          time: '14:15:21',
-          userName: '刘**',
-          drugName: '维生素C片',
-          profit: 890.25,
-        },
-      ])
-      setLoadingActivities(false)
-    }, 1000)
   }, [])
 
   // 当选择药品变化时加载数据
@@ -394,6 +421,119 @@ const Dashboard = () => {
   const handleOrderSuccess = useCallback(() => {
     fetchDepthData(selectedDrugId)
   }, [selectedDrugId, fetchDepthData])
+
+  // 获取当前委托列表
+  const fetchPendingOrders = useCallback(async () => {
+    setPendingOrdersLoading(true)
+    try {
+      const response: any = await pendingOrderApi.getList({
+        status: 'pending',
+        page: pendingOrdersPagination.page,
+        pageSize: pendingOrdersPagination.pageSize,
+      })
+      setPendingOrders(response.data?.list || [])
+      setPendingOrdersPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+    } catch (error) {
+      console.error('获取当前委托失败:', error)
+    } finally {
+      setPendingOrdersLoading(false)
+    }
+  }, [pendingOrdersPagination.page, pendingOrdersPagination.pageSize])
+
+  // 获取历史委托列表
+  const fetchHistoryOrders = useCallback(async () => {
+    setHistoryOrdersLoading(true)
+    try {
+      // 后端可能不支持多状态查询，先不传status参数，前端过滤
+      const response: any = await pendingOrderApi.getList({
+        page: historyOrdersPagination.page,
+        pageSize: historyOrdersPagination.pageSize,
+      })
+      const allOrders = response.data?.list || []
+      // 过滤掉pending状态的，只保留triggered/cancelled/expired
+      const filteredOrders = allOrders.filter((order: PendingOrder) => order.status !== 'pending')
+      setHistoryOrders(filteredOrders)
+      setHistoryOrdersPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+    } catch (error) {
+      console.error('获取历史委托失败:', error)
+    } finally {
+      setHistoryOrdersLoading(false)
+    }
+  }, [historyOrdersPagination.page, historyOrdersPagination.pageSize])
+
+  // 获取资金记录列表
+  const fetchTransactions = useCallback(async () => {
+    setTransactionsLoading(true)
+    try {
+      const response: any = await accountApi.getTransactions({
+        page: transactionsPagination.page,
+        pageSize: transactionsPagination.pageSize,
+      })
+      setTransactions(response.list || [])
+      setTransactionsPagination(response.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+    } catch (error) {
+      console.error('获取资金记录失败:', error)
+    } finally {
+      setTransactionsLoading(false)
+    }
+  }, [transactionsPagination.page, transactionsPagination.pageSize])
+
+  // 获取持仓列表
+  const fetchHoldings = useCallback(async () => {
+    setHoldingsLoading(true)
+    try {
+      const response: any = await fundingApi.getFundingOrders({
+        status: 'holding',
+        page: holdingsPagination.page,
+        pageSize: holdingsPagination.pageSize,
+      })
+      setHoldings(response.data?.list || [])
+      setHoldingsPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+    } catch (error) {
+      console.error('获取持仓失败:', error)
+    } finally {
+      setHoldingsLoading(false)
+    }
+  }, [holdingsPagination.page, holdingsPagination.pageSize])
+
+  // 撤单操作
+  const handleCancelOrder = useCallback(async (id: string) => {
+    try {
+      await pendingOrderApi.cancel(id)
+      message.success('撤单成功')
+      fetchPendingOrders()
+    } catch (error: any) {
+      message.error(error.response?.data?.message || '撤单失败')
+    }
+  }, [fetchPendingOrders])
+
+  // Tab切换时加载数据
+  useEffect(() => {
+    if (bottomTab === 'orders') {
+      fetchPendingOrders()
+    } else if (bottomTab === 'history') {
+      fetchHistoryOrders()
+    } else if (bottomTab === 'funds') {
+      fetchTransactions()
+    } else if (bottomTab === 'holdings') {
+      fetchHoldings()
+    }
+  }, [bottomTab, fetchPendingOrders, fetchHistoryOrders, fetchTransactions, fetchHoldings])
+
+  // 格式化日期
+  const formatDate = (dateStr: string) => {
+    return new Date(dateStr).toLocaleString('zh-CN', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  // 格式化金额
+  const formatCurrency = (value: number) => {
+    return `¥${Number(value || 0).toFixed(2)}`
+  }
 
   // 渲染排序表头
   const renderSortHeader = (label: string, column: 'name' | 'price' | 'change') => {
@@ -617,80 +757,275 @@ const Dashboard = () => {
 
               {/* Tab内容 */}
               <div className="tab-content">
+                {/* Tab 1: 当前委托 */}
                 {bottomTab === 'orders' && (
                   <div className="tab-table">
-                    <div className="table-header">
-                      <span>时间</span>
-                      <span>品种</span>
-                      <span>数量</span>
-                      <span>金额</span>
-                      <span>状态</span>
+                    <div className="table-header pending-order-header">
+                      <span className="col-time">时间</span>
+                      <span className="col-drug">药品</span>
+                      <span className="col-type">类型</span>
+                      <span className="col-price">目标价</span>
+                      <span className="col-qty">数量</span>
+                      <span className="col-frozen">冻结金额</span>
+                      <span className="col-status">状态</span>
+                      <span className="col-action">操作</span>
                     </div>
-                    {activities.filter(a => a.type === 'funding').length === 0 ? (
+                    {pendingOrdersLoading ? (
+                      <div className="empty-table">加载中...</div>
+                    ) : pendingOrders.length === 0 ? (
                       <div className="empty-table">暂无当前委托</div>
                     ) : (
                       <div className="table-body">
-                        {activities
-                          .filter(a => a.type === 'funding')
-                          .map(activity => (
-                            <div key={activity.id} className="table-row">
-                              <span>{activity.time}</span>
-                              <span>{activity.drugName}</span>
-                              <span>{activity.quantity}</span>
-                              <span>¥{Number(activity.amount || 0).toLocaleString()}</span>
-                              <span className="status-pending">进行中</span>
-                            </div>
-                          ))}
+                        {pendingOrders.map(order => (
+                          <div key={order.id} className="table-row pending-order-row">
+                            <span className="col-time">{formatDate(order.createdAt)}</span>
+                            <span className="col-drug" title={order.drugName}>{order.drugName}</span>
+                            <span className="col-type">
+                              <span className={`type-tag ${order.type}`}>
+                                {order.type === 'limit_buy' ? '买入' : '卖出'}
+                              </span>
+                            </span>
+                            <span className="col-price">{formatCurrency(order.targetPrice)}</span>
+                            <span className="col-qty">{order.quantity}盒</span>
+                            <span className="col-frozen">{formatCurrency(order.frozenAmount)}</span>
+                            <span className="col-status">
+                              <span className="status-tag pending">待触发</span>
+                            </span>
+                            <span className="col-action">
+                              <button
+                                className="cancel-btn"
+                                onClick={() => handleCancelOrder(order.id)}
+                              >
+                                撤单
+                              </button>
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* 分页 */}
+                    {pendingOrdersPagination.totalPages > 1 && (
+                      <div className="tab-pagination">
+                        <button
+                          className="page-btn"
+                          disabled={pendingOrdersPagination.page <= 1}
+                          onClick={() => setPendingOrdersPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                        >
+                          上一页
+                        </button>
+                        <span className="page-info">
+                          {pendingOrdersPagination.page} / {pendingOrdersPagination.totalPages}
+                        </span>
+                        <button
+                          className="page-btn"
+                          disabled={pendingOrdersPagination.page >= pendingOrdersPagination.totalPages}
+                          onClick={() => setPendingOrdersPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        >
+                          下一页
+                        </button>
                       </div>
                     )}
                   </div>
                 )}
 
+                {/* Tab 2: 历史委托 */}
                 {bottomTab === 'history' && (
                   <div className="tab-table">
-                    <div className="table-header">
-                      <span>时间</span>
-                      <span>品种</span>
-                      <span>类型</span>
-                      <span>收益</span>
-                      <span>状态</span>
+                    <div className="table-header pending-order-header">
+                      <span className="col-time">时间</span>
+                      <span className="col-drug">药品</span>
+                      <span className="col-type">类型</span>
+                      <span className="col-price">目标价</span>
+                      <span className="col-qty">数量</span>
+                      <span className="col-executed">成交数量</span>
+                      <span className="col-status">状态</span>
+                      <span className="col-triggered">成交时间</span>
                     </div>
-                    {activities.filter(a => a.type === 'settlement').length === 0 ? (
+                    {historyOrdersLoading ? (
+                      <div className="empty-table">加载中...</div>
+                    ) : historyOrders.length === 0 ? (
                       <div className="empty-table">暂无历史委托</div>
                     ) : (
                       <div className="table-body">
-                        {activities
-                          .filter(a => a.type === 'settlement')
-                          .map(activity => (
-                            <div key={activity.id} className="table-row">
-                              <span>{activity.time}</span>
-                              <span>{activity.drugName}</span>
-                              <span>清算</span>
-                              <span className="profit">+¥{Number(activity.profit || 0).toFixed(2)}</span>
-                              <span className="status-completed">已完成</span>
+                        {historyOrders.map(order => {
+                          const statusMap: Record<string, { label: string; className: string }> = {
+                            triggered: { label: '已成交', className: 'triggered' },
+                            cancelled: { label: '已撤销', className: 'cancelled' },
+                            expired: { label: '已过期', className: 'expired' },
+                          }
+                          const statusConfig = statusMap[order.status] || { label: order.status, className: '' }
+                          return (
+                            <div key={order.id} className="table-row pending-order-row">
+                              <span className="col-time">{formatDate(order.createdAt)}</span>
+                              <span className="col-drug" title={order.drugName}>{order.drugName}</span>
+                              <span className="col-type">
+                                <span className={`type-tag ${order.type}`}>
+                                  {order.type === 'limit_buy' ? '买入' : '卖出'}
+                                </span>
+                              </span>
+                              <span className="col-price">{formatCurrency(order.targetPrice)}</span>
+                              <span className="col-qty">{order.quantity}盒</span>
+                              <span className="col-executed">{order.executedQuantity || 0}盒</span>
+                              <span className="col-status">
+                                <span className={`status-tag ${statusConfig.className}`}>
+                                  {statusConfig.label}
+                                </span>
+                              </span>
+                              <span className="col-triggered">
+                                {order.triggeredAt ? formatDate(order.triggeredAt) : '-'}
+                              </span>
                             </div>
-                          ))}
+                          )
+                        })}
+                      </div>
+                    )}
+                    {/* 分页 */}
+                    {historyOrdersPagination.totalPages > 1 && (
+                      <div className="tab-pagination">
+                        <button
+                          className="page-btn"
+                          disabled={historyOrdersPagination.page <= 1}
+                          onClick={() => setHistoryOrdersPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                        >
+                          上一页
+                        </button>
+                        <span className="page-info">
+                          {historyOrdersPagination.page} / {historyOrdersPagination.totalPages}
+                        </span>
+                        <button
+                          className="page-btn"
+                          disabled={historyOrdersPagination.page >= historyOrdersPagination.totalPages}
+                          onClick={() => setHistoryOrdersPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        >
+                          下一页
+                        </button>
                       </div>
                     )}
                   </div>
                 )}
 
+                {/* Tab 3: 资金记录 */}
                 {bottomTab === 'funds' && (
                   <div className="tab-table">
-                    <div className="table-header">
-                      <span>时间</span>
-                      <span>类型</span>
-                      <span>金额</span>
-                      <span>余额</span>
-                      <span>备注</span>
+                    <div className="table-header transaction-header">
+                      <span className="col-time">时间</span>
+                      <span className="col-type">类型</span>
+                      <span className="col-amount">金额</span>
+                      <span className="col-before">变动前余额</span>
+                      <span className="col-after">变动后余额</span>
+                      <span className="col-desc">说明</span>
                     </div>
-                    <div className="empty-table">暂无资金记录</div>
+                    {transactionsLoading ? (
+                      <div className="empty-table">加载中...</div>
+                    ) : transactions.length === 0 ? (
+                      <div className="empty-table">暂无资金记录</div>
+                    ) : (
+                      <div className="table-body">
+                        {transactions.map(tx => {
+                          const config = transactionTypeMap[tx.type] || { label: tx.type, color: '#8B949E' }
+                          const isPositive = ['recharge', 'principal_return', 'profit_share', 'interest'].includes(tx.type)
+                          return (
+                            <div key={tx.id} className="table-row transaction-row">
+                              <span className="col-time">{formatDate(tx.createdAt)}</span>
+                              <span className="col-type">
+                                <span
+                                  className="transaction-type-tag"
+                                  style={{ background: `${config.color}20`, color: config.color, border: `1px solid ${config.color}40` }}
+                                >
+                                  {config.label}
+                                </span>
+                              </span>
+                              <span className={`col-amount ${isPositive ? 'positive' : 'negative'}`}>
+                                {isPositive ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                              </span>
+                              <span className="col-before">{formatCurrency(tx.balanceBefore)}</span>
+                              <span className="col-after">{formatCurrency(tx.balanceAfter)}</span>
+                              <span className="col-desc" title={tx.description}>{tx.description}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {/* 分页 */}
+                    {transactionsPagination.totalPages > 1 && (
+                      <div className="tab-pagination">
+                        <button
+                          className="page-btn"
+                          disabled={transactionsPagination.page <= 1}
+                          onClick={() => setTransactionsPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                        >
+                          上一页
+                        </button>
+                        <span className="page-info">
+                          {transactionsPagination.page} / {transactionsPagination.totalPages}
+                        </span>
+                        <button
+                          className="page-btn"
+                          disabled={transactionsPagination.page >= transactionsPagination.totalPages}
+                          onClick={() => setTransactionsPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        >
+                          下一页
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
 
+                {/* Tab 4: 持仓 */}
                 {bottomTab === 'holdings' && (
-                  <div className="tab-placeholder">
-                    <p>请前往持仓页面查看</p>
+                  <div className="tab-table">
+                    <div className="table-header holding-header">
+                      <span className="col-drug">药品</span>
+                      <span className="col-qty">数量</span>
+                      <span className="col-amount">金额</span>
+                      <span className="col-status">状态</span>
+                      <span className="col-profit">累计收益</span>
+                    </div>
+                    {holdingsLoading ? (
+                      <div className="empty-table">加载中...</div>
+                    ) : holdings.length === 0 ? (
+                      <div className="tab-placeholder">
+                        <p>暂无持仓，请前往交易页面下单</p>
+                      </div>
+                    ) : (
+                      <div className="table-body">
+                        {holdings.map(holding => (
+                          <div key={holding.id} className="table-row holding-row">
+                            <span className="col-drug" title={holding.drugName}>{holding.drugName}</span>
+                            <span className="col-qty">{holding.quantity}盒</span>
+                            <span className="col-amount">{formatCurrency(holding.amount)}</span>
+                            <span className="col-status">
+                              <span className="status-tag holding">持仓中</span>
+                            </span>
+                            <span className={`col-profit ${holding.totalProfit >= 0 ? 'positive' : 'negative'}`}>
+                              {holding.totalProfit >= 0 ? '+' : ''}{formatCurrency(holding.totalProfit)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {/* 分页 */}
+                    {holdingsPagination.totalPages > 1 && (
+                      <div className="tab-pagination">
+                        <button
+                          className="page-btn"
+                          disabled={holdingsPagination.page <= 1}
+                          onClick={() => setHoldingsPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                        >
+                          上一页
+                        </button>
+                        <span className="page-info">
+                          {holdingsPagination.page} / {holdingsPagination.totalPages}
+                        </span>
+                        <button
+                          className="page-btn"
+                          disabled={holdingsPagination.page >= holdingsPagination.totalPages}
+                          onClick={() => setHoldingsPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                        >
+                          下一页
+                        </button>
+                      </div>
+                    )}
                   </div>
                 )}
               </div>

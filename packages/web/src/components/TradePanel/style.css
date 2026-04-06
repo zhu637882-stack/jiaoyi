@@ -56,7 +56,7 @@
 }
 
 .trade-tab.active {
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .trade-tab.active::after {
@@ -66,16 +66,16 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #0ECB81;
+  background: #FF4D4F;
 }
 
 /* 卖出模式 Tab 样式 */
 .trade-panel.sell-mode .trade-tab.active {
-  color: #F6465D;
+  color: #00D4AA;
 }
 
 .trade-panel.sell-mode .trade-tab.active::after {
-  background: #F6465D;
+  background: #00D4AA;
 }
 
 /* 面板区域 */
@@ -193,7 +193,7 @@
 }
 
 .trade-panel .ant-slider-track {
-  background: #0ECB81;
+  background: #FF4D4F;
   height: 4px;
   border-radius: 2px;
 }
@@ -203,8 +203,8 @@
   width: 12px;
   height: 12px;
   margin-top: -4px;
-  border: 2px solid #0ECB81;
-  background: #0ECB81;
+  border: 2px solid #FF4D4F;
+  background: #FF4D4F;
   box-shadow: none;
 }
 
@@ -232,23 +232,23 @@
 }
 
 .trade-panel .ant-slider-dot-active {
-  border-color: #0ECB81;
-  background: #0ECB81;
+  border-color: #FF4D4F;
+  background: #FF4D4F;
 }
 
 /* Slider 卖出模式 */
 .trade-panel.sell-mode .ant-slider-track {
-  background: #F6465D;
+  background: #00D4AA;
 }
 
 .trade-panel.sell-mode .ant-slider-handle {
-  border-color: #F6465D;
-  background: #F6465D;
+  border-color: #00D4AA;
+  background: #00D4AA;
 }
 
 .trade-panel.sell-mode .ant-slider-dot-active {
-  border-color: #F6465D;
-  background: #F6465D;
+  border-color: #00D4AA;
+  background: #00D4AA;
 }
 
 /* 交易额显示 - 币安风格 */
@@ -284,12 +284,12 @@
 }
 
 .submit-btn.buy-btn {
-  background: #0ECB81 !important;
+  background: #FF4D4F !important;
   color: #fff !important;
 }
 
 .submit-btn.sell-btn {
-  background: #F6465D !important;
+  background: #00D4AA !important;
   color: #fff !important;
 }
 
@@ -353,11 +353,11 @@
 }
 
 .holding-section .holding-value.profit {
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .holding-section .holding-value.loss {
-  color: #F6465D;
+  color: #00D4AA;
 }
 
 .holding-section .holding-empty {
@@ -389,40 +389,40 @@
 
 /* 买入模式弹窗 */
 .trade-confirm-modal.buy-mode .confirm-icon {
-  background: rgba(14, 203, 129, 0.15);
-  border: 2px solid #0ECB81;
+  background: rgba(255, 77, 79, 0.15);
+  border: 2px solid #FF4D4F;
 }
 
 .trade-confirm-modal.buy-mode .confirm-icon span {
   font-size: 24px;
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .trade-confirm-modal.buy-mode .confirm-amount {
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .trade-confirm-modal.buy-mode .confirm-btn {
-  background: #0ECB81 !important;
+  background: #FF4D4F !important;
 }
 
 /* 卖出模式弹窗 */
 .trade-confirm-modal.sell-mode .confirm-icon {
-  background: rgba(246, 70, 93, 0.15);
-  border: 2px solid #F6465D;
+  background: rgba(0, 212, 170, 0.15);
+  border: 2px solid #00D4AA;
 }
 
 .trade-confirm-modal.sell-mode .confirm-icon span {
   font-size: 24px;
-  color: #F6465D;
+  color: #00D4AA;
 }
 
 .trade-confirm-modal.sell-mode .confirm-amount {
-  color: #F6465D;
+  color: #00D4AA;
 }
 
 .trade-confirm-modal.sell-mode .confirm-btn {
-  background: #F6465D !important;
+  background: #00D4AA !important;
 }
 
 .confirm-modal-content .confirm-title {
@@ -599,4 +599,96 @@
 .view-holdings-link:hover {
   color: #FFD54F;
   text-decoration: underline;
+}
+
+/* 订单类型切换 - 市价/限价 */
+.order-type-tabs {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 16px;
+  background: #1E2329;
+  border-bottom: 1px solid #2B3139;
+  gap: 8px;
+}
+
+.order-type-tab {
+  font-size: 12px;
+  color: #848E9C;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.order-type-tab:hover {
+  color: #E6EDF3;
+}
+
+.order-type-tab.active {
+  color: #E6EDF3;
+  background: #2B3139;
+  font-weight: 500;
+}
+
+.order-type-divider {
+  color: #2B3139;
+  font-size: 12px;
+}
+
+/* 有效期选择器 */
+.expire-select {
+  width: 100%;
+}
+
+.expire-select .ant-select-selector {
+  background: #2B3139 !important;
+  border: none !important;
+  border-radius: 4px !important;
+  color: #EAECEF !important;
+  font-size: 14px;
+}
+
+.expire-select .ant-select-arrow {
+  color: #848E9C;
+}
+
+.expire-select .ant-select-selection-item {
+  color: #EAECEF;
+}
+
+/* 有效期下拉菜单 */
+.ant-select-dropdown.expire-select-dropdown {
+  background: #1E2329;
+  border: 1px solid #2B3139;
+  border-radius: 4px;
+}
+
+.ant-select-dropdown.expire-select-dropdown .ant-select-item {
+  color: #848E9C;
+  font-size: 13px;
+}
+
+.ant-select-dropdown.expire-select-dropdown .ant-select-item-option-selected {
+  background: #2B3139;
+  color: #EAECEF;
+}
+
+.ant-select-dropdown.expire-select-dropdown .ant-select-item-option-active {
+  background: #2B3139;
+}
+
+/* 可编辑价格输入框 */
+.price-input.editable .ant-input-number-input {
+  background: #2B3139 !important;
+  color: #EAECEF !important;
+}
+
+.price-input.editable.ant-input-number {
+  border: 1px solid #2B3139 !important;
+}
+
+.price-input.editable.ant-input-number:hover,
+.price-input.editable.ant-input-number:focus-within {
+  border-color: #3C4043 !important;
 }

@@ -58,11 +58,11 @@
 }
 
 .toolbar-change.up {
-  color: #00D4AA;
+  color: #FF4D4F;
 }
 
 .toolbar-change.down {
-  color: #FF4D4F;
+  color: #00D4AA;
 }
 
 /* 时间周期选择器 */
@@ -210,11 +210,11 @@
 }
 
 .data-value.up {
-  color: #00D4AA;
+  color: #FF4D4F;
 }
 
 .data-value.down {
-  color: #FF4D4F;
+  color: #00D4AA;
 }
 
 /* MA 均线数值颜色 */

@@ -69,13 +69,13 @@
 }
 
 .ticker-change.up {
-  color: #0ECB81;
-  background: rgba(14, 203, 129, 0.1);
+  color: #FF4D4F;
+  background: rgba(255, 77, 79, 0.1);
 }
 
 .ticker-change.down {
-  color: #F6465D;
-  background: rgba(246, 70, 93, 0.1);
+  color: #00D4AA;
+  background: rgba(0, 212, 170, 0.1);
 }
 
 .ticker-change .anticon {

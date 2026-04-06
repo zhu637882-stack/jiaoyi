@@ -1,6 +1,7 @@
 export { User, UserRole } from './user.entity';
 export { Drug, DrugStatus } from './drug.entity';
 export { FundingOrder, FundingOrderStatus } from './funding-order.entity';
+export { PendingOrder, PendingOrderType, PendingOrderStatus } from './pending-order.entity';
 export { DailySales } from './daily-sales.entity';
 export { Settlement, SettlementStatus } from './settlement.entity';
 export { AccountBalance } from './account-balance.entity';

@@ -31,7 +31,7 @@
 }
 
 .stat-value.highlight {
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .stat-divider {
@@ -131,14 +131,14 @@
   text-align: right;
 }
 
-/* 卖盘样式 - 红色 */
+/* 卖盘样式 - 绿色（跌方） */
 .ask-price {
-  color: #F6465D !important;
+  color: #00D4AA !important;
 }
 
-/* 买盘样式 - 绿色 */
+/* 买盘样式 - 红色（涨方） */
 .bid-price {
-  color: #0ECB81 !important;
+  color: #FF4D4F !important;
 }
 
 /* 最新价中间区域 */
@@ -161,11 +161,11 @@
 }
 
 .current-price-value.up {
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .current-price-value.down {
-  color: #F6465D;
+  color: #00D4AA;
 }
 
 .price-change {
@@ -178,11 +178,11 @@
 }
 
 .price-change.up {
-  color: #0ECB81;
+  color: #FF4D4F;
 }
 
 .price-change.down {
-  color: #F6465D;
+  color: #00D4AA;
 }
 
 /* 等宽字体 */
