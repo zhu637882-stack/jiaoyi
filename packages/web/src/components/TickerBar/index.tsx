@@ -15,13 +15,14 @@ interface TickerItem {
 interface TickerBarProps {
   data: TickerItem[]
   loading?: boolean
+  onItemClick?: (drugId: string) => void
 }
 
 interface PriceFlashState {
   [key: string]: 'up' | 'down' | null
 }
 
-const TickerBar = ({ data, loading = false }: TickerBarProps) => {
+const TickerBar = ({ data, loading = false, onItemClick }: TickerBarProps) => {
   const navigate = useNavigate()
   const containerRef = useRef<HTMLDivElement>(null)
   const [isPaused, setIsPaused] = useState(false)
@@ -57,7 +58,11 @@ const TickerBar = ({ data, loading = false }: TickerBarProps) => {
   const duplicatedData = [...data, ...data]
 
   const handleItemClick = (drugId: string) => {
-    navigate(`/trade/${drugId}`)
+    if (onItemClick) {
+      onItemClick(drugId)
+    } else {
+      navigate(`/trade/${drugId}`)
+    }
   }
 
   const formatReturn = (value: number) => {

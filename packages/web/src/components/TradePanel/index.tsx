@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   InputNumber,
   Button,
@@ -35,6 +36,7 @@ interface HoldingSummary {
 }
 
 const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
+  const navigate = useNavigate()
   const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy')
   const [quantity, setQuantity] = useState<number>(1)
   const [balance, setBalance] = useState<number>(0)
@@ -296,7 +298,12 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
           disabled={!canSubmit}
           className={`submit-btn ${isBuy ? 'buy-btn' : 'sell-btn'}`}
         >
-          {isBuy ? `垫资买入 ${drug.drugName}` : `解套卖出 ${drug.drugName}`}
+          <span className="btn-text-long">
+            {isBuy ? `垫资买入 ${drug.drugName}` : `解套卖出 ${drug.drugName}`}
+          </span>
+          <span className="btn-text-short" style={{ display: 'none' }}>
+            {isBuy ? '垫资买入' : '解套卖出'}
+          </span>
         </Button>
 
         {/* 无持仓提示 */}
@@ -329,6 +336,12 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
         ) : (
           <div className="holding-empty">暂无持仓</div>
         )}
+        <div 
+          className="view-holdings-link"
+          onClick={() => navigate('/portfolio')}
+        >
+          查看完整持仓 &gt;
+        </div>
       </div>
 
       {/* 确认弹窗 */}

@@ -292,6 +292,9 @@ const KLineChart = ({
     if (!chart) return
     chartRef.current = chart
 
+    // 设置右侧偏移距离，最新数据点右侧会有80px的缓冲区
+    chart.setOffsetRightDistance(80)
+
     // 【关键】先设置交易对和周期，再设置 DataLoader
     // 因为 setDataLoader 内部会立即调用 resetData，此时需要 symbol/period 已设置
     chart.setSymbol({
@@ -306,6 +309,19 @@ const KLineChart = ({
       getBars: (params) => {
         // 使用当前数据
         params.callback(dataRef.current, false)
+        // 初始化加载后动态调整蜡烛宽度并滚动到最新数据
+        setTimeout(() => {
+          if (chartRef.current && containerRef.current) {
+            const dataCount = dataRef.current.length
+            if (dataCount > 0) {
+              const containerWidth = containerRef.current.offsetWidth
+              const availableWidth = containerWidth - 140
+              const idealBarSpace = Math.max(6, Math.min(availableWidth / dataCount, 20))
+              chartRef.current.setBarSpace(idealBarSpace)
+            }
+            chartRef.current.scrollToRealTime()
+          }
+        }, 100)
       },
     }
     chart.setDataLoader(dataLoader)
@@ -364,8 +380,21 @@ const KLineChart = ({
   // 更新数据 - 调用 resetData 触发 DataLoader 重新加载
   useEffect(() => {
     if (chartRef.current && convertedData.length > 0) {
-      // resetData 会触发 DataLoader.getBars
       chartRef.current.resetData()
+
+      // 动态计算蜡烛宽度，使数据填满整个图表视口
+      setTimeout(() => {
+        if (chartRef.current && containerRef.current) {
+          const containerWidth = containerRef.current.offsetWidth
+          const dataCount = convertedData.length
+          // 预留右侧80px偏移 + 左侧Y轴约60px
+          const availableWidth = containerWidth - 140
+          // 计算每根蜡烛的理想宽度（包含间距），限制在合理范围内
+          const idealBarSpace = Math.max(6, Math.min(availableWidth / dataCount, 20))
+          chartRef.current.setBarSpace(idealBarSpace)
+          chartRef.current.scrollToRealTime()
+        }
+      }, 50)
     }
   }, [convertedData])
 
@@ -566,7 +595,9 @@ const KLineChart = ({
           ref={containerRef}
           className="kline-main-chart"
           style={{
-            display: loading || !data || data.length === 0 ? 'none' : 'block',
+            opacity: loading || !data || data.length === 0 ? 0 : 1,
+            visibility: loading || !data || data.length === 0 ? 'hidden' : 'visible',
+            transition: 'opacity 0.2s ease'
           }}
         />
 

@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import {
   Card,
   Row,
@@ -77,6 +77,7 @@ interface HoldingOrder {
 
 const Trade = () => {
   const { drugId } = useParams<{ drugId: string }>()
+  const navigate = useNavigate()
 
   const [form] = Form.useForm()
 
@@ -486,6 +487,34 @@ const Trade = () => {
 
   return (
     <div style={{ padding: 12 }}>
+      {/* 返回导航条 */}
+      <div style={{
+        padding: '12px 24px',
+        background: '#0D1117',
+        borderBottom: '1px solid #21262D',
+        display: 'flex',
+        alignItems: 'center',
+        gap: '16px',
+        margin: '-12px -12px 16px -12px',
+      }}>
+        <span 
+          onClick={() => navigate('/')} 
+          style={{
+            color: '#F0B90B',
+            cursor: 'pointer',
+            fontSize: '14px',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '4px'
+          }}
+        >
+          ← 返回交易终端
+        </span>
+        <span style={{ color: '#848E9C', fontSize: '13px' }}>
+          品种详情页
+        </span>
+      </div>
+
       {/* 药品信息摘要条 */}
       <div
         style={{
@@ -769,6 +798,18 @@ const Trade = () => {
 
         {/* 右侧交易面板 */}
         <Col xs={24} lg={10}>
+          {/* 推荐提示 */}
+          <div style={{
+            padding: '8px 12px',
+            background: 'rgba(240, 185, 11, 0.1)',
+            border: '1px solid rgba(240, 185, 11, 0.2)',
+            borderRadius: '4px',
+            marginBottom: '12px',
+            fontSize: '12px',
+            color: '#F0B90B'
+          }}>
+            💡 推荐在交易终端进行快速交易，享受更完整的行情分析体验
+          </div>
           <Card
             style={{
               background: '#161B22',

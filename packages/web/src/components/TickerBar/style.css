@@ -81,3 +81,54 @@
 .ticker-change .anticon {
   font-size: 10px;
 }
+
+/* 移动端响应式 - 768px 断点 */
+@media (max-width: 768px) {
+  .ticker-bar {
+    height: 40px;
+  }
+
+  .ticker-item {
+    gap: 8px;
+    padding: 0 12px;
+    min-width: 120px;
+  }
+
+  .ticker-name {
+    font-size: 12px;
+  }
+
+  .ticker-price {
+    font-size: 12px;
+  }
+
+  .ticker-change {
+    font-size: 11px;
+    padding: 1px 4px;
+  }
+}
+
+/* 移动端响应式 - 480px 断点 */
+@media (max-width: 480px) {
+  .ticker-bar {
+    height: 36px;
+  }
+
+  .ticker-item {
+    gap: 6px;
+    padding: 0 8px;
+    min-width: 100px;
+  }
+
+  .ticker-name {
+    font-size: 11px;
+  }
+
+  .ticker-price {
+    font-size: 11px;
+  }
+
+  .ticker-change {
+    font-size: 10px;
+  }
+}

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
+  <!-- 胶囊外形 -->
+  <rect x="4" y="8" width="24" height="16" rx="8" fill="#F0B90B"/>
+  <!-- 胶囊分隔线 -->
+  <line x1="16" y1="8" x2="16" y2="24" stroke="#181A20" stroke-width="1.5"/>
+  <!-- 左半部分 - 药 -->
+  <text x="10" y="19" font-size="8" font-weight="700" fill="#181A20" text-anchor="middle" font-family="Arial">药</text>
+  <!-- 右半部分 - 上升箭头 -->
+  <path d="M22 19L22 14M22 14L19.5 16.5M22 14L24.5 16.5" stroke="#0ECB81" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

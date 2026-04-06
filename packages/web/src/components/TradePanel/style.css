@@ -512,3 +512,91 @@
 .trade-panel::-webkit-scrollbar-thumb:hover {
   background: #3C4043;
 }
+
+/* 按钮文案响应式 */
+.submit-btn .btn-text-long {
+  display: inline;
+}
+
+.submit-btn .btn-text-short {
+  display: none;
+}
+
+/* 移动端响应式 - 768px 断点 */
+@media (max-width: 768px) {
+  .trade-panel {
+    width: 100%;
+    height: auto;
+    max-height: none;
+  }
+
+  .trade-tabs {
+    height: 36px;
+  }
+
+  .panel-section {
+    padding: 12px;
+  }
+
+  .form-label {
+    font-size: 11px;
+  }
+
+  .submit-btn {
+    height: 36px !important;
+    font-size: 13px !important;
+  }
+
+  .holding-section {
+    padding: 12px;
+  }
+
+  .trade-panel .ant-slider-handle {
+    width: 10px;
+    height: 10px;
+  }
+}
+
+/* 移动端响应式 - 480px 断点 */
+@media (max-width: 480px) {
+  .trade-tabs {
+    height: 34px;
+  }
+
+  .panel-section {
+    padding: 10px;
+  }
+
+  .form-label {
+    font-size: 10px;
+  }
+
+  .submit-btn {
+    height: 34px !important;
+    font-size: 12px !important;
+    padding: 0 8px;
+  }
+
+  .submit-btn .btn-text-long {
+    display: none;
+  }
+
+  .submit-btn .btn-text-short {
+    display: inline;
+  }
+}
+
+/* 查看完整持仓链接 */
+.view-holdings-link {
+  text-align: center;
+  padding: 8px 0 4px;
+  color: #F0B90B;
+  font-size: 12px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.view-holdings-link:hover {
+  color: #FFD54F;
+  text-decoration: underline;
+}

@@ -95,6 +95,9 @@ const Dashboard = () => {
   const [isMobile, setIsMobile] = useState(false)
   const [showTradeDrawer, setShowTradeDrawer] = useState(false)
 
+  // TradePanel 高亮动画状态
+  const [tradePanelHighlight, setTradePanelHighlight] = useState(false)
+
   // WebSocket 连接
   const { subscribeTicker } = useWebSocket({
     onMarketTicker: (data) => {
@@ -380,6 +383,8 @@ const Dashboard = () => {
   // 处理药品点击
   const handleDrugClick = (drugId: string) => {
     setSelectedDrugId(drugId)
+    setTradePanelHighlight(true)
+    setTimeout(() => setTradePanelHighlight(false), 500)
     if (isMobile) {
       // 移动端自动滚动到主区域
     }
@@ -474,35 +479,25 @@ const Dashboard = () => {
                     className={`drug-item ${isSelected ? 'selected' : ''}`}
                     onClick={() => handleDrugClick(drug.drugId)}
                   >
-                    <div className="drug-item-left">
-                      <span
-                        className="favorite-star"
-                        onClick={(e) => toggleFavorite(drug.drugId, e)}
-                      >
-                        {isFavorite ? (
-                          <StarFilled style={{ color: '#F0B90B' }} />
-                        ) : (
-                          <StarOutlined style={{ color: '#848E9C' }} />
-                        )}
-                      </span>
-                      <div className="drug-item-info">
-                        <span className="drug-item-name">{drug.drugName}</span>
-                        <span className="drug-item-code">{drug.drugCode}</span>
-                      </div>
-                    </div>
-                    <div className="drug-item-right">
-                      <span className="drug-item-price">
-                        {Number(drug.sellingPrice || 0).toFixed(2)}
-                      </span>
-                      <span
-                        className={`drug-item-change ${
-                          isPositive ? 'up' : 'down'
-                        }`}
-                      >
-                        {isPositive ? '+' : ''}
-                        {Number(drug.dailyReturn || 0).toFixed(2)}%
-                      </span>
-                    </div>
+                    <span
+                      className="favorite-star"
+                      onClick={(e) => toggleFavorite(drug.drugId, e)}
+                    >
+                      {isFavorite ? (
+                        <StarFilled style={{ color: '#F0B90B' }} />
+                      ) : (
+                        <StarOutlined style={{ color: '#848E9C' }} />
+                      )}
+                    </span>
+                    <span className="drug-item-name" title={drug.drugName}>{drug.drugName}</span>
+                    <span className="drug-item-price">
+                      {Number(drug.sellingPrice || 0).toFixed(2)}
+                    </span>
+                    <span className={`drug-item-change ${isPositive ? 'up' : 'down'}`}>
+                      {isPositive ? '+' : ''}
+                      {Number(drug.dailyReturn || 0).toFixed(2)}%
+                    </span>
+                    {isSelected && <span className="drug-item-arrow">›</span>}
                   </div>
                 )
               })
@@ -518,7 +513,11 @@ const Dashboard = () => {
         {/* 中间主区域 */}
         <main className="terminal-content">
           {/* 行情滚动条 */}
-          <TickerBar data={marketOverview} />
+          <TickerBar data={marketOverview} onItemClick={(drugId) => {
+            setSelectedDrugId(drugId)
+            setTradePanelHighlight(true)
+            setTimeout(() => setTradePanelHighlight(false), 500)
+          }} />
           {/* 药品信息摘要条 - 币安风格 */}
           {selectedDrug && (
             <div className="drug-summary-bar">
@@ -700,7 +699,7 @@ const Dashboard = () => {
         </main>
 
         {/* 右侧交易面板 */}
-        <aside className="trade-panel-container">
+        <aside className={`trade-panel-container ${tradePanelHighlight ? 'highlight' : ''}`}>
           <TradePanel drug={selectedDrug || null} onOrderSuccess={handleOrderSuccess} />
         </aside>
       </div>
@@ -710,7 +709,7 @@ const Dashboard = () => {
         className="trade-float-btn"
         onClick={() => setShowTradeDrawer(true)}
       >
-        <ShoppingCartOutlined />
+        <ShoppingCartOutlined /> 交易
       </button>
 
       {/* 响应式交易抽屉 */}

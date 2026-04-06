@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { ProLayout } from '@ant-design/pro-components'
 import {
   FundOutlined,
   WalletOutlined,
@@ -8,9 +7,11 @@ import {
   SettingOutlined,
   LogoutOutlined,
   MenuOutlined,
+  UserOutlined,
 } from '@ant-design/icons'
 import { Avatar, Dropdown, Space, Typography, message, Button, Drawer } from 'antd'
 import { accountApi } from '../services/api'
+import logoSvg from '../assets/logo.svg'
 
 const { Text } = Typography
 
@@ -60,7 +61,6 @@ const getMenuItems = (role?: string) => {
 const BasicLayout = () => {
   const location = useLocation()
   const navigate = useNavigate()
-  const [collapsed, setCollapsed] = useState(false)
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [balanceInfo, setBalanceInfo] = useState<BalanceInfo | null>(null)
   const [isMobile, setIsMobile] = useState(false)
@@ -73,10 +73,7 @@ const BasicLayout = () => {
   const checkMobile = useCallback(() => {
     const mobile = window.innerWidth < 768
     setIsMobile(mobile)
-    if (mobile && !collapsed) {
-      setCollapsed(true)
-    }
-  }, [collapsed])
+  }, [])
 
   useEffect(() => {
     checkMobile()
@@ -156,7 +153,7 @@ const BasicLayout = () => {
       open={drawerVisible}
       width={240}
       styles={{
-        body: { padding: 0, background: '#0D1117' },
+        body: { padding: 0, background: '#181A20' },
         header: { display: 'none' },
       }}
     >
@@ -170,8 +167,8 @@ const BasicLayout = () => {
               alignItems: 'center',
               gap: 12,
               padding: '12px 24px',
-              color: location.pathname === item.path ? '#E6EDF3' : '#8B949E',
-              background: location.pathname === item.path ? '#21262D' : 'transparent',
+              color: location.pathname === item.path ? '#EAECEF' : '#848E9C',
+              background: location.pathname === item.path ? '#2B3139' : 'transparent',
               cursor: 'pointer',
               transition: 'all 0.2s',
             }}
@@ -185,61 +182,137 @@ const BasicLayout = () => {
   )
 
   return (
-    <ProLayout
-      title="药赚赚・交易终端"
-      logo="/vite.svg"
-      layout="mix"
-      fixSiderbar
-      fixedHeader
-      collapsed={collapsed}
-      onCollapse={setCollapsed}
-      breakpoint="md"
-      location={{
-        pathname: location.pathname,
-      }}
-      route={{
-        path: '/',
-        routes: menuItems.map(item => ({
-          path: item.path,
-          name: item.name,
-          icon: item.icon,
-        })),
-      }}
-      menuItemRender={(item, dom) => (
-        <div onClick={() => handleMenuClick(item.path || '/')}>{dom}</div>
-      )}
-      headerContentRender={() => (
-        <div style={{ display: 'flex', alignItems: 'center', height: '100%', gap: 12 }}>
+    <div style={{ minHeight: '100vh', background: '#0D1117' }}>
+      {/* 币安风格顶部导航栏 */}
+      <header
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: isMobile ? 56 : 64,
+          background: '#181A20',
+          borderBottom: '1px solid #2B3139',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: isMobile ? '0 12px' : '0 24px',
+        }}
+      >
+        {/* 左侧：Logo + 菜单 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 32 }}>
+          {/* Logo */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+              cursor: 'pointer',
+            }}
+            onClick={() => navigate('/')}
+          >
+            <img
+              src={logoSvg}
+              alt="药赚赚"
+              style={{ width: isMobile ? 24 : 28, height: isMobile ? 24 : 28 }}
+            />
+            <Text
+              style={{
+                color: '#F0B90B',
+                fontSize: isMobile ? 16 : 18,
+                fontWeight: 700,
+                letterSpacing: '-0.5px',
+              }}
+            >
+              药赚赚
+            </Text>
+            {!isMobile && (
+              <Text
+                style={{
+                  color: '#848E9C',
+                  fontSize: 14,
+                  fontWeight: 400,
+                }}
+              >
+                ·交易终端
+              </Text>
+            )}
+          </div>
+
+          {/* 桌面端导航菜单 */}
+          {!isMobile && (
+            <nav style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {menuItems.map((item) => {
+                const isActive = location.pathname === item.path
+                return (
+                  <button
+                    key={item.path}
+                    onClick={() => handleMenuClick(item.path)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 6,
+                      padding: '8px 16px',
+                      background: isActive ? '#2B3139' : 'transparent',
+                      border: 'none',
+                      borderRadius: 4,
+                      color: isActive ? '#EAECEF' : '#848E9C',
+                      fontSize: 14,
+                      fontWeight: isActive ? 500 : 400,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.color = '#EAECEF'
+                        e.currentTarget.style.background = '#2B3139'
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.color = '#848E9C'
+                        e.currentTarget.style.background = 'transparent'
+                      }
+                    }}
+                  >
+                    {item.icon}
+                    <span>{item.name}</span>
+                  </button>
+                )
+              })}
+            </nav>
+          )}
+
+          {/* 移动端菜单按钮 */}
           {isMobile && (
             <Button
               type="text"
-              icon={<MenuOutlined style={{ color: '#8B949E' }} />}
+              icon={<MenuOutlined style={{ color: '#848E9C', fontSize: 18 }} />}
               onClick={() => setDrawerVisible(true)}
+              style={{ padding: 4 }}
             />
           )}
-          <Text style={{ color: '#8B949E', fontSize: 14 }}>
-            专业药品流通垫资交易服务
-          </Text>
         </div>
-      )}
-      rightContentRender={() => (
-        <Space size={isMobile ? 12 : 16}>
+
+        {/* 右侧：账户信息 + 用户 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16 }}>
           {/* 余额显示 - 移动端隐藏 */}
           {balanceInfo && !isMobile && (
             <div
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: 12,
-                padding: '4px 12px',
-                background: '#161B22',
-                border: '1px solid #30363D',
+                gap: 16,
+                padding: '6px 16px',
+                background: '#0D1117',
+                border: '1px solid #2B3139',
                 borderRadius: 6,
-                height: 32,
+                height: 36,
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Text style={{ color: '#8B949E', fontSize: 12 }}>可用</Text>
+                <Text style={{ color: '#848E9C', fontSize: 12 }}>可用</Text>
                 <Text
                   style={{
                     color: '#00D4AA',
@@ -255,11 +328,11 @@ const BasicLayout = () => {
                 style={{
                   width: 1,
                   height: 16,
-                background: '#30363D',
-              }}
+                  background: '#2B3139',
+                }}
               />
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Text style={{ color: '#8B949E', fontSize: 12 }}>收益</Text>
+                <Text style={{ color: '#848E9C', fontSize: 12 }}>收益</Text>
                 <Text
                   style={{
                     color: balanceInfo.totalProfit >= 0 ? '#00D4AA' : '#FF4D4F',
@@ -280,57 +353,59 @@ const BasicLayout = () => {
             menu={{ items: avatarDropdownItems }}
             placement="bottomRight"
           >
-            <Space style={{ cursor: 'pointer' }}>
-              <Avatar style={{ backgroundColor: '#1890FF' }}>
-                {userInfo?.username?.charAt(0).toUpperCase() || 'U'}
+            <Space style={{ cursor: 'pointer' }} size={8}>
+              <Avatar
+                style={{
+                  backgroundColor: '#F0B90B',
+                  color: '#181A20',
+                  fontWeight: 600,
+                }}
+                size="small"
+                icon={<UserOutlined />}
+              >
+                {userInfo?.username?.charAt(0).toUpperCase()}
               </Avatar>
               {!isMobile && (
-                <div style={{ lineHeight: 1.2 }}>
-                  <Text style={{ color: '#E6EDF3', display: 'block', fontSize: 14 }}>
+                <div style={{ lineHeight: 1.3 }}>
+                  <Text
+                    style={{
+                      color: '#EAECEF',
+                      display: 'block',
+                      fontSize: 13,
+                      fontWeight: 500,
+                    }}
+                  >
                     {userInfo?.realName || userInfo?.username || '用户'}
                   </Text>
-                  <Text style={{ color: '#8B949E', fontSize: 12 }}>
+                  <Text
+                    style={{
+                      color: '#848E9C',
+                      fontSize: 11,
+                    }}
+                  >
                     {userInfo?.role === 'admin' ? '管理员' : '投资者'}
                   </Text>
                 </div>
               )}
             </Space>
           </Dropdown>
-        </Space>
-      )}
-      token={{
-        header: {
-          colorBgHeader: '#161B22',
-          colorHeaderTitle: '#E6EDF3',
-          colorTextMenu: '#8B949E',
-          colorTextMenuSecondary: '#8B949E',
-          colorTextMenuSelected: '#E6EDF3',
-          colorTextMenuActive: '#E6EDF3',
-          colorBgMenuItemSelected: '#21262D',
-          colorBgMenuItemHover: '#21262D',
-        },
-        sider: {
-          colorMenuBackground: '#0D1117',
-          colorMenuItemDivider: '#30363D',
-          colorTextMenu: '#8B949E',
-          colorTextMenuSelected: '#E6EDF3',
-          colorTextMenuActive: '#E6EDF3',
-          colorBgMenuItemSelected: '#21262D',
-          colorBgMenuItemHover: '#21262D',
-          colorBgCollapsedButton: '#161B22',
-          colorTextCollapsedButton: '#8B949E',
-        },
-        pageContainer: {
-          colorBgPageContainer: '#0D1117',
-          colorBgPageContainerFixed: '#0D1117',
-        },
-      }}
-    >
+        </div>
+      </header>
+
+      {/* 移动端菜单抽屉 */}
       {mobileMenuDrawer}
-      <div style={{ padding: isMobile ? 8 : 12, minHeight: '100%' }}>
+
+      {/* 主内容区域 - 占满100%宽度 */}
+      <main
+        style={{
+          paddingTop: isMobile ? 56 : 64,
+          minHeight: '100vh',
+          background: '#0D1117',
+        }}
+      >
         <Outlet />
-      </div>
-    </ProLayout>
+      </main>
+    </div>
   )
 }
 

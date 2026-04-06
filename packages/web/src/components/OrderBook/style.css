@@ -235,3 +235,77 @@
 .orderbook-body::-webkit-scrollbar-thumb:hover {
   background: #3C4043;
 }
+
+/* 移动端响应式 - 768px 断点 */
+@media (max-width: 768px) {
+  .orderbook-container {
+    font-size: 12px;
+  }
+
+  .orderbook-stats {
+    gap: 6px;
+    padding: 6px 8px;
+  }
+
+  .orderbook-header {
+    height: 24px;
+    padding: 0 8px;
+  }
+
+  .orderbook-header .orderbook-col {
+    font-size: 10px;
+  }
+
+  .orderbook-row {
+    height: 20px;
+    padding: 0 8px;
+  }
+
+  .orderbook-col {
+    font-size: 11px;
+  }
+
+  .orderbook-col.price {
+    flex: 0 0 40%;
+  }
+
+  .orderbook-col.amount {
+    flex: 0 0 30%;
+  }
+
+  .orderbook-col.cumulative {
+    flex: 0 0 30%;
+  }
+
+  .current-price-value {
+    font-size: 14px;
+  }
+}
+
+/* 移动端响应式 - 480px 断点 */
+@media (max-width: 480px) {
+  .orderbook-stats {
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .stat-divider {
+    display: none;
+  }
+
+  .orderbook-row {
+    height: 18px;
+  }
+
+  .orderbook-col {
+    font-size: 10px;
+  }
+
+  .orderbook-col.price {
+    flex: 0 0 45%;
+  }
+
+  .current-price-value {
+    font-size: 12px;
+  }
+}
