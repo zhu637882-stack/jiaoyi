@@ -12,4 +12,8 @@ export class WithdrawDto {
   @IsString()
   @IsOptional()
   password?: string;
+
+  @IsString()
+  @IsOptional()
+  bankInfo?: string;
 }

@@ -50,7 +50,7 @@
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
-  background: #FF4D4F;
+  background: #cf1322;
   color: #fff;
   font-size: 10px;
   font-weight: 600;
@@ -392,12 +392,12 @@
 }
 
 .drug-item-change.up {
-  background: #FF4D4F;
+  background: #00b96b;
   color: #fff;
 }
 
 .drug-item-change.down {
-  background: #00D4AA;
+  background: #cf1322;
   color: #fff;
 }
 
@@ -495,11 +495,11 @@
 }
 
 .stat-value.up {
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 .stat-value.down {
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 /* K线图表区域 - flex: 6 */
@@ -863,13 +863,13 @@
 
 .type-tag.limit_buy {
   background: rgba(255, 77, 79, 0.15);
-  color: #FF4D4F;
+  color: #cf1322;
   border: 1px solid rgba(255, 77, 79, 0.3);
 }
 
 .type-tag.limit_sell {
   background: rgba(0, 212, 170, 0.15);
-  color: #00D4AA;
+  color: #00b96b;
   border: 1px solid rgba(0, 212, 170, 0.3);
 }
 
@@ -890,7 +890,7 @@
 
 .status-tag.triggered {
   background: rgba(0, 212, 170, 0.15);
-  color: #00D4AA;
+  color: #00b96b;
   border: 1px solid rgba(0, 212, 170, 0.3);
 }
 
@@ -908,7 +908,7 @@
 
 .status-tag.holding {
   background: rgba(0, 212, 170, 0.15);
-  color: #00D4AA;
+  color: #00b96b;
   border: 1px solid rgba(0, 212, 170, 0.3);
 }
 
@@ -925,8 +925,8 @@
 .cancel-btn {
   padding: 4px 10px;
   background: transparent;
-  border: 1px solid #FF4D4F;
-  color: #FF4D4F;
+  border: 1px solid #cf1322;
+  color: #cf1322;
   border-radius: 4px;
   font-size: 11px;
   cursor: pointer;
@@ -942,13 +942,13 @@
   cursor: not-allowed;
 }
 
-/* 金额正负样式 */
+/* 金额正负样式 - 统一标准：正数绿色，负数红色 */
 .positive {
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 .negative {
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 /* 分页样式 */

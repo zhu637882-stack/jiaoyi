@@ -1,0 +1,87 @@
+零钱保网站服务启动说明
+
+服务器：103.43.188.127
+账号：Administrator
+密码：jasonmaz
+
+========================================
+手动启动步骤（推荐）
+========================================
+
+1. 打开 CMD（管理员身份）
+
+2. 启动后端（端口 3000）——新开一个 CMD 窗口：
+   cd d:\wwwroot\jiaoyi\packages\server
+   npm run start:prod
+
+3. 启动前端（端口 5173）——再新开一个 CMD 窗口：
+   cd d:\wwwroot\jiaoyi\packages\web
+   npm run preview
+
+4. 启动代理（端口 80）——再新开一个 CMD 窗口：
+   cd d:\wwwroot\jiaoyi
+   node proxy-server-v2.js
+
+========================================
+配置开机自启动（可选）
+========================================
+
+需要下载 nssm 工具，步骤如下：
+
+1. 下载 nssm：
+   https://nssm.cc/download
+
+2. 解压到 C:\nssm
+
+3. 打开 CMD（管理员），执行以下命令安装三个服务：
+
+   安装后端服务：
+   C:
+ssm
+ssm.exe install Lingqianbao-Backend "C:\Program Files
+odejs
+ode.exe"
+   C:\nssm\nssm.exe set Lingqianbao-Backend AppDirectory d:\wwwroot\jiaoyi\packages\server
+   C:\nssm\nssm.exe set Lingqianbao-Backend AppParameters "dist\main.js"
+   net start Lingqianbao-Backend
+
+   安装前端服务：
+   C:
+ssm
+ssm.exe install Lingqianbao-Frontend "C:\Program Files
+odejs
+px.cmd"
+   C:\nssm\nssm.exe set Lingqianbao-Frontend AppDirectory d:\wwwroot\jiaoyi\packages\web
+   C:\nssm\nssm.exe set Lingqianbao-Frontend AppParameters "vite preview --port 5173 --host"
+   net start Lingqianbao-Frontend
+
+   安装代理服务：
+   C:
+ssm
+ssm.exe install Lingqianbao-Proxy "C:\Program Files
+odejs
+ode.exe"
+   C:\nssm\nssm.exe set Lingqianbao-Proxy AppDirectory d:\wwwroot\jiaoyi
+   C:\nssm\nssm.exe set Lingqianbao-Proxy AppParameters "proxy-server-v2.js"
+   net start Lingqianbao-Proxy
+
+4. 设置开机自启：
+   sc config Lingqianbao-Backend start= auto
+   sc config Lingqianbao-Frontend start= auto
+   sc config Lingqianbao-Proxy start= auto
+
+========================================
+访问地址
+========================================
+
+网站：http://mufend.com
+后端：http://localhost:3000
+前端：http://localhost:5173
+
+========================================
+注意事项
+========================================
+
+1. 确保 PostgreSQL 和 Redis 已启动
+2. 确保端口 80、3000、5173 未被占用
+3. 防火墙已开放 80 端口

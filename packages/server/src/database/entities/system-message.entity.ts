@@ -24,10 +24,10 @@ export class SystemMessage {
   @Column({ type: 'text' })
   content: string
 
-  @Column({ type: 'enum', enum: MessageType, default: MessageType.ANNOUNCEMENT })
+  @Column({ type: 'simple-enum', enum: MessageType, default: MessageType.ANNOUNCEMENT })
   type: MessageType
 
-  @Column({ type: 'enum', enum: MessageStatus, default: MessageStatus.DRAFT })
+  @Column({ type: 'simple-enum', enum: MessageStatus, default: MessageStatus.DRAFT })
   status: MessageStatus
 
   @Column({ nullable: true })

@@ -1,9 +1,10 @@
 import { Injectable, NotFoundException, BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource } from 'typeorm';
+import { Repository, DataSource, In } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction, TransactionType } from '../../database/entities/account-transaction.entity';
+import { WithdrawOrder, WithdrawStatus } from '../../database/entities/withdraw-order.entity';
 import { User } from '../../database/entities/user.entity';
 import { AuditService } from '../../common/services/audit.service';
 
@@ -16,6 +17,8 @@ export class AccountService {
     private accountTransactionRepository: Repository<AccountTransaction>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(WithdrawOrder)
+    private withdrawOrderRepository: Repository<WithdrawOrder>,
     private dataSource: DataSource,
     private auditService: AuditService,
   ) {}
@@ -137,12 +140,12 @@ export class AccountService {
       .andWhere('t.type = :type', { type: TransactionType.RECHARGE })
       .getRawOne();
 
-    // 获取总投资金额
-    const fundingStats = await this.accountTransactionRepository
+    // 获取总认购金额
+    const subscriptionStats = await this.accountTransactionRepository
       .createQueryBuilder('t')
       .select('SUM(t.amount)', 'total')
       .where('t.userId = :userId', { userId })
-      .andWhere('t.type = :type', { type: TransactionType.FUNDING })
+      .andWhere('t.type = :type', { type: TransactionType.SUBSCRIPTION })
       .getRawOne();
 
     // 从交易记录实时计算总收益（确保与settlements/my/stats一致）
@@ -160,20 +163,12 @@ export class AccountService {
       .andWhere('t.type = :type', { type: TransactionType.LOSS_SHARE })
       .getRawOne();
 
-    const interestStats = await this.accountTransactionRepository
-      .createQueryBuilder('t')
-      .select('SUM(t.amount)', 'total')
-      .where('t.userId = :userId', { userId })
-      .andWhere('t.type = :type', { type: TransactionType.INTEREST })
-      .getRawOne();
-
     const totalProfitShare = Number(profitShareStats?.total || 0);
     const totalLossShare = Number(lossShareStats?.total || 0);
-    const totalInterest = Number(interestStats?.total || 0);
 
-    // 实时计算的净收益 = 分润 - 亏损 + 利息
+    // 净收益 = 分润 - 亏损
     const calculatedNetProfit = Number(
-      (totalProfitShare - totalLossShare + totalInterest).toFixed(2),
+      (totalProfitShare - totalLossShare).toFixed(2),
     );
 
     return {
@@ -182,41 +177,30 @@ export class AccountService {
       totalProfit: calculatedNetProfit,
       totalInvested: balance.totalInvested,
       totalRecharge: Number(rechargeStats?.total || 0),
-      totalFunding: Number(fundingStats?.total || 0),
+      totalSubscription: Number(subscriptionStats?.total || 0),
     };
   }
 
   /**
-   * 提现
-   * @param userId 用户ID
-   * @param amount 提现金额
-   * @param description 描述
-   * @param password 密码（金额>5000时必填）
+   * 提现申请（T+1模式）
+   * 客户提交出金申请 → 冻结余额 → 创建出金订单(pending)
+   * 管理员次日确认后 → 扣减冻结余额 → 完成出金
    */
-  async withdraw(userId: string, amount: number, description?: string, password?: string) {
+  async withdraw(userId: string, amount: number, description?: string, password?: string, bankInfo?: string) {
     // 1. 校验金额 > 0
     if (amount <= 0) {
       throw new BadRequestException('提现金额必须大于0');
     }
 
-    // 2. 金额 > 5000 时必须校验密码
-    if (amount > 5000) {
-      if (!password) {
-        throw new BadRequestException('提现金额超过5000元，需要输入密码');
-      }
-      // 查询用户密码
-      const user = await this.userRepository.findOne({
-        where: { id: userId },
-        select: ['id', 'password'],
-      });
-      if (!user) {
-        throw new NotFoundException('用户不存在');
-      }
-      // 校验密码
-      const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid) {
-        throw new UnauthorizedException('密码错误');
-      }
+    // 2. 金额校验（仅限不超过可用余额，前端已做校验，后端兜底）
+    const balance = await this.accountBalanceRepository.findOne({
+      where: { userId },
+    });
+    if (!balance) {
+      throw new NotFoundException('账户不存在');
+    }
+    if (amount > Number(balance.availableBalance)) {
+      throw new BadRequestException('提现金额不能超过可用余额');
     }
 
     const queryRunner = this.dataSource.createQueryRunner();
@@ -231,7 +215,6 @@ export class AccountService {
       });
 
       if (!balance) {
-        // 如果余额记录不存在，创建一个
         balance = queryRunner.manager.create(AccountBalance, {
           userId,
           availableBalance: 0,
@@ -248,56 +231,65 @@ export class AccountService {
         throw new BadRequestException(`可用余额不足，当前可用余额: ${availableBalance}`);
       }
 
-      // 5. 扣减余额
+      // 5. 冻结余额（从可用余额转入冻结余额）
       const balanceBefore = availableBalance;
-      const balanceAfter = Number((balanceBefore - amount).toFixed(2));
-      balance.availableBalance = balanceAfter;
+      const newAvailable = Number((availableBalance - amount).toFixed(2));
+      const newFrozen = Number((Number(balance.frozenBalance) + amount).toFixed(2));
+      balance.availableBalance = newAvailable;
+      balance.frozenBalance = newFrozen;
       await queryRunner.manager.save(balance);
 
-      // 6. 创建交易流水(type=WITHDRAW, amount为负数表示支出)
+      // 6. 生成出金订单号
+      const orderNo = `WD${Date.now()}${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
+
+      // 7. 创建出金申请订单
+      const withdrawOrder = queryRunner.manager.create(WithdrawOrder, {
+        userId,
+        orderNo,
+        amount,
+        balanceBefore,
+        status: WithdrawStatus.PENDING,
+        bankInfo: bankInfo || '',
+        description: description || '账户提现申请',
+      });
+      await queryRunner.manager.save(withdrawOrder);
+
+      // 8. 创建交易流水（冻结状态，金额为负数表示待出金）
       const transaction = queryRunner.manager.create(AccountTransaction, {
         userId,
         type: TransactionType.WITHDRAW,
-        amount: -amount, // 提现金额为负数
+        amount: -amount,
         balanceBefore,
-        balanceAfter,
-        description: description || '账户提现',
+        balanceAfter: newAvailable,
+        description: `提现申请(出金中) - 订单号${orderNo}`,
+        relatedOrderId: withdrawOrder.id,
       });
       await queryRunner.manager.save(transaction);
 
       await queryRunner.commitTransaction();
 
-      // 7. 记录审计日志
       await this.auditService.log({
         userId,
-        action: 'WITHDRAW',
-        targetType: 'account',
-        targetId: userId,
+        action: 'WITHDRAW_APPLY',
+        targetType: 'withdraw_order',
+        targetId: withdrawOrder.id,
         detail: {
+          orderNo,
           amount,
           balanceBefore,
-          balanceAfter,
-          description: description || '账户提现',
-          requirePassword: amount > 5000,
+          balanceAfter: newAvailable,
+          frozenBalance: newFrozen,
+          description: description || '账户提现申请',
         },
       });
 
       return {
-        balance: {
-          availableBalance: balanceAfter,
-          frozenBalance: balance.frozenBalance,
-          totalProfit: balance.totalProfit,
-          totalInvested: balance.totalInvested,
-        },
-        transaction: {
-          id: transaction.id,
-          type: transaction.type,
-          amount: -amount, // 返回负数表示支出
-          balanceBefore,
-          balanceAfter,
-          description: transaction.description,
-          createdAt: transaction.createdAt,
-        },
+        orderNo,
+        status: WithdrawStatus.PENDING,
+        amount,
+        availableBalance: newAvailable,
+        frozenBalance: newFrozen,
+        message: '提现申请已提交，预计T+1到账，请等待管理员确认',
       };
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -305,6 +297,208 @@ export class AccountService {
     } finally {
       await queryRunner.release();
     }
+  }
+
+  /**
+   * 管理员确认出金（银行已打款后操作）
+   */
+  async approveWithdraw(orderId: string, adminUserId: string, bankTransactionNo?: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.findOne(WithdrawOrder, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException('出金订单不存在');
+      }
+
+      if (order.status !== WithdrawStatus.PENDING) {
+        throw new BadRequestException(`出金订单状态为${order.status}，无法确认`);
+      }
+
+      // 更新出金订单状态
+      order.status = WithdrawStatus.APPROVED;
+      order.approvedBy = adminUserId;
+      order.approvedAt = new Date();
+      order.bankTransactionNo = bankTransactionNo || '';
+      await queryRunner.manager.save(order);
+
+      // 扣减冻结余额
+      const balance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId: order.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (balance) {
+        const frozenAmount = Number(order.amount);
+        balance.frozenBalance = Number((Number(balance.frozenBalance) - frozenAmount).toFixed(2));
+        await queryRunner.manager.save(balance);
+      }
+
+      await queryRunner.commitTransaction();
+
+      await this.auditService.log({
+        userId: adminUserId,
+        action: 'WITHDRAW_APPROVE',
+        targetType: 'withdraw_order',
+        targetId: orderId,
+        detail: {
+          orderNo: order.orderNo,
+          amount: Number(order.amount),
+          targetUserId: order.userId,
+          bankTransactionNo: bankTransactionNo || '',
+        },
+      });
+
+      return { success: true, message: '出金已确认，冻结余额已扣减' };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 管理员驳回出金申请
+   */
+  async rejectWithdraw(orderId: string, adminUserId: string, rejectReason: string) {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.findOne(WithdrawOrder, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException('出金订单不存在');
+      }
+
+      if (order.status !== WithdrawStatus.PENDING) {
+        throw new BadRequestException(`出金订单状态为${order.status}，无法驳回`);
+      }
+
+      // 更新出金订单状态
+      order.status = WithdrawStatus.REJECTED;
+      order.approvedBy = adminUserId;
+      order.approvedAt = new Date();
+      order.rejectReason = rejectReason;
+      await queryRunner.manager.save(order);
+
+      // 解冻余额（将冻结余额退回可用余额）
+      const balance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId: order.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (balance) {
+        const frozenAmount = Number(order.amount);
+        balance.availableBalance = Number((Number(balance.availableBalance) + frozenAmount).toFixed(2));
+        balance.frozenBalance = Number((Number(balance.frozenBalance) - frozenAmount).toFixed(2));
+        await queryRunner.manager.save(balance);
+      }
+
+      // 创建退回交易流水
+      const currentBalance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId: order.userId },
+      });
+      const transaction = queryRunner.manager.create(AccountTransaction, {
+        userId: order.userId,
+        type: TransactionType.WITHDRAW,
+        amount: Number(order.amount), // 正数表示退回
+        balanceBefore: Number(currentBalance?.availableBalance || 0) - Number(order.amount),
+        balanceAfter: Number(currentBalance?.availableBalance || 0),
+        description: `提现驳回退回 - 订单号${order.orderNo}，原因: ${rejectReason}`,
+        relatedOrderId: order.id,
+      });
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+
+      return { success: true, message: '出金申请已驳回，余额已退回' };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 获取出金申请列表（管理员）
+   */
+  async getWithdrawOrders(status?: string, page = 1, limit = 10) {
+    const queryBuilder = this.withdrawOrderRepository
+      .createQueryBuilder('wo')
+      .leftJoinAndSelect('wo.user', 'user')
+      .orderBy('wo.createdAt', 'DESC');
+
+    if (status) {
+      queryBuilder.andWhere('wo.status = :status', { status });
+    }
+
+    const total = await queryBuilder.getCount();
+    const list = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return {
+      list: list.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        userId: o.userId,
+        username: o.user?.username || '',
+        realName: o.user?.realName || '',
+        amount: Number(o.amount),
+        balanceBefore: Number(o.balanceBefore),
+        status: o.status,
+        bankInfo: o.bankInfo,
+        description: o.description,
+        rejectReason: o.rejectReason,
+        bankTransactionNo: o.bankTransactionNo,
+        approvedBy: o.approvedBy,
+        approvedAt: o.approvedAt,
+        createdAt: o.createdAt,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
+  }
+
+  /**
+   * 获取我的出金申请列表（用户）
+   */
+  async getMyWithdrawOrders(userId: string, page = 1, limit = 10) {
+    const [list, total] = await this.withdrawOrderRepository.findAndCount({
+      where: { userId },
+      order: { createdAt: 'DESC' },
+      skip: (page - 1) * limit,
+      take: limit,
+    });
+
+    return {
+      list: list.map((o) => ({
+        id: o.id,
+        orderNo: o.orderNo,
+        amount: Number(o.amount),
+        balanceBefore: Number(o.balanceBefore),
+        status: o.status,
+        bankInfo: o.bankInfo,
+        description: o.description,
+        rejectReason: o.rejectReason,
+        createdAt: o.createdAt,
+        approvedAt: o.approvedAt,
+      })),
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    };
   }
 
   /**
@@ -361,7 +555,7 @@ export class AccountService {
     sortBy?: string;
     sortOrder?: 'ASC' | 'DESC';
   } = {}) {
-    const { page = 1, pageSize = 10, sortBy = 'createdAt', sortOrder = 'DESC' } = options;
+    const { page = 1, pageSize = 10, sortBy = 'updatedAt', sortOrder = 'DESC' } = options;
 
     // 获取所有用户余额，JOIN user 获取用户信息
     const queryBuilder = this.accountBalanceRepository
@@ -374,9 +568,9 @@ export class AccountService {
       );
 
     // 排序
-    const orderField = ['availableBalance', 'frozenBalance', 'totalProfit', 'totalInvested', 'createdAt'].includes(sortBy)
+    const orderField = ['availableBalance', 'frozenBalance', 'totalProfit', 'totalInvested', 'updatedAt'].includes(sortBy)
       ? `balance.${sortBy}`
-      : 'balance.createdAt';
+      : 'balance.updatedAt';
     queryBuilder.orderBy(orderField, sortOrder);
 
     const total = await queryBuilder.getCount();

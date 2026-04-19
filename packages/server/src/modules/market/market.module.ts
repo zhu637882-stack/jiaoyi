@@ -6,7 +6,7 @@ import { MarketSnapshot } from '../../database/entities/market-snapshot.entity';
 import { Drug } from '../../database/entities/drug.entity';
 import { DailySales } from '../../database/entities/daily-sales.entity';
 import { Settlement } from '../../database/entities/settlement.entity';
-import { FundingOrder } from '../../database/entities/funding-order.entity';
+import { SubscriptionOrder } from '../../database/entities/subscription-order.entity';
 
 @Module({
   imports: [
@@ -15,7 +15,7 @@ import { FundingOrder } from '../../database/entities/funding-order.entity';
       Drug,
       DailySales,
       Settlement,
-      FundingOrder,
+      SubscriptionOrder,
     ]),
   ],
   controllers: [MarketController],

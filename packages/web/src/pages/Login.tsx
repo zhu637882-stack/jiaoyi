@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Card, Form, Input, Button, Typography, message, Tabs } from 'antd'
 import { UserOutlined, LockOutlined, LoginOutlined, UserAddOutlined } from '@ant-design/icons'
 import { authApi } from '../services/api'
+import logoPng from '../assets/logo.png'
 
 const { Title, Text } = Typography
 
@@ -474,59 +475,32 @@ const Login = () => {
       <ParticleBackground />
 
       {/* 内容区域 */}
-      <div style={{ position: 'relative', zIndex: 1, width: '90%', maxWidth: 400, padding: '0 24px' }}>
+      <div style={{ position: 'relative', zIndex: 1, width: '90%', maxWidth: 420, padding: '0 24px' }}>
         {/* Logo 区域 */}
-        <div style={{ textAlign: 'center', marginBottom: 48 }}>
-          <div
+        <div style={{ textAlign: 'center', marginBottom: 36 }}>
+          <img
+            src={logoPng}
+            alt="零钱保"
             style={{
-              width: 80,
-              height: 80,
-              margin: '0 auto 24px',
-              background: 'linear-gradient(135deg, #F0B90B 0%, #D4A20A 100%)',
-              borderRadius: 20,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              boxShadow: '0 8px 32px rgba(240, 185, 11, 0.3)',
+              height: 64,
+              width: 'auto',
+              marginBottom: 20,
             }}
-          >
-            <svg width="40" height="40" viewBox="0 0 24 24" fill="none">
-              <path
-                d="M12 2L2 7L12 12L22 7L12 2Z"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M2 17L12 22L22 17"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M2 12L12 17L22 12"
-                stroke="white"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
-          </div>
+          />
           <Title
             level={2}
             style={{
               color: '#EAECEF',
-              margin: '0 0 8px',
-              fontWeight: 600,
-              letterSpacing: 1,
+              margin: '0 0 4px',
+              fontWeight: 700,
+              letterSpacing: 2,
+              fontSize: 24,
             }}
           >
-            药品垫资交易平台
+            多客数智旗下 · 零钱保
           </Title>
-          <Text style={{ color: '#848E9C', fontSize: 14 }}>
-            专业药品流通垫资交易服务
+          <Text style={{ color: '#848E9C', fontSize: 14, letterSpacing: 1 }}>
+            我出资质你出钱，零钱保理赚零钱
           </Text>
         </div>
 
@@ -540,7 +514,7 @@ const Login = () => {
             backdropFilter: 'blur(20px)',
             WebkitBackdropFilter: 'blur(20px)',
           }}
-          bodyStyle={{ padding: '32px' }}
+          styles={{ body: { padding: '32px' } }}
         >
           <Tabs
             activeKey={activeTab}
@@ -556,7 +530,6 @@ const Login = () => {
         {/* 底部信息 */}
         <div style={{ textAlign: 'center', marginTop: 32 }}>
           <Text style={{ color: '#3C4043', fontSize: 12 }}>
-            默认账号: admin / admin123
           </Text>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, HttpCode, HttpStatus, UseGuards } from '@nestjs/common';
+import { Controller, Post, Body, Get, HttpCode, HttpStatus, UseGuards, UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -6,6 +6,7 @@ import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { Public } from '../../common/decorators/public.decorator';
+import { UserStatus } from '../../database/entities/user.entity';
 
 @Controller('auth')
 export class AuthController {
@@ -21,6 +22,15 @@ export class AuthController {
     if (!user) {
       return { message: '用户名或密码错误' };
     }
+
+    // 校验用户状态
+    if (user.status === UserStatus.PENDING) {
+      return { message: '账号审核中，请耐心等待', status: user.status };
+    }
+    if (user.status === UserStatus.REJECTED) {
+      return { message: '账号审核未通过', status: user.status, remark: user.reviewRemark };
+    }
+
     return this.authService.login(user);
   }
 
@@ -34,7 +44,7 @@ export class AuthController {
       registerDto.phone,
     );
     return {
-      message: '注册成功',
+      message: '注册成功，请等待管理员审核',
       user,
     };
   }

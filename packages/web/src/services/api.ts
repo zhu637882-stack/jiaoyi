@@ -11,6 +11,18 @@ const errorMessages: Record<string, string> = {
   'UNAUTHORIZED': '请先登录',
 }
 
+// 兼容非安全上下文（HTTP）的 UUID 生成
+const generateUUID = (): string => {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0
+    const v = c === 'x' ? r : (r & 0x3) | 0x8
+    return v.toString(16)
+  })
+}
+
 // 创建 axios 实例
 const api: AxiosInstance = axios.create({
   baseURL: '/api',
@@ -29,7 +41,7 @@ api.interceptors.request.use(
     }
     // 为 POST/PUT/DELETE 请求自动添加幂等键
     if (['post', 'put', 'delete'].includes(config.method?.toLowerCase() || '')) {
-      config.headers['X-Request-Id'] = crypto.randomUUID()
+      config.headers['X-Request-Id'] = generateUUID()
     }
     return config
   },
@@ -128,6 +140,10 @@ export const adminApi = {
   // 获取所有用户列表（管理员）
   getUsers: () =>
     http.get('/users'),
+  
+  // 审核用户
+  reviewUser: (userId: string, data: { status: string; remark?: string }) =>
+    http.post(`/users/${userId}/review`, data),
 }
 
 // 药品相关 API
@@ -447,7 +463,7 @@ silentApi.interceptors.request.use(
     }
     // 为 POST/PUT/DELETE 请求自动添加幂等键
     if (['post', 'put', 'delete'].includes(config.method?.toLowerCase() || '')) {
-      config.headers['X-Request-Id'] = crypto.randomUUID()
+      config.headers['X-Request-Id'] = generateUUID()
     }
     return config
   },

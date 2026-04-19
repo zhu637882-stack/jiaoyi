@@ -24,9 +24,9 @@
   --color-error: #F6465D;
   --color-warning: #F0B90B;
   
-  /* 涨跌色 - 中国标准：涨红跌绿 */
-  --color-rise: #FF4D4F;
-  --color-fall: #00D4AA;
+  /* 涨跌色 - 统一标准：涨红跌绿 */
+  --color-rise: #cf1322;
+  --color-fall: #00b96b;
   
   /* ========== 字体系统 ========== */
   --font-family-base: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -139,11 +139,11 @@ a:hover {
 }
 
 .bg-rise {
-  background-color: rgba(255, 77, 79, 0.1);
+  background-color: rgba(207, 19, 34, 0.1);
 }
 
 .bg-fall {
-  background-color: rgba(0, 212, 170, 0.1);
+  background-color: rgba(0, 185, 107, 0.1);
 }
 
 /* 卡片悬浮效果 */
@@ -174,14 +174,14 @@ a:hover {
 /* 价格上涨闪烁 */
 @keyframes priceFlashUp {
   0% { color: inherit; transform: scale(1); }
-  30% { color: #FF4D4F; transform: scale(1.05); }
+  30% { color: #cf1322; transform: scale(1.05); }
   100% { color: inherit; transform: scale(1); }
 }
 
 /* 价格下跌闪烁 */
 @keyframes priceFlashDown {
   0% { color: inherit; transform: scale(1); }
-  30% { color: #00D4AA; transform: scale(1.05); }
+  30% { color: #00b96b; transform: scale(1.05); }
   100% { color: inherit; transform: scale(1); }
 }
 
@@ -217,19 +217,26 @@ a:hover {
 .fade-in-up { animation: fadeInUp 0.4s ease-out; }
 .status-pulse { animation: statusPulse 2s ease-in-out infinite; }
 
-/* 表格样式覆盖 */
+/* ========== 表格样式统一覆盖 ========== */
 .ant-table {
   background: transparent !important;
 }
 
 .ant-table-thead > tr > th {
-  background: var(--color-bg-secondary) !important;
-  border-bottom: 1px solid var(--color-border) !important;
+  background: #0D1117 !important;
+  border-bottom: 1px solid #30363D !important;
   font-weight: 600;
+  color: #8B949E !important;
+  font-size: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  backdrop-filter: blur(8px);
+  padding: 12px 16px;
 }
 
 .ant-table-tbody > tr > td {
-  border-bottom: 1px solid var(--color-border) !important;
+  border-bottom: 1px solid #30363D !important;
 }
 
 .ant-table-tbody > tr:hover > td {
@@ -280,7 +287,7 @@ a:hover {
 
 /* 默认按钮 */
 .ant-btn-default {
-  background: var(--color-bg-secondary) !important;
+  background: #0D1117 !important;
   border-color: var(--color-border) !important;
   color: var(--color-text-primary) !important;
 }
@@ -297,7 +304,7 @@ a:hover {
 }
 
 .ant-pagination-item {
-  background: var(--color-bg-secondary) !important;
+  background: #0D1117 !important;
   border-color: var(--color-border) !important;
 }
 
@@ -324,7 +331,7 @@ a:hover {
 
 .ant-pagination-prev .ant-pagination-item-link,
 .ant-pagination-next .ant-pagination-item-link {
-  background: var(--color-bg-secondary) !important;
+  background: #0D1117 !important;
   border-color: var(--color-border) !important;
   color: var(--color-text-secondary) !important;
 }
@@ -342,15 +349,15 @@ a:hover {
 
 /* ========== Modal 样式覆盖 ========== */
 .ant-modal-content {
-  background: var(--color-bg-secondary) !important;
+  background: #0D1117 !important;
   border: 1px solid var(--color-border) !important;
   border-radius: var(--radius-lg) !important;
   box-shadow: var(--shadow-panel) !important;
 }
 
 .ant-modal-header {
-  background: var(--color-bg-secondary) !important;
-  border-bottom: 1px solid var(--color-border) !important;
+  background: #0D1117 !important;
+  border-bottom: 1px solid #30363D !important;
   border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
 }
 
@@ -376,7 +383,7 @@ a:hover {
 
 /* ========== Tab 样式覆盖 ========== */
 .ant-tabs-nav {
-  border-bottom: 1px solid var(--color-border) !important;
+  border-bottom: 1px solid #30363D !important;
 }
 
 .ant-tabs-tab {
@@ -400,7 +407,7 @@ a:hover {
 
 /* 卡片式 Tab */
 .ant-tabs-card > .ant-tabs-nav .ant-tabs-tab {
-  background: var(--color-bg-secondary) !important;
+  background: #0D1117 !important;
   border-color: var(--color-border) !important;
   color: var(--color-text-secondary) !important;
 }
@@ -530,4 +537,110 @@ a:hover {
   .ant-space {
     flex-wrap: wrap;
   }
+}
+
+/* ========== 卡片统一样式覆盖 ========== */
+.ant-card {
+  background: #161B22;
+  border: 1px solid #30363D;
+  border-radius: 8px;
+}
+
+.ant-card-head {
+  background: transparent;
+  border-bottom: 1px solid #30363D;
+  padding: 0 20px;
+  min-height: 56px;
+}
+
+.ant-card-head-title {
+  color: #E6EDF3;
+  font-weight: 600;
+  font-size: 16px;
+  padding: 16px 0;
+}
+
+.ant-card-body {
+  padding: 20px;
+}
+
+/* 卡片hover效果 */
+.ant-card-hoverable:hover {
+  border-color: #474D57;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+/* ========== Tag 统一样式 ========== */
+.ant-tag {
+  border-radius: 4px;
+  font-size: 12px;
+  padding: 2px 8px;
+}
+
+/* ========== 输入框统一样式 ========== */
+.ant-input,
+.ant-input-number {
+  background: #0D1117 !important;
+  border-color: #30363D !important;
+  color: #E6EDF3 !important;
+  border-radius: 6px;
+}
+
+.ant-input:hover,
+.ant-input-number:hover {
+  border-color: #474D57 !important;
+}
+
+.ant-input:focus,
+.ant-input-focused,
+.ant-input-number:focus,
+.ant-input-number-focused {
+  border-color: #1890FF !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+.ant-input::placeholder {
+  color: #5E6673 !important;
+}
+
+/* ========== Select 统一样式 ========== */
+.ant-select-selector {
+  background: #0D1117 !important;
+  border-color: #30363D !important;
+  color: #E6EDF3 !important;
+  border-radius: 6px !important;
+}
+
+.ant-select:hover .ant-select-selector {
+  border-color: #474D57 !important;
+}
+
+.ant-select-focused .ant-select-selector {
+  border-color: #1890FF !important;
+  box-shadow: 0 0 0 2px rgba(24, 144, 255, 0.2) !important;
+}
+
+/* ========== Divider 统一样式 ========== */
+.ant-divider {
+  border-color: #30363D;
+}
+
+/* ========== Progress 统一样式 ========== */
+.ant-progress-bg {
+  background: #1890FF;
+}
+
+.ant-progress-success-bg {
+  background: #00b96b;
+}
+
+/* ========== 统计数值样式 ========== */
+.ant-statistic-content-value {
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+.ant-statistic-title {
+  color: #8B949E;
+  font-size: 13px;
 }

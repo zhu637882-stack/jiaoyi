@@ -1,0 +1,86 @@
+version: '3.8'
+
+services:
+  # ========== PostgreSQL 数据库 ==========
+  postgres:
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USERNAME:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
+      POSTGRES_DB: ${DB_DATABASE:-jiaoyi}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ========== Redis 缓存 ==========
+  redis:
+    image: redis:7-alpine
+    restart: always
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ========== 后端 NestJS ==========
+  backend:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_TYPE: postgres
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-123456}
+      DB_DATABASE: ${DB_DATABASE:-jiaoyi}
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-change-me}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+      # 微信支付配置
+      WECHAT_MCHID: ${WECHAT_MCHID:-}
+      WECHAT_API_KEY: ${WECHAT_API_KEY:-}
+      WECHAT_CERT_PATH: ${WECHAT_CERT_PATH:-}
+      # 支付宝配置
+      ALIPAY_APPID: ${ALIPAY_APPID:-}
+      ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY:-}
+      ALIPAY_PUBLIC_KEY: ${ALIPAY_PUBLIC_KEY:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # ========== 前端 + Nginx 反向代理 ==========
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:

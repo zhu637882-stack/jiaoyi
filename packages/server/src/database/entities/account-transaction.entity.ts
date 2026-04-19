@@ -12,12 +12,12 @@ import { User } from './user.entity';
 export enum TransactionType {
   RECHARGE = 'recharge',
   WITHDRAW = 'withdraw',
-  FUNDING = 'funding',
+  SUBSCRIPTION = 'subscription',
   PRINCIPAL_RETURN = 'principal_return',
   PROFIT_SHARE = 'profit_share',
   LOSS_SHARE = 'loss_share',
-  INTEREST = 'interest',
-  SELL = 'sell',
+  SLOW_SELL_REFUND = 'slow_sell_refund',
+  RETURN_PROFIT = 'return_profit',
 }
 
 @Entity('account_transactions')

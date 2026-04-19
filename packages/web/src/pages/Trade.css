@@ -1,0 +1,102 @@
+/* Trade.tsx 页面样式 - 统一深色主题 */
+
+/* ========== 页面容器 ========== */
+.trade-page {
+  padding: var(--space-md);
+  background: var(--color-bg-primary);
+  min-height: calc(100vh - 72px);
+}
+
+/* ========== 返回导航条 ========== */
+.trade-nav-bar {
+  padding: 12px 24px;
+  background: #0D1117;
+  border-bottom: 1px solid #21262D;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: -12px -12px 16px -12px;
+}
+
+.trade-nav-back {
+  color: #F0B90B;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: color 0.2s;
+}
+
+.trade-nav-back:hover {
+  color: #FFD54F;
+}
+
+.trade-nav-title {
+  color: #848E9C;
+  font-size: 13px;
+}
+
+/* ========== 药品信息摘要条 ========== */
+.trade-drug-summary {
+  background: #161B22;
+  border: 1px solid #30363D;
+  border-radius: 8px;
+  padding: 12px 20px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px 24px;
+}
+
+.trade-drug-name {
+  color: #E6EDF3;
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.trade-drug-code {
+  color: #8B949E;
+  font-size: 12px;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+}
+
+.trade-drug-profit {
+  color: #00b96b;
+  font-family: 'JetBrains Mono', 'DIN', monospace;
+  font-weight: 600;
+}
+
+/* ========== 卡片统一样式 ========== */
+.trade-card {
+  background: #161B22;
+  border: 1px solid #30363D;
+  border-radius: 8px;
+  height: 100%;
+}
+
+.trade-card .ant-card-body {
+  padding: 20px;
+}
+
+/* ========== 收益颜色 - 统一标准：正数绿色，负数红色 ========== */
+.trade-profit {
+  color: #00b96b;
+}
+
+.trade-loss {
+  color: #cf1322;
+}
+
+/* ========== 响应式调整 ========== */
+@media (max-width: 768px) {
+  .trade-drug-summary {
+    padding: 10px 12px;
+    gap: 10px 16px;
+  }
+  
+  .trade-drug-name {
+    font-size: 14px;
+  }
+}

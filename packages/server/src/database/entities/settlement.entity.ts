@@ -27,6 +27,9 @@ export class Settlement {
   @Column('date')
   settlementDate: Date;
 
+  @Column('int', { comment: '当日销售数量' })
+  totalSalesQuantity: number;
+
   @Column('decimal', { precision: 12, scale: 2 })
   totalSalesRevenue: number;
 
@@ -36,8 +39,8 @@ export class Settlement {
   @Column('decimal', { precision: 12, scale: 2 })
   totalFees: number;
 
-  @Column('decimal', { precision: 12, scale: 2 })
-  totalInterest: number;
+  @Column('decimal', { precision: 12, scale: 2, default: 0, comment: '运营费用' })
+  operationFees: number;
 
   @Column('decimal', { precision: 12, scale: 2 })
   netProfit: number;
@@ -54,8 +57,8 @@ export class Settlement {
   @Column('decimal', { precision: 12, scale: 2 })
   platformLossShare: number;
 
-  @Column('decimal', { precision: 12, scale: 2 })
-  settledPrincipal: number;
+  @Column('decimal', { precision: 12, scale: 2, comment: '退回本金' })
+  returnedPrincipal: number;
 
   @Column('int')
   settledOrderCount: number;

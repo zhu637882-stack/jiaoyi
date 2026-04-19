@@ -9,7 +9,15 @@ class WebSocketService {
   private listeners: Map<string, Function[]> = new Map()
 
   // 连接 WebSocket
-  connect(url: string = 'ws://localhost:3000/ws'): void {
+  connect(url?: string): void {
+    // 如果没有提供 URL，自动根据当前环境生成
+    if (!url && typeof window !== 'undefined') {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+      const host = window.location.host
+      url = `${protocol}//${host}`
+    }
+    // 确保有默认 URL
+    url = url || 'ws://localhost:3000'
     if (this.socket?.connected) {
       console.log('WebSocket already connected')
       return
@@ -86,6 +94,23 @@ class WebSocketService {
     // 垫资更新
     this.socket.on('funding:update', (data) => {
       this.emit('funding:update', data)
+    })
+
+    // 认购状态更新
+    this.socket.on('subscription:confirmed', (data) => {
+      this.emit('subscription:confirmed', data)
+    })
+
+    this.socket.on('subscription:effective', (data) => {
+      this.emit('subscription:effective', data)
+    })
+
+    this.socket.on('subscription:returned', (data) => {
+      this.emit('subscription:returned', data)
+    })
+
+    this.socket.on('subscription:slow-sell-refund', (data) => {
+      this.emit('subscription:slow-sell-refund', data)
     })
 
     // 清算完成通知

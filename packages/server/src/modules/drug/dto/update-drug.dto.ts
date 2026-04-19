@@ -3,7 +3,6 @@ import {
   IsNumber,
   IsOptional,
   Min,
-  Max,
   Length,
 } from 'class-validator';
 import { Type } from 'class-transformer';
@@ -43,15 +42,14 @@ export class UpdateDrugDto {
   batchNo?: string;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: '年化利率必须是数字，最多2位小数' })
-  @Min(0, { message: '年化利率不能为负数' })
-  @Max(100, { message: '年化利率不能超过100%' })
+  @IsNumber({ maxDecimalPlaces: 4 }, { message: '运营费用比例必须是数字，最多4位小数' })
+  @Min(0, { message: '运营费用比例不能为负数' })
   @Type(() => Number)
-  annualRate?: number;
+  operationFeeRate?: number;
 
   @IsOptional()
-  @IsNumber({ maxDecimalPlaces: 2 }, { message: '单位费用必须是数字，最多2位小数' })
-  @Min(0, { message: '单位费用不能为负数' })
+  @IsNumber({ maxDecimalPlaces: 0 }, { message: '滞销天数必须是整数' })
+  @Min(1, { message: '滞销天数必须大于0' })
   @Type(() => Number)
-  unitFee?: number;
+  slowSellingDays?: number;
 }

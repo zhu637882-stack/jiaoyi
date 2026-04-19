@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   InputNumber,
@@ -8,13 +8,17 @@ import {
   Typography,
   Slider,
   Spin,
-  Select,
+  Space,
 } from 'antd'
 import {
   ShoppingCartOutlined,
   CheckCircleOutlined,
+  AlipayCircleOutlined,
+  WechatOutlined,
+  CloseCircleOutlined,
 } from '@ant-design/icons'
-import { fundingApi, accountApi, pendingOrderApi } from '../../services/api'
+import { QRCodeSVG } from 'qrcode.react'
+import { subscriptionApi, paymentApi } from '../../services/api'
 import './style.css'
 
 const { Text, Title } = Typography
@@ -32,121 +36,140 @@ interface TradePanelProps {
   onOrderSuccess?: () => void
 }
 
-interface HoldingSummary {
+interface SubscriptionSummary {
   totalQuantity: number
   totalProfit: number
-  averagePrice?: number
 }
 
 const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
   const navigate = useNavigate()
-  const [tradeMode, setTradeMode] = useState<'buy' | 'sell'>('buy')
   const [quantity, setQuantity] = useState<number>(1)
-  const [balance, setBalance] = useState<number>(0)
-  const [maxQuantity, setMaxQuantity] = useState<number>(0)
+  const [maxQuantity, setMaxQuantity] = useState<number>(999)
   const [sliderValue, setSliderValue] = useState<number>(0)
   const [confirmModalVisible, setConfirmModalVisible] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [holdingSummary, setHoldingSummary] = useState<HoldingSummary | null>(null)
-  const [loadingBalance, setLoadingBalance] = useState(false)
-  const [loadingHolding, setLoadingHolding] = useState(false)
-
-  // 限价委托相关 state
-  const [orderType, setOrderType] = useState<'market' | 'limit'>('market')
-  const [limitPrice, setLimitPrice] = useState<number>(0)
-  const [expireOption, setExpireOption] = useState<string>('7d')
+  const [subscriptionSummary, setSubscriptionSummary] = useState<SubscriptionSummary | null>(null)
+  const [loadingSubscription, setLoadingSubscription] = useState(false)
 
   // 成功动画 state
   const [showSuccess, setShowSuccess] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
 
-  // 获取余额
-  const fetchBalance = useCallback(async () => {
+  // 支付流程 state
+  const [paymentStep, setPaymentStep] = useState<'channel' | 'paying' | 'success' | 'timeout'>('channel')
+  const [paymentChannel, setPaymentChannel] = useState<'alipay' | 'wechat'>('alipay')
+  const [paymentQrCode, setPaymentQrCode] = useState<string>('')
+  const [paymentOutTradeNo, setPaymentOutTradeNo] = useState<string>('')
+  const [paymentAmount, setPaymentAmount] = useState<number>(0)
+  const [paymentMockMode, setPaymentMockMode] = useState(false)
+  const [paymentActive, setPaymentActive] = useState(false)
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const startTimeRef = useRef<number>(0)
+
+  // 获取当前药品认购概要
+  const fetchSubscriptionSummary = useCallback(async (drugId: string) => {
     try {
-      setLoadingBalance(true)
-      const response = await accountApi.getBalance()
-      setBalance(response.availableBalance || 0)
+      setLoadingSubscription(true)
+      const response = await subscriptionApi.getActiveSubscriptionSummary()
+      if (response.success && response.data) {
+        const activeSubs = response.data.activeSubscriptions || []
+        // 筛选当前药品的认购
+        const drugSubs = activeSubs.filter((sub: any) => String(sub.drugId) === drugId)
+        const totalQuantity = drugSubs.reduce((sum: number, sub: any) => sum + (sub.quantity || 0), 0)
+        const totalProfit = drugSubs.reduce((sum: number, sub: any) => sum + (sub.totalProfit || 0), 0)
+        setSubscriptionSummary({ totalQuantity, totalProfit })
+      } else {
+        setSubscriptionSummary(null)
+      }
     } catch (error) {
-      console.error('获取余额失败:', error)
+      console.error('获取认购概要失败:', error)
+      setSubscriptionSummary(null)
     } finally {
-      setLoadingBalance(false)
+      setLoadingSubscription(false)
     }
   }, [])
 
-  // 获取当前药品持仓概要（该药品的全部持仓，不限日期）
-  const fetchHoldingSummary = useCallback(async (drugId: string) => {
-    try {
-      setLoadingHolding(true)
-      const response = await fundingApi.getDrugHoldings(drugId)
-      if (response.success && response.data && response.data.length > 0) {
-        const holdings = response.data
-        // 后端已返回实际持仓数量（quantity = 原始数量 - 已结算数量）
-        const totalQuantity = holdings.reduce((sum: number, h: any) => sum + (h.quantity || 0), 0)
-        const totalProfit = holdings.reduce((sum: number, h: any) => sum + (h.totalProfit || 0) + (h.totalInterest || 0), 0)
-        // 使用后端返回的平均买入价计算加权平均价
-        const totalCost = holdings.reduce((sum: number, h: any) => sum + (h.quantity || 0) * (h.averagePrice || 0), 0)
-        const avgPrice = totalQuantity > 0 ? totalCost / totalQuantity : 0
-        setHoldingSummary({ totalQuantity, totalProfit, averagePrice: avgPrice })
-      } else {
-        setHoldingSummary(null)
-      }
-    } catch (error) {
-      console.error('获取持仓概要失败:', error)
-      setHoldingSummary(null)
-    } finally {
-      setLoadingHolding(false)
+  // 停止轮询
+  const stopPolling = useCallback(() => {
+    if (pollingRef.current) {
+      clearInterval(pollingRef.current)
+      pollingRef.current = null
     }
   }, [])
+
+  // 重置支付状态
+  const resetPaymentState = useCallback(() => {
+    stopPolling()
+    setPaymentStep('channel')
+    setPaymentQrCode('')
+    setPaymentOutTradeNo('')
+    setPaymentAmount(0)
+    setPaymentMockMode(false)
+    setPaymentActive(false)
+  }, [stopPolling])
+
+  // 查询支付状态
+  const checkPaymentStatus = useCallback(async (tradeNo: string, channel: 'alipay' | 'wechat') => {
+    try {
+      const result = await (channel === 'alipay'
+        ? paymentApi.queryAlipayOrder(tradeNo)
+        : paymentApi.queryWechatOrder(tradeNo))
+
+      if (result.status === 'paid') {
+        stopPolling()
+        setPaymentStep('success')
+        message.success('支付成功，认购完成！')
+        fetchSubscriptionSummary(drug!.drugId)
+        onOrderSuccess?.()
+        setSuccessMessage('认购成功')
+        setShowSuccess(true)
+        setTimeout(() => setShowSuccess(false), 1500)
+        return
+      }
+
+      // 检查超时
+      const elapsed = Date.now() - startTimeRef.current
+      if (elapsed > 5 * 60 * 1000) {
+        stopPolling()
+        setPaymentStep('timeout')
+        message.warning('支付超时，请重新支付')
+      }
+    } catch (error) {
+      console.error('Check payment status error:', error)
+    }
+  }, [stopPolling, drug, fetchSubscriptionSummary, onOrderSuccess])
+
+  // 开始轮询
+  const startPolling = useCallback((tradeNo: string, channel: 'alipay' | 'wechat') => {
+    startTimeRef.current = Date.now()
+    pollingRef.current = setInterval(() => {
+      checkPaymentStatus(tradeNo, channel)
+    }, 3000)
+  }, [checkPaymentStatus])
 
   // 当药品变化时加载数据
   useEffect(() => {
-    fetchBalance()
     if (drug?.drugId) {
-      fetchHoldingSummary(drug.drugId)
+      fetchSubscriptionSummary(drug.drugId)
       setQuantity(1)
       setSliderValue(0)
     }
-  }, [drug?.drugId, fetchBalance, fetchHoldingSummary])
+  }, [drug?.drugId, fetchSubscriptionSummary])
 
-  // 当药品变化或交易模式切换时，重置限价
+  // 计算最大可认购数量（不依赖余额，由药品剩余数量决定）
   useEffect(() => {
     if (drug) {
-      setLimitPrice(tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice)
-    }
-  }, [drug?.drugId, tradeMode, drug])
-
-  // 计算最大可垫资数量（买入时）
-  useEffect(() => {
-    if (drug && balance && tradeMode === 'buy') {
-      const maxByBalance = Math.floor(balance / drug.purchasePrice)
-      setMaxQuantity(maxByBalance)
-    } else if (tradeMode === 'sell' && holdingSummary) {
-      setMaxQuantity(holdingSummary.totalQuantity)
+      setMaxQuantity(9999)
     } else {
       setMaxQuantity(0)
     }
-  }, [drug, balance, tradeMode, holdingSummary])
+  }, [drug])
 
-  // 计算交易额
+  // 计算认购金额
   const estimatedAmount = useMemo(() => {
     if (!drug) return 0
-    const price = tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice
-    return Number(Number(quantity * price || 0).toFixed(2))
-  }, [quantity, drug, tradeMode])
-
-  // 计算限价价差百分比
-  const priceDiffInfo = useMemo(() => {
-    if (orderType !== 'limit' || !drug || !limitPrice) return null
-    const currentPrice = tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice
-    if (!currentPrice || currentPrice === 0) return null
-    const diffPercent = ((limitPrice - currentPrice) / currentPrice) * 100
-    const isLower = limitPrice < currentPrice
-    return {
-      diffPercent: Math.abs(diffPercent).toFixed(2),
-      isLower,
-      isBuy: tradeMode === 'buy',
-    }
-  }, [orderType, limitPrice, drug, tradeMode])
+    return Number(Number(quantity * drug.purchasePrice || 0).toFixed(2))
+  }, [quantity, drug])
 
   // 滑块变化处理
   const handleSliderChange = (value: number) => {
@@ -168,150 +191,52 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     }
   }
 
-  // Tab 切换
-  const handleTabChange = (mode: 'buy' | 'sell') => {
-    setTradeMode(mode)
-    setQuantity(1)
-    setSliderValue(0)
-    setOrderType('market')
-  }
-
-  // 订单类型切换
-  const handleOrderTypeChange = (type: 'market' | 'limit') => {
-    setOrderType(type)
-    if (type === 'market' && drug) {
-      setLimitPrice(tradeMode === 'buy' ? drug.purchasePrice : drug.sellingPrice)
-    }
-  }
-
-  // 提交订单
+  // 提交认购
   const handleSubmit = () => {
     if (!drug) {
       message.error('请先选择药品')
       return
     }
     if (quantity < 1) {
-      message.error(`最少${tradeMode === 'buy' ? '垫资' : '卖出'}1盒`)
-      return
-    }
-    if (tradeMode === 'buy' && estimatedAmount > balance) {
-      message.error('可用余额不足')
-      return
-    }
-    if (tradeMode === 'sell' && holdingSummary && quantity > holdingSummary.totalQuantity) {
-      message.error('可卖出数量不足')
+      message.error('最少认购1盒')
       return
     }
     setConfirmModalVisible(true)
   }
 
+  // 确认购买后，发起认购直付
   const handleConfirmOrder = async () => {
     if (!drug) return
-
-    // 卖出功能
-    if (tradeMode === 'sell') {
-      // 市价卖出
-      if (orderType === 'market') {
-        setSubmitting(true)
-        try {
-          const response = await fundingApi.sellOrder({
-            drugId: drug.drugId,
-            quantity,
-          })
-          if (response.success) {
-            message.success(`解套卖出成功，卖出金额 ¥${response.data.sellAmount}`)
-            setConfirmModalVisible(false)
-            setQuantity(1)
-            setSliderValue(0)
-            fetchBalance()
-            fetchHoldingSummary(drug.drugId)
-            onOrderSuccess?.()
-            // 显示成功动画
-            setSuccessMessage('下单成功')
-            setShowSuccess(true)
-            setTimeout(() => setShowSuccess(false), 1500)
-          }
-        } catch (error: any) {
-          message.error(error.response?.data?.message || '卖出失败')
-        } finally {
-          setSubmitting(false)
-        }
-        return
-      }
-      // 限价卖出委托走下面的通用限价委托逻辑
-    }
-
-    setSubmitting(true)
-    try {
-      const response = await fundingApi.createFundingOrder({
-        drugId: drug.drugId,
-        quantity,
-      })
-      if (response.success) {
-        message.success('垫资订单创建成功')
-        setConfirmModalVisible(false)
-        setQuantity(1)
-        setSliderValue(0)
-        fetchBalance()
-        fetchHoldingSummary(drug.drugId)
-        onOrderSuccess?.()
-        // 显示成功动画
-        setSuccessMessage('下单成功')
-        setShowSuccess(true)
-        setTimeout(() => setShowSuccess(false), 1500)
-      }
-    } catch (error: any) {
-      message.error(error.response?.data?.message || '创建订单失败')
-    } finally {
-      setSubmitting(false)
-    }
+    setConfirmModalVisible(false)
+    setPaymentActive(true)
+    setPaymentStep('channel')
   }
 
-  // 限价委托提交
-  const handleConfirmLimitOrder = async () => {
+  // 选择支付方式并发起支付
+  const handlePayWithChannel = async (channel: 'alipay' | 'wechat') => {
     if (!drug) return
+    setPaymentChannel(channel)
     setSubmitting(true)
     try {
-      // 计算过期时间
-      let expireAt: string | undefined
-      if (expireOption !== 'forever') {
-        const hours: Record<string, number> = { '24h': 24, '7d': 168, '30d': 720 }
-        expireAt = new Date(Date.now() + hours[expireOption] * 3600 * 1000).toISOString()
-      }
-
-      const response = await pendingOrderApi.create({
+      const response = await paymentApi.createSubscriptionPayment({
         drugId: drug.drugId,
-        type: isBuy ? 'limit_buy' : 'limit_sell',
-        targetPrice: limitPrice,
         quantity,
-        expireAt,
+        channel,
       })
-
-      if (response.success) {
-        message.success('委托单创建成功')
-        setConfirmModalVisible(false)
-        setQuantity(1)
-        setSliderValue(0)
-        fetchBalance()
-        onOrderSuccess?.()
-        // 显示成功动画
-        setSuccessMessage('委托已提交')
-        setShowSuccess(true)
-        setTimeout(() => setShowSuccess(false), 1500)
-      }
+      const data = response as any
+      const outTradeNo = data.outTradeNo
+      const qrCode = data.qrCode || data.codeUrl || ''
+      setPaymentOutTradeNo(outTradeNo)
+      setPaymentQrCode(qrCode)
+      setPaymentAmount(estimatedAmount)
+      setPaymentMockMode(!!data.mockMode)
+      setPaymentStep('paying')
+      startPolling(outTradeNo, channel)
     } catch (error: any) {
-      message.error(error.response?.data?.message || '创建委托单失败')
+      const errMsg = error.response?.data?.message
+      message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '创建支付订单失败'))
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  // 确认订单/委托
-  const handleConfirm = () => {
-    if (orderType === 'limit') {
-      handleConfirmLimitOrder()
-    } else {
-      handleConfirmOrder()
     }
   }
 
@@ -324,122 +249,50 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     )
   }
 
-  const isBuy = tradeMode === 'buy'
-  const canSubmit = maxQuantity > 0 && quantity >= 1 && 
-    (tradeMode === 'buy' ? estimatedAmount <= balance : (holdingSummary ? quantity <= holdingSummary.totalQuantity : false))
+  const canSubmit = drug && quantity >= 1
 
   return (
-    <div className={`trade-panel ${isBuy ? '' : 'sell-mode'}`}>
-      {/* Tab 切换 */}
-      <div className="trade-tabs">
-        <div
-          className={`trade-tab ${isBuy ? 'active' : ''}`}
-          onClick={() => handleTabChange('buy')}
-        >
-          垫资
-        </div>
-        <div
-          className={`trade-tab ${!isBuy ? 'active' : ''}`}
-          onClick={() => handleTabChange('sell')}
-        >
-          解套
-        </div>
-      </div>
-
-      {/* 订单类型切换 - 市价/限价 */}
-      <div className="order-type-tabs">
-        <div
-          className={`order-type-tab ${orderType === 'market' ? 'active' : ''}`}
-          onClick={() => handleOrderTypeChange('market')}
-        >
-          市价
-        </div>
-        <div className="order-type-divider">|</div>
-        <div
-          className={`order-type-tab ${orderType === 'limit' ? 'active' : ''}`}
-          onClick={() => handleOrderTypeChange('limit')}
-        >
-          限价
-        </div>
+    <div className="trade-panel">
+      {/* 标题 */}
+      <div className="trade-header">
+        <div className="trade-title">认购 {drug.drugName}</div>
       </div>
 
       {/* 表单区域 */}
       <div className="panel-section form-section">
-        {/* 价格输入框 */}
+        {/* 价格显示 */}
         <div className="form-item">
-          <div className="form-label">价格</div>
-          <InputNumber
-            value={orderType === 'limit' ? limitPrice : (isBuy ? drug.purchasePrice : drug.sellingPrice)}
-            disabled={orderType === 'market'}
-            className={`price-input ${orderType === 'limit' ? 'editable' : ''}`}
-            precision={2}
-            addonAfter="CNY"
-            onChange={(value) => {
-              if (orderType === 'limit' && value !== null) {
-                setLimitPrice(value)
-              }
-            }}
-          />
-          {/* 限价价差提示 */}
-          {priceDiffInfo && (
-            <div className={`price-diff-hint ${priceDiffInfo.isLower ? 'lower' : 'higher'}`}>
-              {priceDiffInfo.isLower
-                ? `低于当前价 ${priceDiffInfo.diffPercent}%`
-                : `高于当前价 ${priceDiffInfo.diffPercent}%`}
-            </div>
-          )}
-        </div>
-
-        {/* 有效期选择器 - 仅限价模式显示 */}
-        {orderType === 'limit' && (
-          <div className="form-item">
-            <div className="form-label">有效期</div>
-            <Select
-              value={expireOption}
-              onChange={setExpireOption}
-              className="expire-select"
-              options={[
-                { value: '24h', label: '24小时' },
-                { value: '7d', label: '7天' },
-                { value: '30d', label: '30天' },
-                { value: 'forever', label: '长期有效' },
-              ]}
-            />
+          <div className="form-label">进货价格</div>
+          <div className="price-display">
+            <span className="price-value">¥{drug.purchasePrice.toFixed(2)}</span>
           </div>
-        )}
+        </div>
 
         {/* 数量输入框 */}
         <div className="form-item">
-          <div className="form-label">数量（盒）</div>
-          <InputNumber
-            min={0}
-            max={maxQuantity}
-            value={quantity}
-            onChange={handleQuantityChange}
-            className="quantity-input"
-            precision={0}
-            addonAfter="盒"
-            disabled={maxQuantity <= 0}
-          />
-        </div>
-
-        {/* 可用余额/可卖数量 */}
-        <div className="available-balance">
-          {isBuy ? (
-            <>
-              <span className="available-label">可用</span>
-              <span className="available-value">
-                {loadingBalance ? <Spin size="small" /> : `¥${Number(balance || 0).toFixed(2)} CNY`}
-              </span>
-            </>
-          ) : (
-            <>
-              <span className="available-label">可卖</span>
-              <span className="available-value">
-                {loadingHolding ? <Spin size="small" /> : `${holdingSummary?.totalQuantity || 0} 盒`}
-              </span>
-            </>
-          )}
+          <div className="form-label">认购数量（盒）</div>
+          <Space.Compact>
+            <InputNumber
+              min={1}
+              value={quantity}
+              onChange={handleQuantityChange}
+              className="quantity-input"
+              precision={0}
+              style={{ width: '100%' }}
+            />
+            <span style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              padding: '0 11px',
+              background: '#21262D',
+              border: '1px solid #30363D',
+              borderLeft: 'none',
+              borderRadius: '0 6px 6px 0',
+              color: '#8B949E',
+              fontSize: 14,
+              whiteSpace: 'nowrap',
+            }}>盒</span>
+          </Space.Compact>
         </div>
 
         {/* 百分比滑块 */}
@@ -450,13 +303,12 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
             value={sliderValue}
             onChange={handleSliderChange}
             tooltip={{ open: false }}
-            disabled={maxQuantity <= 0}
           />
         </div>
 
-        {/* 交易额显示 */}
+        {/* 认购金额显示 */}
         <div className="trade-amount-section">
-          <div className="trade-amount-label">交易额</div>
+          <div className="trade-amount-label">认购金额</div>
           <div className="trade-amount-value">¥{Number(estimatedAmount || 0).toFixed(2)}</div>
         </div>
 
@@ -468,70 +320,43 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
           icon={<ShoppingCartOutlined />}
           onClick={handleSubmit}
           disabled={!canSubmit}
-          className={`submit-btn ${isBuy ? 'buy-btn' : 'sell-btn'}`}
+          className="submit-btn buy-btn"
         >
           <span className="btn-text-long">
-            {orderType === 'limit'
-              ? (isBuy ? `委托买入 ${drug.drugName}` : `委托卖出 ${drug.drugName}`)
-              : (isBuy ? `垫资买入 ${drug.drugName}` : `解套卖出 ${drug.drugName}`)}
+            认购 {drug.drugName}
           </span>
           <span className="btn-text-short" style={{ display: 'none' }}>
-            {orderType === 'limit'
-              ? (isBuy ? '委托买入' : '委托卖出')
-              : (isBuy ? '垫资买入' : '解套卖出')}
+            认购
           </span>
         </Button>
-
-        {/* 无持仓提示 */}
-        {!isBuy && !holdingSummary && (
-          <div className="error-tip">暂无可解套持仓</div>
-        )}
-        {maxQuantity <= 0 && isBuy && (
-          <div className="error-tip">余额不足</div>
-        )}
       </div>
 
-      {/* 我的持仓概要 */}
+      {/* 我的认购概要 */}
       <div className="panel-section holding-section">
-        <div className="section-title">我的持仓</div>
-        {loadingHolding ? (
+        <div className="section-title">我的认购</div>
+        {loadingSubscription ? (
           <div className="holding-loading"><Spin size="small" /></div>
-        ) : holdingSummary ? (
+        ) : subscriptionSummary ? (
           <div className="holding-info">
             <div className="holding-row">
-              <span className="holding-label">持仓数量</span>
-              <span className="holding-value">{holdingSummary.totalQuantity} 盒</span>
+              <span className="holding-label">认购数量</span>
+              <span className="holding-value">{subscriptionSummary.totalQuantity} 盒</span>
             </div>
             <div className="holding-row">
               <span className="holding-label">累计收益</span>
-              <span className={`holding-value ${holdingSummary.totalProfit >= 0 ? 'profit' : 'loss'}`}>
-                {holdingSummary.totalProfit >= 0 ? '+' : ''}¥{Number(holdingSummary.totalProfit || 0).toFixed(2)}
+              <span className={`holding-value ${subscriptionSummary.totalProfit >= 0 ? 'profit' : 'loss'}`}>
+                {subscriptionSummary.totalProfit >= 0 ? '+' : ''}¥{Number(subscriptionSummary.totalProfit || 0).toFixed(2)}
               </span>
             </div>
-            {/* 实时盈亏百分比 */}
-            {holdingSummary.averagePrice && drug && (
-              <div className="holding-row">
-                <span className="holding-label">盈亏</span>
-                {(() => {
-                  const pnlPercent = ((drug.sellingPrice - holdingSummary.averagePrice) / holdingSummary.averagePrice) * 100
-                  const isProfit = pnlPercent >= 0
-                  return (
-                    <span className={`holding-value ${isProfit ? 'pnl-profit' : 'pnl-loss'}`}>
-                      {isProfit ? '+' : ''}{pnlPercent.toFixed(2)}%
-                    </span>
-                  )
-                })()}
-              </div>
-            )}
           </div>
         ) : (
-          <div className="holding-empty">暂无持仓</div>
+          <div className="holding-empty">暂无认购</div>
         )}
         <div 
           className="view-holdings-link"
           onClick={() => navigate('/portfolio')}
         >
-          查看完整持仓 &gt;
+          查看完整认购 &gt;
         </div>
       </div>
 
@@ -542,7 +367,7 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
         footer={null}
         width={360}
         closable={false}
-        className={`trade-confirm-modal ${isBuy ? 'buy-mode' : 'sell-mode'}`}
+        className="trade-confirm-modal buy-mode"
         styles={{
           content: {
             background: '#1E2329',
@@ -561,9 +386,7 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
               <ShoppingCartOutlined />
             </div>
             <Title level={4} className="confirm-title">
-              {orderType === 'limit'
-                ? '确认委托'
-                : (isBuy ? '确认垫资' : '确认解套')}
+              确认认购
             </Title>
           </div>
 
@@ -576,17 +399,10 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
               <Text className="confirm-label">数量</Text>
               <Text className="confirm-value">{quantity} 盒</Text>
             </div>
-            {orderType === 'limit' ? (
-              <div className="confirm-row">
-                <Text className="confirm-label">目标价格</Text>
-                <Text className="confirm-amount">¥{Number(limitPrice || 0).toFixed(2)}</Text>
-              </div>
-            ) : (
-              <div className="confirm-row">
-                <Text className="confirm-label">金额</Text>
-                <Text className="confirm-amount">¥{Number(estimatedAmount || 0).toFixed(2)}</Text>
-              </div>
-            )}
+            <div className="confirm-row">
+              <Text className="confirm-label">金额</Text>
+              <Text className="confirm-amount">¥{Number(estimatedAmount || 0).toFixed(2)}</Text>
+            </div>
           </div>
 
           <div className="confirm-actions">
@@ -598,14 +414,158 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
             </Button>
             <Button
               type="primary"
-              className={`confirm-btn ${isBuy ? 'buy-confirm' : 'sell-confirm'}`}
-              loading={submitting}
-              onClick={handleConfirm}
+              className="confirm-btn buy-confirm"
+              onClick={handleConfirmOrder}
             >
-              确认
+              去支付
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* 支付弹窗 */}
+      <Modal
+        open={paymentActive}
+        onCancel={() => {
+          stopPolling()
+          resetPaymentState()
+        }}
+        footer={null}
+        width={420}
+        closable={true}
+        title={null}
+        styles={{
+          content: {
+            background: '#161B22',
+            border: '1px solid #30363D',
+            borderRadius: 12,
+          },
+        }}
+      >
+        {/* 选择支付方式 */}
+        {paymentStep === 'channel' && !paymentQrCode && (
+          <div style={{ padding: '24px 0', textAlign: 'center' }}>
+            <div style={{ fontSize: 20, fontWeight: 600, color: '#E6EDF3', marginBottom: 8 }}>
+              选择支付方式
+            </div>
+            <div style={{ color: '#8B949E', marginBottom: 24 }}>
+              认购 {drug?.drugName} {quantity}盒 · ¥{Number(estimatedAmount || 0).toFixed(2)}
+            </div>
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center' }}>
+              <Button
+                size="large"
+                icon={<AlipayCircleOutlined />}
+                onClick={() => handlePayWithChannel('alipay')}
+                loading={submitting}
+                style={{ width: 160, height: 48, borderColor: '#1890FF', color: '#1890FF' }}
+              >
+                支付宝支付
+              </Button>
+              <Button
+                size="large"
+                icon={<WechatOutlined />}
+                onClick={() => handlePayWithChannel('wechat')}
+                loading={submitting}
+                style={{ width: 160, height: 48, borderColor: '#52C41A', color: '#52C41A' }}
+              >
+                微信支付
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* 支付中 - 二维码 */}
+        {paymentStep === 'paying' && paymentQrCode && (
+          <div style={{ padding: '24px 0', textAlign: 'center' }}>
+            <div style={{ marginBottom: 12 }}>
+              <Text style={{ color: '#8B949E', fontSize: 14 }}>认购金额</Text>
+              <div style={{
+                fontSize: 36, fontWeight: 700, color: '#E6EDF3',
+                fontFamily: "'JetBrains Mono', 'DIN', monospace",
+              }}>
+                ¥{Number(paymentAmount || 0).toFixed(2)}
+              </div>
+            </div>
+            <div style={{ marginBottom: 16 }}>
+              {paymentChannel === 'alipay' ? (
+                <>
+                  <AlipayCircleOutlined style={{ color: '#1890FF', fontSize: 28 }} />
+                  <Text style={{ color: '#1890FF', fontSize: 18, fontWeight: 500, marginLeft: 8 }}>支付宝扫码支付</Text>
+                </>
+              ) : (
+                <>
+                  <WechatOutlined style={{ color: '#52C41A', fontSize: 28 }} />
+                  <Text style={{ color: '#52C41A', fontSize: 18, fontWeight: 500, marginLeft: 8 }}>微信扫码支付</Text>
+                </>
+              )}
+            </div>
+            <div style={{
+              display: 'inline-block', padding: 16, background: '#fff',
+              borderRadius: 8, marginBottom: 12,
+            }}>
+              <QRCodeSVG value={paymentQrCode} size={200} />
+            </div>
+            <div style={{ color: '#8B949E', fontSize: 13 }}>
+              请使用{paymentChannel === 'alipay' ? '支付宝' : '微信'}扫描二维码完成支付
+            </div>
+            <div style={{ color: '#8B949E', fontSize: 12, marginTop: 8 }}>
+              <Spin size="small" /> 等待支付中...
+            </div>
+            {paymentMockMode && (
+              <Button
+                type="primary"
+                size="small"
+                style={{ marginTop: 12, background: '#722ED1', borderColor: '#722ED1' }}
+                onClick={async () => {
+                  try {
+                    await paymentApi.confirmMockPayment(paymentOutTradeNo)
+                    stopPolling()
+                    setPaymentStep('success')
+                    message.success('Mock支付成功，认购完成！')
+                    fetchSubscriptionSummary(drug!.drugId)
+                    onOrderSuccess?.()
+                    setSuccessMessage('认购成功')
+                    setShowSuccess(true)
+                    setTimeout(() => setShowSuccess(false), 1500)
+                  } catch (e: any) {
+                    message.error('Mock确认失败')
+                  }
+                }}
+              >
+                模拟支付完成
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* 支付成功 */}
+        {paymentStep === 'success' && (
+          <div style={{ padding: '48px 0', textAlign: 'center' }}>
+            <CheckCircleOutlined style={{ fontSize: 64, color: '#52C41A', marginBottom: 24 }} />
+            <div style={{ fontSize: 24, fontWeight: 600, color: '#E6EDF3', marginBottom: 8 }}>
+              支付成功
+            </div>
+            <Text style={{ color: '#8B949E' }}>¥{Number(paymentAmount || 0).toFixed(2)} 认购成功，T+1生效</Text>
+          </div>
+        )}
+
+        {/* 支付超时 */}
+        {paymentStep === 'timeout' && (
+          <div style={{ padding: '48px 0', textAlign: 'center' }}>
+            <CloseCircleOutlined style={{ fontSize: 64, color: '#FF4D4F', marginBottom: 24 }} />
+            <div style={{ fontSize: 24, fontWeight: 600, color: '#E6EDF3', marginBottom: 8 }}>
+              支付超时
+            </div>
+            <Text style={{ color: '#8B949E', display: 'block', marginBottom: 24 }}>请重新发起支付</Text>
+            <Button
+              type="primary"
+              onClick={() => resetPaymentState()}
+              style={{ background: 'linear-gradient(135deg, #00D4AA 0%, #00B894 100%)', border: 'none' }}
+            >
+              重新支付
+            </Button>
+          </div>
+        )}
       </Modal>
 
       {/* 成功动画覆盖层 */}

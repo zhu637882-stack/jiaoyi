@@ -13,7 +13,6 @@ import { Interval } from '@nestjs/schedule';
 import { MarketService } from '../../modules/market/market.service';
 
 @WebSocketGateway({
-  namespace: '/ws',
   cors: {
     origin: '*',
   },
@@ -107,12 +106,20 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     this.server.emit('market:ticker', data);
   }
 
-  // 广播垫资更新
-  broadcastFundingUpdate(data: any) {
-    this.server.emit('funding:update', data);
+  // 广播认购更新
+  broadcastSubscriptionUpdate(data: any) {
+    this.server.emit('subscription:update', data);
     if (data.drugId) {
-      this.server.to(`drug:${data.drugId}`).emit('funding:update', data);
+      this.server.to(`drug:${data.drugId}`).emit('subscription:update', data);
     }
+  }
+
+  // 推送认购订单更新通知到指定用户
+  emitSubscriptionUpdate(userId: string, event: string, data: any) {
+    this.server.to(`user:${userId}`).emit(event, {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   // 广播清算完成通知
@@ -121,14 +128,6 @@ export class EventsGateway implements OnGatewayInit, OnGatewayConnection, OnGate
     if (data.drugId) {
       this.server.to(`drug:${data.drugId}`).emit('settlement:complete', data);
     }
-  }
-
-  // 推送委托单更新通知到指定用户
-  emitPendingOrderUpdate(userId: string, event: string, data: any) {
-    this.server.to(`user:${userId}`).emit(event, {
-      ...data,
-      timestamp: new Date().toISOString(),
-    });
   }
 
   // 定时推送行情ticker（每5秒）

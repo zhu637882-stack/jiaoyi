@@ -39,8 +39,8 @@ type SubIndicatorKey = 'MACD' | 'RSI' | 'KDJ'
 
 // 颜色常量 - 统一主题配色（中国标准：涨红跌绿）
 const COLORS = {
-  UP: '#FF4D4F',
-  DOWN: '#00D4AA',
+  UP: '#cf1322',
+  DOWN: '#00b96b',
   TEXT: '#8B949E',
   TEXT_LIGHT: '#E6EDF3',
   GRID: '#21262D',

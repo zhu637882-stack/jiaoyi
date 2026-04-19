@@ -1,53 +1,56 @@
-/* Admin 页面样式 - 深色主题 */
+/* Admin 页面样式 - 深色主题 - 紧凑版 v2 */
 
 /* 页面容器 */
 .admin-page {
-  padding: var(--space-md);
-  padding-bottom: var(--space-2xl);
-  min-height: calc(100vh - 72px);
+  padding: 10px 14px;
+  padding-bottom: 24px;
+  min-height: calc(100vh - 56px);
   background: var(--color-bg-primary);
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-/* 页面标题区域 */
+/* 页面标题区域 - 紧凑 */
 .admin-page-header {
-  margin-bottom: var(--space-xl);
+  margin-bottom: 8px;
 }
 
 .admin-page-title {
   color: var(--color-text-primary) !important;
   margin: 0 !important;
   font-weight: 600 !important;
+  font-size: 18px !important;
 }
 
 .admin-page-subtitle {
   color: var(--color-text-tertiary);
-  font-size: var(--font-md);
+  font-size: 12px;
 }
 
 /* 页面标题 */
 .admin-page .page-title {
   color: var(--color-text-primary);
-  margin-bottom: var(--space-md);
+  margin-bottom: 6px;
   font-size: var(--font-xl);
   font-weight: 600;
 }
 
-/* 卡片统一样式 */
+/* 卡片统一样式 - 紧凑 */
 .admin-page .ant-card {
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 6px;
 }
 
 .admin-page .ant-card-body {
-  padding: var(--space-lg);
+  padding: 10px 14px;
 }
 
-/* 统计卡片样式 */
+/* 统计卡片样式 - 极紧凑横排 */
 .admin-stat-card {
   background: var(--color-bg-secondary) !important;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 4px;
   transition: all var(--transition-normal) ease;
 }
 
@@ -57,13 +60,31 @@
 }
 
 .admin-stat-card .ant-card-body {
-  padding: var(--space-lg);
+  padding: 4px 10px !important;
+}
+
+.admin-stat-card .ant-statistic-title {
+  font-size: 11px !important;
+  margin-bottom: 0 !important;
+  line-height: 1.3 !important;
+}
+
+.admin-stat-card .ant-statistic-content-value {
+  font-size: 15px !important;
+  line-height: 1.2 !important;
+}
+
+.admin-stat-card .ant-statistic-content {
+  font-size: 12px !important;
 }
 
 /* 状态标签样式 */
 .status-tag {
   font-weight: 500;
   border-radius: var(--radius-sm);
+  font-size: 12px;
+  padding: 0 6px;
+  line-height: 20px;
 }
 
 .status-tag-pending {
@@ -101,19 +122,25 @@
   background: var(--color-bg-tertiary) !important;
   border: 1px solid var(--color-border) !important;
   color: var(--color-text-secondary) !important;
+  font-size: 12px;
+  padding: 0 6px;
+  line-height: 20px;
 }
 
 /* 表格单元格通用样式 */
 .table-cell-primary {
   color: var(--color-text-primary);
+  font-size: 13px;
 }
 
 .table-cell-secondary {
   color: var(--color-text-secondary);
+  font-size: 13px;
 }
 
 .table-cell-tertiary {
   color: var(--color-text-tertiary);
+  font-size: 12px;
 }
 
 .table-cell-bold {
@@ -123,6 +150,7 @@
 .table-cell-mono {
   color: var(--color-text-primary);
   font-family: var(--font-family-mono);
+  font-size: 13px;
 }
 
 .table-cell-success {
@@ -140,50 +168,53 @@
 .table-cell-with-sub {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
 }
 
 .table-cell-code {
   color: var(--color-text-tertiary);
-  font-size: var(--font-sm);
+  font-size: 11px;
   font-family: var(--font-family-mono);
 }
 
-/* 内容卡片样式 */
+/* 内容卡片样式 - 紧凑 */
 .admin-content-card {
   background: var(--color-bg-secondary) !important;
   border: 1px solid var(--color-border) !important;
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
 }
 
 .admin-content-card .ant-card-body {
-  padding: var(--space-xl);
+  padding: 12px 16px;
 }
 
-/* 操作按钮行样式 */
+/* 操作按钮行样式 - 紧凑 */
 .admin-action-bar {
   display: flex;
   align-items: center;
-  gap: var(--space-lg);
-  margin-bottom: var(--space-lg);
+  gap: 6px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
 }
 
 /* 表单样式增强 */
 .admin-form .ant-form-item-label > label {
   color: var(--color-text-secondary);
   font-weight: 500;
+  font-size: 13px;
 }
 
 .admin-form .ant-statistic-title {
   color: var(--color-text-secondary);
 }
 
-/* 表格样式 - 深色主题 */
+/* 表格样式 - 深色主题 - 紧凑 */
 .admin-page .ant-table {
   background: transparent !important;
+  font-size: 13px;
 }
 
-/* Sticky 表头 */
+/* Sticky 表头 - 紧凑 */
 .admin-page .ant-table-thead > tr > th {
   position: sticky;
   top: 0;
@@ -192,11 +223,16 @@
   border-bottom: 1px solid var(--color-border) !important;
   color: var(--color-text-primary) !important;
   font-weight: 600;
+  font-size: 12px;
+  padding: 8px 10px !important;
+  white-space: nowrap;
 }
 
 .admin-page .ant-table-tbody > tr > td {
   border-bottom: 1px solid var(--color-bg-tertiary) !important;
   background: transparent;
+  padding: 6px 10px !important;
+  font-size: 13px;
 }
 
 .admin-page .ant-table-tbody > tr:last-child > td {
@@ -216,20 +252,27 @@
   background: var(--color-bg-tertiary) !important;
 }
 
-/* 表格行 hover 样式（兼容旧类名） */
+/* 表格行 hover 样式 */
 .admin-table-row:hover td {
   background: var(--color-bg-tertiary) !important;
 }
 
-/* Tab 样式统一 */
+/* 补贴金已填写行 */
+.subsidy-filled-row td {
+  opacity: 0.55;
+}
+
+/* Tab 样式统一 - 极紧凑 */
 .admin-page .ant-tabs-nav::before {
   border-bottom: 1px solid var(--color-border) !important;
 }
 
 .admin-page .ant-tabs-tab {
   color: var(--color-text-secondary) !important;
-  padding: 12px 16px;
+  padding: 5px 10px;
   transition: all var(--transition-fast);
+  font-size: 13px;
+  margin: 0 2px !important;
 }
 
 .admin-page .ant-tabs-tab:hover {
@@ -243,29 +286,48 @@
 
 .admin-page .ant-tabs-ink-bar {
   background: linear-gradient(90deg, var(--color-primary), var(--color-success)) !important;
-  height: 3px !important;
-  border-radius: 3px 3px 0 0 !important;
+  height: 2px !important;
+  border-radius: 2px 2px 0 0 !important;
 }
 
-/* 按钮样式 */
+/* Tab 标签内图标间距 */
+.admin-page .ant-tabs-tab .anticon {
+  margin-right: 3px !important;
+  font-size: 12px;
+}
+
+/* 按钮样式 - 紧凑 */
+.admin-page .ant-btn {
+  border-radius: 5px;
+  font-size: 13px;
+  height: 30px;
+  padding: 0 12px;
+}
+
 .admin-page .ant-btn-primary {
   transition: all var(--transition-normal);
 }
 
 .admin-page .ant-btn-primary:hover {
-  box-shadow: 0 4px 12px rgba(240, 185, 11, 0.4);
+  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.3);
   transform: translateY(-1px);
+}
+
+.admin-page .ant-btn-sm {
+  font-size: 12px;
+  padding: 0 8px;
+  height: 24px;
 }
 
 /* 操作按钮样式 - 紧凑型 icon + text */
 .admin-page .ant-table .ant-btn-text {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-sm);
+  gap: 3px;
+  padding: 2px 6px;
   height: auto;
-  font-size: var(--font-sm);
-  border-radius: var(--radius-sm);
+  font-size: 12px;
+  border-radius: 4px;
   transition: all var(--transition-fast);
 }
 
@@ -282,20 +344,23 @@
   color: var(--color-error);
 }
 
-/* 表单样式 */
+/* 表单样式 - 紧凑 */
 .admin-page .ant-form-item-label > label {
   color: var(--color-text-secondary) !important;
+  font-size: 13px;
 }
 
 .admin-page .ant-form-item {
-  margin-bottom: var(--space-lg);
+  margin-bottom: 8px;
 }
 
 .admin-page .ant-input {
   background: var(--color-bg-primary) !important;
   border-color: var(--color-border) !important;
   color: var(--color-text-primary) !important;
-  border-radius: var(--radius-lg);
+  border-radius: 5px;
+  font-size: 13px;
+  height: 30px;
 }
 
 .admin-page .ant-input:hover {
@@ -310,11 +375,14 @@
 .admin-page .ant-input-number {
   background: var(--color-bg-primary) !important;
   border-color: var(--color-border) !important;
-  border-radius: var(--radius-lg);
+  border-radius: 5px;
+  height: 30px;
 }
 
 .admin-page .ant-input-number-input {
   color: var(--color-text-primary) !important;
+  font-size: 13px;
+  height: 28px;
 }
 
 .admin-page .ant-input-number:hover {
@@ -332,7 +400,14 @@
   background: var(--color-bg-primary) !important;
   border-color: var(--color-border) !important;
   color: var(--color-text-primary) !important;
-  border-radius: var(--radius-lg) !important;
+  border-radius: 5px !important;
+  font-size: 13px;
+  height: 30px !important;
+  min-height: 30px !important;
+}
+
+.admin-page .ant-select-selection-item {
+  line-height: 28px !important;
 }
 
 .admin-page .ant-select-arrow {
@@ -348,7 +423,8 @@
   background: var(--color-bg-primary) !important;
   border-color: var(--color-border) !important;
   color: var(--color-text-primary) !important;
-  border-radius: var(--radius-lg);
+  border-radius: 5px;
+  height: 30px;
 }
 
 .admin-page .ant-picker:hover {
@@ -378,43 +454,43 @@
   color: var(--color-text-secondary);
 }
 
-/* Modal 样式统一 */
+/* Modal 样式统一 - 紧凑 */
 .admin-modal .ant-modal-content {
   background: var(--color-bg-secondary) !important;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border-radius: 8px;
   overflow: hidden;
 }
 
 .admin-modal .ant-modal-header {
   background: var(--color-bg-secondary) !important;
   border-bottom: 1px solid var(--color-border);
-  padding: var(--space-xl);
+  padding: 12px 20px;
 }
 
 .admin-modal .ant-modal-title {
   color: var(--color-text-primary) !important;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .admin-modal .ant-modal-body {
   background: var(--color-bg-secondary) !important;
-  padding: var(--space-xl);
+  padding: 16px 20px;
 }
 
 .admin-modal .ant-modal-footer {
   background: var(--color-bg-secondary) !important;
   border-top: 1px solid var(--color-border);
-  padding: var(--space-lg) var(--space-xl);
+  padding: 10px 20px;
   display: flex;
   justify-content: flex-end;
-  gap: var(--space-sm);
+  gap: 8px;
 }
 
 .admin-modal .ant-modal-close {
   color: var(--color-text-secondary) !important;
-  top: 16px;
+  top: 12px;
 }
 
 .admin-modal .ant-modal-close:hover {
@@ -436,21 +512,18 @@
 /* Divider 样式 */
 .admin-page .ant-divider {
   border-color: var(--color-border) !important;
-}
-
-/* Alert 样式 */
-.admin-page .ant-alert-warning {
-  background: #FAAD1420 !important;
-  border: 1px solid #FAAD1440 !important;
+  margin: 12px 0;
 }
 
 /* Steps 样式 */
 .admin-page .ant-steps-item-title {
   color: var(--color-text-primary) !important;
+  font-size: 13px;
 }
 
 .admin-page .ant-steps-item-description {
   color: var(--color-text-secondary) !important;
+  font-size: 12px;
 }
 
 .admin-page .ant-steps-item-finish .ant-steps-item-icon {
@@ -462,41 +535,100 @@
   color: var(--color-primary) !important;
 }
 
+/* 统计卡片 Row 间距紧凑 */
+.admin-page .ant-row {
+  margin-left: -4px !important;
+  margin-right: -4px !important;
+}
+
+.admin-page .ant-row > .ant-col {
+  padding-left: 4px !important;
+  padding-right: 4px !important;
+}
+
+/* 分页器紧凑 */
+.admin-page .ant-pagination {
+  margin-top: 6px;
+  font-size: 12px;
+}
+
+.admin-page .ant-pagination .ant-pagination-item {
+  min-width: 24px;
+  height: 24px;
+  line-height: 22px;
+  font-size: 12px;
+  border-radius: 4px;
+}
+
+.admin-page .ant-pagination .ant-pagination-prev,
+.admin-page .ant-pagination .ant-pagination-next {
+  min-width: 24px;
+  height: 24px;
+  line-height: 22px;
+}
+
+.admin-page .ant-pagination .ant-pagination-options {
+  font-size: 12px;
+}
+
+.admin-page .ant-pagination .ant-pagination-options .ant-select {
+  font-size: 12px;
+}
+
+.admin-page .ant-pagination .ant-pagination-options .ant-select-selector {
+  height: 24px !important;
+}
+
+/* Card title 紧凑 */
+.admin-page .ant-card-head {
+  min-height: 36px;
+  padding: 0 14px;
+}
+
+.admin-page .ant-card-head-title {
+  padding: 6px 0;
+  font-size: 13px;
+}
+
+.admin-page .ant-card-extra {
+  font-size: 12px;
+}
+
 /* 响应式断点 - 平板 */
 @media (max-width: 1200px) {
   .admin-page {
-    padding: var(--space-md);
+    padding: 10px 12px;
   }
 
   .admin-stat-card .ant-card-body {
-    padding: 14px;
+    padding: 8px 12px !important;
   }
 
   .admin-stat-card .ant-statistic-content-value {
-    font-size: var(--font-2xl) !important;
+    font-size: 18px !important;
   }
 
   .admin-page .ant-card-body {
-    padding: 14px;
+    padding: 10px 14px;
   }
 }
 
 /* 响应式断点 - 手机 */
 @media (max-width: 768px) {
   .admin-page {
-    padding: var(--space-sm);
+    padding: 8px;
   }
 
   .admin-page .ant-card-body {
-    padding: var(--space-lg) !important;
+    padding: 10px !important;
   }
 
   .admin-stat-card .ant-card-body {
-    padding: var(--space-md);
+    padding: 8px !important;
   }
 
   .admin-stat-card .ant-statistic-content-value {
-    font-size: var(--font-xl) !important;
+    font-size: 16px !important;
   }
 
   .admin-page .ant-tabs-nav {
@@ -504,43 +636,44 @@
   }
 
   .admin-page .ant-tabs-tab {
-    padding: var(--space-sm) var(--space-md) !important;
+    padding: 6px 10px !important;
+    font-size: 12px;
   }
 
   .admin-page .ant-table {
-    font-size: var(--font-sm);
+    font-size: 12px;
   }
 
   .admin-page .ant-table-thead > tr > th {
-    font-size: var(--font-sm);
-    padding: var(--space-sm);
+    font-size: 11px;
+    padding: 6px 8px !important;
   }
 
   .admin-page .ant-table-tbody > tr > td {
-    padding: var(--space-sm);
+    padding: 5px 8px !important;
   }
 }
 
 /* 小屏手机 */
 @media (max-width: 480px) {
   .admin-page {
-    padding: var(--space-sm);
+    padding: 6px;
   }
 
   .admin-stat-card .ant-statistic-content-value {
-    font-size: var(--font-lg) !important;
+    font-size: 15px !important;
   }
 
   .admin-stat-card .ant-card-body {
-    padding: var(--space-md);
+    padding: 6px 8px !important;
   }
 
   .admin-page .ant-btn {
-    font-size: var(--font-sm);
+    font-size: 12px;
   }
 
   .admin-page .ant-form-item {
-    margin-bottom: var(--space-lg);
+    margin-bottom: 10px;
   }
 }
 
@@ -561,5 +694,66 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  margin-right: 6px;
+  margin-right: 4px;
+}
+
+/* ========== 空数据提示 ========== */
+.admin-page .ant-table-placeholder .ant-empty-description {
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+/* ========== 搜索框紧凑 ========== */
+.admin-page .ant-input-search .ant-input {
+  font-size: 13px;
+}
+
+.admin-page .ant-input-search .ant-input-search-button {
+  height: 28px;
+}
+
+/* ========== Space 间距紧凑 ========== */
+.admin-page .ant-space-gap-row-small {
+  row-gap: 4px !important;
+}
+
+.admin-page .ant-space-gap-col-small {
+  column-gap: 4px !important;
+}
+
+.admin-page .ant-space-gap-row-middle {
+  row-gap: 6px !important;
+}
+
+.admin-page .ant-space-gap-col-middle {
+  column-gap: 6px !important;
+}
+
+/* ========== 标签页内容区域上间距 ========== */
+.admin-page .ant-tabs-content {
+  margin-top: 4px;
+}
+
+/* ========== Card 内标题与 extra 区域 ========== */
+.admin-page .ant-card-head-wrapper {
+  align-items: center;
+}
+
+.admin-page .ant-card-head-title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ========== 内嵌 Statistic 数字缩小 ========== */
+.admin-page .ant-statistic {
+  font-size: 12px;
+}
+
+.admin-page .ant-statistic-title {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+}
+
+.admin-page .ant-statistic-content-value {
+  font-size: 16px;
 }

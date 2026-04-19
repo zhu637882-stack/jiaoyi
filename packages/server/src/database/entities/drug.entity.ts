@@ -6,7 +6,7 @@ import {
   UpdateDateColumn,
   OneToMany,
 } from 'typeorm';
-import { FundingOrder } from './funding-order.entity';
+import { SubscriptionOrder } from './subscription-order.entity';
 import { DailySales } from './daily-sales.entity';
 import { Settlement } from './settlement.entity';
 import { MarketSnapshot } from './market-snapshot.entity';
@@ -38,8 +38,8 @@ export class Drug {
   @Column('int')
   totalQuantity: number;
 
-  @Column('int', { default: 0 })
-  fundedQuantity: number;
+  @Column('int', { default: 0, comment: '已认购数量' })
+  subscribedQuantity: number;
 
   @Column()
   batchNo: string;
@@ -51,11 +51,11 @@ export class Drug {
   })
   status: DrugStatus;
 
-  @Column('decimal', { precision: 5, scale: 2, default: 5.0 })
-  annualRate: number;
+  @Column('decimal', { precision: 5, scale: 4, default: 0, comment: '运营费用比例' })
+  operationFeeRate: number;
 
-  @Column('decimal', { precision: 10, scale: 2, default: 1.0 })
-  unitFee: number;
+  @Column('int', { default: 90, comment: '滞销天数' })
+  slowSellingDays: number;
 
   @CreateDateColumn()
   createdAt: Date;
@@ -63,8 +63,8 @@ export class Drug {
   @UpdateDateColumn()
   updatedAt: Date;
 
-  @OneToMany(() => FundingOrder, (order) => order.drug)
-  fundingOrders: FundingOrder[];
+  @OneToMany(() => SubscriptionOrder, (order) => order.drug)
+  subscriptionOrders: SubscriptionOrder[];
 
   @OneToMany(() => DailySales, (sales) => sales.drug)
   dailySales: DailySales[];
@@ -76,6 +76,6 @@ export class Drug {
   marketSnapshots: MarketSnapshot[];
 
   get remainingQuantity(): number {
-    return this.totalQuantity - this.fundedQuantity;
+    return this.totalQuantity - this.subscribedQuantity;
   }
 }

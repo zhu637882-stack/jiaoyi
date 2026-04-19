@@ -1,5 +1,14 @@
+import { IsString, IsOptional, IsIn } from 'class-validator';
+
 export class CreateSystemMessageDto {
-  title: string
-  content: string
-  type?: string  // announcement | notification | maintenance
+  @IsString()
+  title: string;
+
+  @IsString()
+  content: string;
+
+  @IsOptional()
+  @IsString()
+  @IsIn(['announcement', 'notification', 'maintenance'])
+  type?: string; // announcement | notification | maintenance
 }

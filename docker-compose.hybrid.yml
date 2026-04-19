@@ -1,0 +1,51 @@
+version: '3.8'
+
+# ============================================
+# 混合部署模式：PostgreSQL + Redis 用宿主机
+# 后端 + 前端(nginx) 跑 Docker
+# 适合 2GB 内存的 Windows 服务器
+# ============================================
+
+services:
+  # ========== 后端 NestJS ==========
+  backend:
+    build:
+      context: .
+      dockerfile: packages/server/Dockerfile
+    restart: always
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_TYPE: postgres
+      DB_HOST: host.docker.internal
+      DB_PORT: 5432
+      DB_USERNAME: ${DB_USERNAME:-postgres}
+      DB_PASSWORD: ${DB_PASSWORD:-123456}
+      DB_DATABASE: ${DB_DATABASE:-jiaoyi}
+      REDIS_HOST: host.docker.internal
+      REDIS_PORT: 6379
+      JWT_SECRET: ${JWT_SECRET:-your-jwt-secret-change-me}
+      JWT_EXPIRATION: ${JWT_EXPIRATION:-7d}
+      # 微信支付配置
+      WECHAT_MCHID: ${WECHAT_MCHID:-}
+      WECHAT_API_KEY: ${WECHAT_API_KEY:-}
+      WECHAT_CERT_PATH: ${WECHAT_CERT_PATH:-}
+      # 支付宝配置
+      ALIPAY_APPID: ${ALIPAY_APPID:-}
+      ALIPAY_PRIVATE_KEY: ${ALIPAY_PRIVATE_KEY:-}
+      ALIPAY_PUBLIC_KEY: ${ALIPAY_PUBLIC_KEY:-}
+    ports:
+      - "3000:3000"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+  # ========== 前端 + Nginx 反向代理 ==========
+  frontend:
+    build:
+      context: .
+      dockerfile: packages/web/Dockerfile
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - backend

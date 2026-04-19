@@ -33,10 +33,10 @@ export default class InitialSeed {
       console.log('管理员账户已创建: admin / admin123');
     }
 
-    // 创建测试垫资方账户
+    // 创建测试认购方账户
     const investors = [
-      { username: 'investor1', password: '123456', realName: '测试垫资方1', phone: '13800000001' },
-      { username: 'investor2', password: '123456', realName: '测试垫资方2', phone: '13800000002' },
+      { username: 'investor1', password: '123456', realName: '测试认购方1', phone: '13800000001' },
+      { username: 'investor2', password: '123456', realName: '测试认购方2', phone: '13800000002' },
     ];
 
     for (const investorData of investors) {
@@ -64,7 +64,7 @@ export default class InitialSeed {
           totalInvested: 0,
         });
         await accountBalanceRepository.save(balance);
-        console.log(`垫资方账户已创建: ${investorData.username} / ${investorData.password}，初始余额: 100000元`);
+        console.log(`认购方账户已创建: ${investorData.username} / ${investorData.password}，初始余额: 100000元`);
       }
     }
 
@@ -78,8 +78,8 @@ export default class InitialSeed {
         totalQuantity: 76923,
         batchNo: 'BATCH-2024-001',
         status: DrugStatus.FUNDING,
-        annualRate: 5.0,
-        unitFee: 1.0,
+        operationFeeRate: 1.0,
+        slowSellingDays: 90,
       },
       {
         name: '阿莫西林胶囊',
@@ -89,8 +89,8 @@ export default class InitialSeed {
         totalQuantity: 50000,
         batchNo: 'BATCH-2024-002',
         status: DrugStatus.FUNDING,
-        annualRate: 5.0,
-        unitFee: 1.0,
+        operationFeeRate: 1.0,
+        slowSellingDays: 90,
       },
       {
         name: '板蓝根颗粒',
@@ -100,8 +100,8 @@ export default class InitialSeed {
         totalQuantity: 80000,
         batchNo: 'BATCH-2024-003',
         status: DrugStatus.FUNDING,
-        annualRate: 4.5,
-        unitFee: 0.8,
+        operationFeeRate: 0.8,
+        slowSellingDays: 90,
       },
       {
         name: '布洛芬缓释胶囊',
@@ -111,8 +111,8 @@ export default class InitialSeed {
         totalQuantity: 40000,
         batchNo: 'BATCH-2024-004',
         status: DrugStatus.FUNDING,
-        annualRate: 5.5,
-        unitFee: 1.2,
+        operationFeeRate: 1.2,
+        slowSellingDays: 90,
       },
       {
         name: '复方丹参滴丸',
@@ -122,8 +122,8 @@ export default class InitialSeed {
         totalQuantity: 30000,
         batchNo: 'BATCH-2024-005',
         status: DrugStatus.FUNDING,
-        annualRate: 6.0,
-        unitFee: 1.5,
+        operationFeeRate: 1.5,
+        slowSellingDays: 90,
       },
       {
         name: '连花清瘟胶囊',
@@ -133,8 +133,8 @@ export default class InitialSeed {
         totalQuantity: 60000,
         batchNo: 'BATCH-2024-006',
         status: DrugStatus.FUNDING,
-        annualRate: 5.0,
-        unitFee: 1.0,
+        operationFeeRate: 1.0,
+        slowSellingDays: 90,
       },
       {
         name: '蒙脱石散',
@@ -144,8 +144,8 @@ export default class InitialSeed {
         totalQuantity: 100000,
         batchNo: 'BATCH-2024-007',
         status: DrugStatus.FUNDING,
-        annualRate: 4.0,
-        unitFee: 0.5,
+        operationFeeRate: 0.5,
+        slowSellingDays: 90,
       },
     ];
 

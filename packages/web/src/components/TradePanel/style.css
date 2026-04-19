@@ -56,7 +56,7 @@
 }
 
 .trade-tab.active {
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 .trade-tab.active::after {
@@ -66,16 +66,16 @@
   left: 0;
   right: 0;
   height: 2px;
-  background: #FF4D4F;
+  background: #00b96b;
 }
 
 /* 卖出模式 Tab 样式 */
 .trade-panel.sell-mode .trade-tab.active {
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 .trade-panel.sell-mode .trade-tab.active::after {
-  background: #00D4AA;
+  background: #cf1322;
 }
 
 /* 面板区域 */
@@ -193,7 +193,7 @@
 }
 
 .trade-panel .ant-slider-track {
-  background: #FF4D4F;
+  background: #00b96b;
   height: 4px;
   border-radius: 2px;
 }
@@ -203,8 +203,8 @@
   width: 12px;
   height: 12px;
   margin-top: -4px;
-  border: 2px solid #FF4D4F;
-  background: #FF4D4F;
+  border: 2px solid #00b96b;
+  background: #00b96b;
   box-shadow: none;
 }
 
@@ -232,23 +232,23 @@
 }
 
 .trade-panel .ant-slider-dot-active {
-  border-color: #FF4D4F;
-  background: #FF4D4F;
+  border-color: #00b96b;
+  background: #00b96b;
 }
 
 /* Slider 卖出模式 */
 .trade-panel.sell-mode .ant-slider-track {
-  background: #00D4AA;
+  background: #cf1322;
 }
 
 .trade-panel.sell-mode .ant-slider-handle {
-  border-color: #00D4AA;
-  background: #00D4AA;
+  border-color: #cf1322;
+  background: #cf1322;
 }
 
 .trade-panel.sell-mode .ant-slider-dot-active {
-  border-color: #00D4AA;
-  background: #00D4AA;
+  border-color: #cf1322;
+  background: #cf1322;
 }
 
 /* 交易额显示 - 币安风格 */
@@ -284,12 +284,12 @@
 }
 
 .submit-btn.buy-btn {
-  background: #FF4D4F !important;
+  background: #00b96b !important;
   color: #fff !important;
 }
 
 .submit-btn.sell-btn {
-  background: #00D4AA !important;
+  background: #cf1322 !important;
   color: #fff !important;
 }
 
@@ -353,11 +353,11 @@
 }
 
 .holding-section .holding-value.profit {
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 .holding-section .holding-value.loss {
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 .holding-section .holding-empty {
@@ -389,40 +389,40 @@
 
 /* 买入模式弹窗 */
 .trade-confirm-modal.buy-mode .confirm-icon {
-  background: rgba(255, 77, 79, 0.15);
-  border: 2px solid #FF4D4F;
+  background: rgba(0, 185, 107, 0.15);
+  border: 2px solid #00b96b;
 }
 
 .trade-confirm-modal.buy-mode .confirm-icon span {
   font-size: 24px;
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 .trade-confirm-modal.buy-mode .confirm-amount {
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 .trade-confirm-modal.buy-mode .confirm-btn {
-  background: #FF4D4F !important;
+  background: #00b96b !important;
 }
 
 /* 卖出模式弹窗 */
 .trade-confirm-modal.sell-mode .confirm-icon {
-  background: rgba(0, 212, 170, 0.15);
-  border: 2px solid #00D4AA;
+  background: rgba(207, 19, 34, 0.15);
+  border: 2px solid #cf1322;
 }
 
 .trade-confirm-modal.sell-mode .confirm-icon span {
   font-size: 24px;
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 .trade-confirm-modal.sell-mode .confirm-amount {
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 .trade-confirm-modal.sell-mode .confirm-btn {
-  background: #00D4AA !important;
+  background: #cf1322 !important;
 }
 
 .confirm-modal-content .confirm-title {
@@ -718,7 +718,7 @@
 
 .success-icon {
   font-size: 56px;
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 .success-text {
@@ -765,18 +765,18 @@
 }
 
 .price-diff-hint.lower {
-  color: #00D4AA;
+  color: #cf1322;
 }
 
 .price-diff-hint.higher {
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 /* 盈亏百分比样式 */
 .holding-value.pnl-profit {
-  color: #FF4D4F;
+  color: #00b96b;
 }
 
 .holding-value.pnl-loss {
-  color: #00D4AA;
+  color: #cf1322;
 }

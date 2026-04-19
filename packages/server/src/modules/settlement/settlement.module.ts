@@ -1,9 +1,10 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { SettlementService } from './settlement.service';
+import { SettlementCronService } from './settlement-cron.service';
 import { SettlementController } from './settlement.controller';
 import { Settlement } from '../../database/entities/settlement.entity';
-import { FundingOrder } from '../../database/entities/funding-order.entity';
+import { SubscriptionOrder } from '../../database/entities/subscription-order.entity';
 import { DailySales } from '../../database/entities/daily-sales.entity';
 import { Drug } from '../../database/entities/drug.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
@@ -13,7 +14,7 @@ import { AccountTransaction } from '../../database/entities/account-transaction.
   imports: [
     TypeOrmModule.forFeature([
       Settlement,
-      FundingOrder,
+      SubscriptionOrder,
       DailySales,
       Drug,
       AccountBalance,
@@ -21,7 +22,7 @@ import { AccountTransaction } from '../../database/entities/account-transaction.
     ]),
   ],
   controllers: [SettlementController],
-  providers: [SettlementService],
-  exports: [SettlementService],
+  providers: [SettlementService, SettlementCronService],
+  exports: [SettlementService, SettlementCronService],
 })
 export class SettlementModule {}

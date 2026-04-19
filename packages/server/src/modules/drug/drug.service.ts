@@ -15,7 +15,6 @@ import {
   UpdateDrugStatusDto,
   QueryDrugDto,
 } from './dto';
-import { PendingOrderTriggerService } from '../pending-order/pending-order-trigger.service';
 import { AuditService } from '../../common/services/audit.service';
 
 @Injectable()
@@ -27,13 +26,12 @@ export class DrugService {
     private readonly drugRepository: Repository<Drug>,
     @InjectRepository(MarketSnapshot)
     private readonly marketSnapshotRepository: Repository<MarketSnapshot>,
-    private readonly pendingOrderTriggerService: PendingOrderTriggerService,
     private readonly auditService: AuditService,
   ) {}
 
   /**
    * 创建药品（管理员）
-   * 发布采购需求，自动设置状态为 funding
+   * 发布采购需求，自动设置状态为 funding（认购中）
    */
   async create(createDrugDto: CreateDrugDto): Promise<Drug> {
     // 检查编码是否已存在
@@ -48,7 +46,7 @@ export class DrugService {
     const drug = this.drugRepository.create({
       ...createDrugDto,
       status: DrugStatus.FUNDING,
-      fundedQuantity: 0,
+      subscribedQuantity: 0,
     });
 
     return this.drugRepository.save(drug);
@@ -92,16 +90,14 @@ export class DrugService {
       purchasePrice: drug.purchasePrice,
       sellingPrice: drug.sellingPrice,
       totalQuantity: drug.totalQuantity,
-      fundedQuantity: drug.fundedQuantity,
+      subscribedQuantity: drug.subscribedQuantity,
       remainingQuantity: drug.remainingQuantity,
       status: drug.status,
-      annualRate: drug.annualRate,
       batchNo: drug.batchNo,
-      unitFee: drug.unitFee,
       createdAt: drug.createdAt,
-      fundingProgress:
+      subscriptionProgress:
         drug.totalQuantity > 0
-          ? Number(((drug.fundedQuantity / drug.totalQuantity) * 100).toFixed(2))
+          ? Number(((drug.subscribedQuantity / drug.totalQuantity) * 100).toFixed(2))
           : 0,
     }));
 
@@ -123,10 +119,10 @@ export class DrugService {
       where: { status: DrugStatus.FUNDING },
     });
 
-    // 计算总垫资额
+    // 计算总认购额
     const result = await this.drugRepository
       .createQueryBuilder('drug')
-      .select('SUM(drug.fundedQuantity * drug.purchasePrice)', 'totalFunding')
+      .select('SUM(drug.subscribedQuantity * drug.purchasePrice)', 'totalFunding')
       .getRawOne();
 
     const totalFundingAmount = Number(result?.totalFunding || 0);
@@ -156,14 +152,14 @@ export class DrugService {
       order: { snapshotDate: 'DESC' },
     });
 
-    // 计算垫资统计
-    const fundingProgress =
+    // 计算认购统计
+    const subscriptionProgress =
       drug.totalQuantity > 0
-        ? Number(((drug.fundedQuantity / drug.totalQuantity) * 100).toFixed(2))
+        ? Number(((drug.subscribedQuantity / drug.totalQuantity) * 100).toFixed(2))
         : 0;
 
-    const totalFundingAmount = Number(
-      (drug.fundedQuantity * drug.purchasePrice).toFixed(2),
+    const totalSubscriptionAmount = Number(
+      (drug.subscribedQuantity * drug.purchasePrice).toFixed(2),
     );
 
     return {
@@ -173,16 +169,14 @@ export class DrugService {
       purchasePrice: drug.purchasePrice,
       sellingPrice: drug.sellingPrice,
       totalQuantity: drug.totalQuantity,
-      fundedQuantity: drug.fundedQuantity,
+      subscribedQuantity: drug.subscribedQuantity,
       remainingQuantity: drug.remainingQuantity,
       status: drug.status,
-      annualRate: drug.annualRate,
       batchNo: drug.batchNo,
-      unitFee: drug.unitFee,
       createdAt: drug.createdAt,
       updatedAt: drug.updatedAt,
-      fundingProgress,
-      totalFundingAmount,
+      subscriptionProgress,
+      totalSubscriptionAmount,
       latestSnapshot: latestSnapshot
         ? {
             snapshotDate: latestSnapshot.snapshotDate,
@@ -232,7 +226,7 @@ export class DrugService {
 
     const updatedDrug = await this.drugRepository.save(drug);
 
-    // 检查价格是否发生变化，如果变化则触发条件委托单检查
+    // 检查价格是否发生变化
     const newPurchasePrice = updateDrugDto.purchasePrice;
     const newSellingPrice = updateDrugDto.sellingPrice;
 
@@ -242,19 +236,11 @@ export class DrugService {
     const newPurchasePriceNum = newPurchasePrice !== undefined ? Number(newPurchasePrice) : oldPurchasePriceNum;
     const newSellingPriceNum = newSellingPrice !== undefined ? Number(newSellingPrice) : oldSellingPriceNum;
 
-    this.logger.debug(
-      `价格比较: oldPurchasePriceNum=${oldPurchasePriceNum}, newPurchasePriceNum=${newPurchasePriceNum}, ` +
-      `oldSellingPriceNum=${oldSellingPriceNum}, newSellingPriceNum=${newSellingPriceNum}`,
-    );
-    console.log(`[DrugService] 价格比较: oldPurchasePriceNum=${oldPurchasePriceNum}, newPurchasePriceNum=${newPurchasePriceNum}`);
-
-    // 简化逻辑：只要有价格更新字段，就检查委托单（而不是比较新旧价格）
-    // 这样可以避免类型转换带来的问题
+    // 价格更新时记录审计日志
     if (newPurchasePrice !== undefined || newSellingPrice !== undefined) {
       this.logger.log(
-        `药品 ${id} 价格更新，检查条件委托单。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}`,
+        `药品 ${id} 价格更新。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}`,
       );
-      console.log(`[DrugService v2] 触发检查: drugId=${id}, newPurchasePriceNum=${newPurchasePriceNum}`);
 
       // 记录审计日志 - 价格更新
       await this.auditService.log({
@@ -273,24 +259,9 @@ export class DrugService {
         },
       });
 
-      // 触发条件委托单检查（改为同步执行以便调试）
-      try {
-        await this.pendingOrderTriggerService.triggerPendingOrders(
-          id,
-          newPurchasePriceNum,
-          newSellingPriceNum,
-        );
-        this.logger.log(`药品 ${id} 条件委托单检查完成`);
-      } catch (error) {
-        this.logger.error(
-          `触发药品 ${id} 的条件委托单失败: ${error.message}`,
-          error.stack,
-        );
-        // 把错误信息附加到返回结果中
-        (updatedDrug as any).triggerError = error.message;
-      }
+      this.logger.log(`药品 ${id} 价格更新完成`);
     } else {
-      this.logger.debug(`药品 ${id} 价格未变化，跳过触发检查`);
+      this.logger.debug(`药品 ${id} 价格未变化，跳过审计`);
     }
 
     return updatedDrug;

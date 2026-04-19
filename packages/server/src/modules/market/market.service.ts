@@ -5,7 +5,7 @@ import { MarketSnapshot } from '../../database/entities/market-snapshot.entity';
 import { Drug } from '../../database/entities/drug.entity';
 import { DailySales } from '../../database/entities/daily-sales.entity';
 import { Settlement } from '../../database/entities/settlement.entity';
-import { FundingOrder, FundingOrderStatus } from '../../database/entities/funding-order.entity';
+import { SubscriptionOrder, SubscriptionOrderStatus } from '../../database/entities/subscription-order.entity';
 import { CreateSnapshotDto, KLinePeriod } from './dto';
 
 export interface MarketOverviewItem {
@@ -33,13 +33,12 @@ export interface DrugMarketDetail {
     purchasePrice: number;
     sellingPrice: number;
     totalQuantity: number;
-    fundedQuantity: number;
+    subscribedQuantity: number;
     remainingQuantity: number;
     status: string;
-    annualRate: number;
   };
   market: MarketSnapshot | null;
-  fundingStats: {
+  subscriptionStats: {
     totalOrders: number;
     totalAmount: number;
     activeOrders: number;
@@ -62,7 +61,7 @@ export interface KLineData {
   dailyReturn: number;
   totalFundingAmount: number;
   cumulativeReturn: number;    // 累计收益率
-  fundingHeat: number;         // 融资热度（参与融资的用户数）
+  fundingHeat: number;         // 认购热度（参与认购的用户数）
 }
 
 export interface DepthData {
@@ -96,8 +95,8 @@ export class MarketService {
     private readonly dailySalesRepo: Repository<DailySales>,
     @InjectRepository(Settlement)
     private readonly settlementRepo: Repository<Settlement>,
-    @InjectRepository(FundingOrder)
-    private readonly fundingOrderRepo: Repository<FundingOrder>,
+    @InjectRepository(SubscriptionOrder)
+    private readonly subscriptionOrderRepo: Repository<SubscriptionOrder>,
   ) {}
 
   /**
@@ -151,23 +150,23 @@ export class MarketService {
 
     const dailyNetProfit = settlements.reduce((sum, s) => sum + Number(s.netProfit), 0);
 
-    // 查询当日垫资数据
+    // 查询当日认购数据
     const startOfDay = new Date(date);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(date);
     endOfDay.setHours(23, 59, 59, 999);
 
-    const dailyFundingOrders = await this.fundingOrderRepo.find({
+    const dailySubscriptionOrders = await this.subscriptionOrderRepo.find({
       where: {
         drugId,
-        fundedAt: Between(startOfDay, endOfDay),
+        confirmedAt: Between(startOfDay, endOfDay),
       },
     });
 
-    const dailyFundingAmount = dailyFundingOrders.reduce((sum, o) => sum + Number(o.amount), 0);
-    const fundingHeat = new Set(dailyFundingOrders.map(o => o.userId)).size;
+    const dailyFundingAmount = dailySubscriptionOrders.reduce((sum, o) => sum + Number(o.amount), 0);
+    const fundingHeat = new Set(dailySubscriptionOrders.map(o => o.userId)).size;
 
-    // 计算日收益率 = 当日净利润 / 当日垫资总额 × 100
+    // 计算日收益率 = 当日净利润 / 当日认购总额 × 100
     const dailyReturn = dailyFundingAmount > 0 
       ? (dailyNetProfit / dailyFundingAmount) * 100 
       : 0;
@@ -187,17 +186,17 @@ export class MarketService {
       cumulativeReturn = Number(lastSnapshot.cumulativeReturn) + dailyReturn;
     }
 
-    // 查询当前垫资总额（所有未清算订单）
-    const activeFundingOrders = await this.fundingOrderRepo.find({
+    // 查询当前认购总额（所有生效中订单）
+    const activeSubscriptionOrders = await this.subscriptionOrderRepo.find({
       where: {
         drugId,
-        status: FundingOrderStatus.HOLDING,
+        status: SubscriptionOrderStatus.EFFECTIVE,
       },
     });
-    const totalFundingAmount = activeFundingOrders.reduce((sum, o) => sum + Number(o.unsettledAmount), 0);
+    const totalFundingAmount = activeSubscriptionOrders.reduce((sum, o) => sum + Number(o.unsettledAmount), 0);
 
-    // 查询排队深度（当前未解套订单数）
-    const queueDepth = activeFundingOrders.length;
+    // 查询排队深度
+    const queueDepth = activeSubscriptionOrders.length;
 
     // 检查是否已存在快照，存在则更新
     const existingSnapshot = await this.marketSnapshotRepo.findOne({
@@ -271,10 +270,10 @@ export class MarketService {
         });
       } else {
         // 没有快照时返回基础信息
-        const activeOrders = await this.fundingOrderRepo.find({
+        const activeOrders = await this.subscriptionOrderRepo.find({
           where: {
             drugId: drug.id,
-            status: FundingOrderStatus.HOLDING,
+            status: SubscriptionOrderStatus.EFFECTIVE,
           },
         });
         const totalFundingAmount = activeOrders.reduce((sum, o) => sum + Number(o.unsettledAmount), 0);
@@ -298,7 +297,7 @@ export class MarketService {
       }
     }
 
-    // 按垫资热度排序
+    // 按认购热度排序
     return overview.sort((a, b) => b.fundingHeat - a.fundingHeat);
   }
 
@@ -318,9 +317,9 @@ export class MarketService {
       order: { snapshotDate: 'DESC' },
     });
 
-    // 统计垫资数据
-    const allOrders = await this.fundingOrderRepo.find({ where: { drugId } });
-    const activeOrders = allOrders.filter(o => o.status === FundingOrderStatus.HOLDING);
+    // 统计认购数据
+    const allOrders = await this.subscriptionOrderRepo.find({ where: { drugId } });
+    const activeOrders = allOrders.filter(o => o.status === SubscriptionOrderStatus.EFFECTIVE);
     
     const totalAmount = allOrders.reduce((sum, o) => sum + Number(o.amount), 0);
     const activeAmount = activeOrders.reduce((sum, o) => sum + Number(o.unsettledAmount), 0);
@@ -333,13 +332,12 @@ export class MarketService {
         purchasePrice: Number(drug.purchasePrice),
         sellingPrice: Number(drug.sellingPrice),
         totalQuantity: drug.totalQuantity,
-        fundedQuantity: drug.fundedQuantity,
+        subscribedQuantity: drug.subscribedQuantity,
         remainingQuantity: drug.remainingQuantity,
         status: drug.status,
-        annualRate: Number(drug.annualRate),
       },
       market: latestSnapshot,
-      fundingStats: {
+      subscriptionStats: {
         totalOrders: allOrders.length,
         totalAmount,
         activeOrders: activeOrders.length,
@@ -812,7 +810,7 @@ export class MarketService {
   }
 
   /**
-   * 获取垫资深度数据
+   * 获取认购深度数据
    */
   async getDrugDepth(drugId: string): Promise<DepthData> {
     this.validateUUID(drugId);
@@ -823,10 +821,10 @@ export class MarketService {
     }
 
     // 获取所有未清算订单
-    const activeOrders = await this.fundingOrderRepo.find({
+    const activeOrders = await this.subscriptionOrderRepo.find({
       where: {
         drugId,
-        status: FundingOrderStatus.HOLDING,
+        status: SubscriptionOrderStatus.EFFECTIVE,
       },
       order: { queuePosition: 'ASC' },
     });
@@ -883,9 +881,9 @@ export class MarketService {
     // 总药品数
     const totalDrugs = await this.drugRepo.count();
 
-    // 总垫资额（所有未清算订单）
-    const activeOrders = await this.fundingOrderRepo.find({
-      where: { status: FundingOrderStatus.HOLDING },
+    // 总认购额（所有未清算订单）
+    const activeOrders = await this.subscriptionOrderRepo.find({
+      where: { status: SubscriptionOrderStatus.EFFECTIVE },
     });
     const totalFundingAmount = activeOrders.reduce((sum, o) => sum + Number(o.unsettledAmount), 0);
 
@@ -896,7 +894,7 @@ export class MarketService {
     // 总清算次数
     const totalSettlementCount = await this.settlementRepo.count();
 
-    // 活跃垫资方数量（有未清算订单的用户）
+    // 活跃认购方数量（有未清算订单的用户）
     const activeFunderIds = new Set(activeOrders.map(o => o.userId));
     const activeFunderCount = activeFunderIds.size;
 

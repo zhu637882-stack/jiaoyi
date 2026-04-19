@@ -58,11 +58,11 @@
 }
 
 .toolbar-change.up {
-  color: #FF4D4F;
+  color: #cf1322;
 }
 
 .toolbar-change.down {
-  color: #00D4AA;
+  color: #00b96b;
 }
 
 /* 时间周期选择器 */
@@ -210,11 +210,11 @@
 }
 
 .data-value.up {
-  color: #FF4D4F;
+  color: #cf1322;
 }
 
 .data-value.down {
-  color: #00D4AA;
+  color: #00b96b;
 }
 
 /* MA 均线数值颜色 */
@@ -279,7 +279,7 @@
 }
 
 .macd-header .bar .data-value {
-  color: #00D4AA;
+  color: #00b96b;
 }
 
 /* KDJ 副图颜色 */
@@ -297,7 +297,7 @@
 
 /* RSI 副图颜色 */
 .rsi-header .rsi .data-value {
-  color: #00D4AA;
+  color: #00b96b;
 }
 
 /* BOLL 副图颜色 */

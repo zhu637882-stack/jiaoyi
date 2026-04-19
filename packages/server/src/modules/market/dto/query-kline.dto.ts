@@ -1,4 +1,5 @@
 import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 export enum KLinePeriod {
   // 新的专业K线周期
@@ -18,5 +19,10 @@ export enum KLinePeriod {
 export class QueryKLineDto {
   @IsEnum(KLinePeriod)
   @IsOptional()
+  @Transform(({ value }: { value: string }) => {
+    if (!value || value === '' || value.includes(',')) return undefined;
+    const validValues = Object.values(KLinePeriod);
+    return validValues.includes(value as KLinePeriod) ? value : undefined;
+  })
   period?: KLinePeriod = KLinePeriod.ONE_DAY;
 }

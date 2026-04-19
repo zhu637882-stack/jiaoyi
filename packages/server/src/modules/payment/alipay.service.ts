@@ -7,17 +7,38 @@ export class AlipayService {
   private readonly logger = new Logger(AlipayService.name);
   private alipaySdk: any;
   private privateKey: string;
+  private alipayPublicKey: string;
   private paymentMode: string;
 
   constructor(private configService: ConfigService) {
     this.privateKey = this.configService.get('ALIPAY_PRIVATE_KEY') || '';
+    this.alipayPublicKey = this.configService.get('ALIPAY_PUBLIC_KEY') || '';
     this.paymentMode = this.configService.get('PAYMENT_MODE') || 'real';
-    this.alipaySdk = new AlipaySdk({
-      appId: this.configService.get('ALIPAY_APP_ID'),
-      privateKey: this.privateKey,
-      alipayPublicKey: this.configService.get('ALIPAY_PUBLIC_KEY'),
-      gateway: 'https://openapi.alipay.com/gateway.do',
-    });
+
+    // 检查是否为 Mock 模式
+    const isMock = this.paymentMode.toLowerCase() === 'mock' || 
+                   !this.privateKey || 
+                   this.privateKey.includes('placeholder') || 
+                   this.privateKey.startsWith('your_');
+
+    // 只在非 Mock 模式下初始化 AlipaySdk
+    if (!isMock) {
+      // 根据支付模式选择网关地址
+      let gateway = 'https://openapi.alipay.com/gateway.do';
+      if (this.paymentMode.toLowerCase() === 'sandbox') {
+        gateway = 'https://openapi-sandbox.dl.alipaydev.com/gateway.do';
+      }
+
+      this.alipaySdk = new AlipaySdk({
+        appId: this.configService.get('ALIPAY_APP_ID'),
+        privateKey: this.privateKey,
+        alipayPublicKey: this.alipayPublicKey,
+        keyType: 'PKCS8', // 支付宝密钥工具默认生成PKCS8格式
+        gateway,
+      });
+    } else {
+      this.logger.warn('[支付配置] 支付宝使用 Mock 模式');
+    }
   }
 
   /**
@@ -50,6 +71,13 @@ export class AlipayService {
   }
 
   /**
+   * 是否为沙箱模式
+   */
+  private isSandboxMode(): boolean {
+    return this.paymentMode.toLowerCase() === 'sandbox';
+  }
+
+  /**
    * 创建当面付扫码订单
    * @param outTradeNo 商户订单号
    * @param amount 金额（元）
@@ -73,25 +101,17 @@ export class AlipayService {
 
     const notifyUrl = this.configService.get('ALIPAY_NOTIFY_URL');
 
-    const formData = new AlipayFormData();
-    formData.setMethod('get');
-
-    formData.addField('bizContent', {
-      out_trade_no: outTradeNo,
-      total_amount: amount.toFixed(2),
-      subject: subject,
-      timeout_express: '30m',
-    });
-
-    formData.addField('notifyUrl', notifyUrl);
-
     try {
       const result = await this.alipaySdk.exec(
         'alipay.trade.precreate',
-        {},
         {
-          formData: formData,
-          validateSign: true,
+          notifyUrl,
+          bizContent: {
+            out_trade_no: outTradeNo,
+            total_amount: amount.toFixed(2),
+            subject: subject,
+            timeout_express: '30m',
+          },
         },
       );
 
@@ -140,20 +160,13 @@ export class AlipayService {
     tradeNo?: string;
     totalAmount?: number;
   }> {
-    const formData = new AlipayFormData();
-    formData.setMethod('get');
-
-    formData.addField('bizContent', {
-      out_trade_no: outTradeNo,
-    });
-
     try {
       const result = await this.alipaySdk.exec(
         'alipay.trade.query',
-        {},
         {
-          formData: formData,
-          validateSign: true,
+          bizContent: {
+            out_trade_no: outTradeNo,
+          },
         },
       );
 

@@ -16,10 +16,16 @@ export default defineConfig({
     },
   },
   server: {
+    host: '127.0.0.1',
     port: 5173,
+    allowedHosts: ['mufend.com', 'www.mufend.com', '103.43.188.127', 'localhost'],
+    hmr: {
+      clientPort: 80,
+      protocol: 'ws',
+    },
     proxy: {
       '/api': {
-        target: 'http://localhost:3000',
+        target: 'http://103.43.188.127:3000',
         changeOrigin: true,
       },
     },

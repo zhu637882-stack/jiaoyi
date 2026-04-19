@@ -1,12 +1,14 @@
-import { Injectable, Logger, BadRequestException, Inject } from '@nestjs/common';
+import { Injectable, Logger, BadRequestException, Inject, forwardRef } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, DataSource } from 'typeorm';
 import Redis from 'ioredis';
 import { PaymentOrder, PaymentChannel, PaymentStatus } from '../../database/entities/payment-order.entity';
+import { Drug, DrugStatus } from '../../database/entities/drug.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction, TransactionType } from '../../database/entities/account-transaction.entity';
 import { AlipayService } from './alipay.service';
 import { WechatPayService } from './wechat-pay.service';
+import { SubscriptionService } from '../subscription/subscription.service';
 import { REDIS_CLIENT } from '../../database/database.module';
 
 @Injectable()
@@ -16,10 +18,14 @@ export class PaymentService {
   constructor(
     @InjectRepository(PaymentOrder)
     private paymentOrderRepository: Repository<PaymentOrder>,
+    @InjectRepository(Drug)
+    private drugRepository: Repository<Drug>,
     @Inject(REDIS_CLIENT)
     private readonly redis: Redis,
     private alipayService: AlipayService,
     private wechatPayService: WechatPayService,
+    @Inject(forwardRef(() => SubscriptionService))
+    private subscriptionService: SubscriptionService,
     private dataSource: DataSource,
   ) {}
 
@@ -31,6 +37,164 @@ export class PaymentService {
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 1000000).toString().padStart(6, '0');
     return `PAY${timestamp}${random}`;
+  }
+
+  /**
+   * 认购直付：创建支付订单（携带认购信息）
+   * 支付成功后直接创建认购订单，不再充值余额
+   */
+  async createSubscriptionPayment(
+    userId: string,
+    drugId: string,
+    quantity: number,
+    channel: 'alipay' | 'wechat',
+    clientIp?: string,
+  ): Promise<{
+    outTradeNo: string;
+    qrCode?: string;
+    codeUrl?: string;
+    mockMode?: boolean;
+  }> {
+    // 1. 校验药品
+    const drug = await this.drugRepository.findOne({ where: { id: drugId } });
+    if (!drug) {
+      throw new BadRequestException('药品不存在');
+    }
+    if (drug.status !== DrugStatus.FUNDING) {
+      throw new BadRequestException('该药品当前不可认购');
+    }
+    const remainingQuantity = drug.totalQuantity - drug.subscribedQuantity;
+    if (remainingQuantity < quantity) {
+      throw new BadRequestException(`剩余可认购数量不足，当前剩余：${remainingQuantity}盒`);
+    }
+
+    // 2. 计算认购金额
+    const amount = Number((quantity * Number(drug.purchasePrice)).toFixed(2));
+
+    // 3. 创建支付订单
+    const outTradeNo = this.generateOutTradeNo();
+    const subscriptionInfo = { drugId, quantity, amount };
+
+    if (channel === 'alipay') {
+      const result = await this.alipayService.createOrder(
+        outTradeNo,
+        amount,
+        `零钱保认购${drug.name}-${outTradeNo}`,
+      );
+
+      if (result.mockMode) {
+        const paymentOrder = this.paymentOrderRepository.create({
+          userId,
+          outTradeNo,
+          channel: PaymentChannel.ALIPAY,
+          amount,
+          status: PaymentStatus.PENDING,
+          subscriptionInfo,
+        });
+        await this.paymentOrderRepository.save(paymentOrder);
+        return { outTradeNo, qrCode: result.qrCode, mockMode: true };
+      }
+
+      const paymentOrder = this.paymentOrderRepository.create({
+        userId,
+        outTradeNo,
+        channel: PaymentChannel.ALIPAY,
+        amount,
+        status: PaymentStatus.PENDING,
+        subscriptionInfo,
+      });
+      await this.paymentOrderRepository.save(paymentOrder);
+      return { outTradeNo, qrCode: result.qrCode };
+    } else {
+      const result = await this.wechatPayService.createOrder(
+        outTradeNo,
+        amount,
+        `零钱保认购${drug.name}`,
+        clientIp || '127.0.0.1',
+      );
+
+      if (result.mockMode) {
+        const paymentOrder = this.paymentOrderRepository.create({
+          userId,
+          outTradeNo,
+          channel: PaymentChannel.WECHAT,
+          amount,
+          status: PaymentStatus.PENDING,
+          subscriptionInfo,
+        });
+        await this.paymentOrderRepository.save(paymentOrder);
+        return { outTradeNo, codeUrl: result.codeUrl, mockMode: true };
+      }
+
+      const paymentOrder = this.paymentOrderRepository.create({
+        userId,
+        outTradeNo,
+        channel: PaymentChannel.WECHAT,
+        amount,
+        status: PaymentStatus.PENDING,
+        subscriptionInfo,
+      });
+      await this.paymentOrderRepository.save(paymentOrder);
+      return { outTradeNo, codeUrl: result.codeUrl };
+    }
+  }
+
+  /**
+   * 支付成功后处理：根据 subscriptionInfo 分流
+   * - 有 subscriptionInfo → 认购直付（创建认购订单）
+   * - 无 subscriptionInfo → 充值余额（原有逻辑）
+   */
+  private async processPaymentSuccess(
+    order: PaymentOrder,
+    queryRunner: import('typeorm').QueryRunner,
+  ): Promise<void> {
+    if (order.subscriptionInfo) {
+      // 认购直付：直接创建认购订单
+      const { drugId, quantity, amount } = order.subscriptionInfo;
+      await this.subscriptionService.createSubscriptionFromPayment(
+        order.userId,
+        drugId,
+        quantity,
+        amount,
+        queryRunner,
+      );
+      this.logger.log(`认购直付成功: ${order.outTradeNo}, 药品: ${drugId}, 数量: ${quantity}, 金额: ${amount}`);
+    } else {
+      // 原有充值余额逻辑
+      let balance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId: order.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!balance) {
+        balance = queryRunner.manager.create(AccountBalance, {
+          userId: order.userId,
+          availableBalance: 0,
+          frozenBalance: 0,
+          totalProfit: 0,
+          totalInvested: 0,
+        });
+        await queryRunner.manager.save(balance);
+      }
+
+      const balanceBefore = Number(balance.availableBalance);
+      balance.availableBalance = Number((balanceBefore + Number(order.amount)).toFixed(2));
+      await queryRunner.manager.save(balance);
+
+      const channelLabel = order.channel === PaymentChannel.ALIPAY ? '支付宝' : '微信支付';
+      const transaction = queryRunner.manager.create(AccountTransaction, {
+        userId: order.userId,
+        type: TransactionType.RECHARGE,
+        amount: order.amount,
+        balanceBefore,
+        balanceAfter: balance.availableBalance,
+        description: `${channelLabel}充值 (${order.outTradeNo})`,
+        relatedOrderId: order.id,
+      });
+      await queryRunner.manager.save(transaction);
+
+      this.logger.log(`充值成功: ${order.outTradeNo}, 金额: ${order.amount}`);
+    }
   }
 
   /**
@@ -47,7 +211,7 @@ export class PaymentService {
     const result = await this.alipayService.createOrder(
       outTradeNo,
       amount,
-      `药赚赚账户充值-${outTradeNo}`,
+      `零钱保账户充值-${outTradeNo}`,
     );
 
     // Mock模式：创建pending状态订单，等待用户确认
@@ -102,7 +266,7 @@ export class PaymentService {
     const result = await this.wechatPayService.createOrder(
       outTradeNo,
       amount,
-      `药赚赚账户充值`,
+      `零钱保账户充值`,
       clientIp,
     );
 
@@ -172,42 +336,12 @@ export class PaymentService {
       });
       await queryRunner.manager.save(paymentOrder);
 
-      // 充值到用户余额
-      let balance = await queryRunner.manager.findOne(AccountBalance, {
-        where: { userId },
-        lock: { mode: 'pessimistic_write' },
-      });
-
-      if (!balance) {
-        balance = queryRunner.manager.create(AccountBalance, {
-          userId,
-          availableBalance: 0,
-          frozenBalance: 0,
-          totalProfit: 0,
-          totalInvested: 0,
-        });
-        await queryRunner.manager.save(balance);
-      }
-
-      const balanceBefore = Number(balance.availableBalance);
-      balance.availableBalance = Number((balanceBefore + amount).toFixed(2));
-      await queryRunner.manager.save(balance);
-
-      // 记录资金流水
-      const transaction = queryRunner.manager.create(AccountTransaction, {
-        userId,
-        type: TransactionType.RECHARGE,
-        amount,
-        balanceBefore,
-        balanceAfter: balance.availableBalance,
-        description: `${channel === PaymentChannel.ALIPAY ? '支付宝' : '微信支付'}充值(Mock) (${outTradeNo})`,
-        relatedOrderId: paymentOrder.id,
-      });
-      await queryRunner.manager.save(transaction);
+      // 支付成功处理（认购直付或充值余额）
+      await this.processPaymentSuccess(paymentOrder, queryRunner);
 
       await queryRunner.commitTransaction();
 
-      this.logger.log(`[Mock模式] 支付完成: ${outTradeNo}, 充值金额: ${amount}`);
+      this.logger.log(`[Mock模式] 支付完成: ${outTradeNo}, 金额: ${amount}`);
 
       return {
         outTradeNo,
@@ -268,42 +402,12 @@ export class PaymentService {
       order.notifyData = JSON.stringify({ mockMode: true, confirmedAt: new Date().toISOString() });
       await queryRunner.manager.save(order);
 
-      // 充值到用户余额
-      let balance = await queryRunner.manager.findOne(AccountBalance, {
-        where: { userId: order.userId },
-        lock: { mode: 'pessimistic_write' }
-      });
-
-      if (!balance) {
-        balance = queryRunner.manager.create(AccountBalance, {
-          userId: order.userId,
-          availableBalance: 0,
-          frozenBalance: 0,
-          totalProfit: 0,
-          totalInvested: 0,
-        });
-        await queryRunner.manager.save(balance);
-      }
-
-      const balanceBefore = Number(balance.availableBalance);
-      balance.availableBalance = Number((balanceBefore + Number(order.amount)).toFixed(2));
-      await queryRunner.manager.save(balance);
-
-      // 记录资金流水
-      const transaction = queryRunner.manager.create(AccountTransaction, {
-        userId: order.userId,
-        type: TransactionType.RECHARGE,
-        amount: order.amount,
-        balanceBefore,
-        balanceAfter: balance.availableBalance,
-        description: `${order.channel === PaymentChannel.ALIPAY ? '支付宝' : '微信支付'}充值(Mock确认) (${outTradeNo})`,
-        relatedOrderId: order.id,
-      });
-      await queryRunner.manager.save(transaction);
+      // 支付成功处理（认购直付或充值余额）
+      await this.processPaymentSuccess(order, queryRunner);
 
       await queryRunner.commitTransaction();
 
-      this.logger.log(`[Mock模式] 支付确认成功: ${outTradeNo}, 充值金额: ${order.amount}`);
+      this.logger.log(`[Mock模式] 支付确认成功: ${outTradeNo}, 金额: ${order.amount}`);
 
       return {
         status: PaymentStatus.PAID,
@@ -395,43 +499,12 @@ export class PaymentService {
       order.notifyData = JSON.stringify(params);
       await queryRunner.manager.save(order);
 
-      // 充值到用户余额（在同一事务内）
-      let balance = await queryRunner.manager.findOne(AccountBalance, {
-        where: { userId: order.userId },
-        lock: { mode: 'pessimistic_write' }
-      });
-
-      if (!balance) {
-        // 如果余额记录不存在，创建一个
-        balance = queryRunner.manager.create(AccountBalance, {
-          userId: order.userId,
-          availableBalance: 0,
-          frozenBalance: 0,
-          totalProfit: 0,
-          totalInvested: 0,
-        });
-        await queryRunner.manager.save(balance);
-      }
-
-      const balanceBefore = Number(balance.availableBalance);
-      balance.availableBalance = Number((balanceBefore + Number(order.amount)).toFixed(2));
-      await queryRunner.manager.save(balance);
-
-      // 记录资金流水
-      const transaction = queryRunner.manager.create(AccountTransaction, {
-        userId: order.userId,
-        type: TransactionType.RECHARGE,
-        amount: order.amount,
-        balanceBefore: balanceBefore,
-        balanceAfter: balance.availableBalance,
-        description: `支付宝充值 (${outTradeNo})`,
-        relatedOrderId: order.id,
-      });
-      await queryRunner.manager.save(transaction);
+      // 支付成功处理（认购直付或充值余额）
+      await this.processPaymentSuccess(order, queryRunner);
 
       await queryRunner.commitTransaction();
 
-      this.logger.log(`支付宝回调处理成功: ${outTradeNo}, 充值金额: ${order.amount}`);
+      this.logger.log(`支付宝回调处理成功: ${outTradeNo}, 金额: ${order.amount}`);
 
       // 事务成功后设置 Redis 缓存（24小时过期）
       try {
@@ -453,15 +526,19 @@ export class PaymentService {
   /**
    * 处理微信支付异步通知
    * 双层防重机制：Redis + 数据库悲观锁
+   * 支持 V2（XML）和 V3（JSON）回调
    */
-  async handleWechatNotify(xmlBody: string): Promise<string> {
+  async handleWechatNotify(body: any, headers?: Record<string, string>): Promise<string> {
     this.logger.log(`收到微信支付回调通知`);
 
+    // V2 body是XML字符串，V3 body是JSON对象
+    const bodyStr = typeof body === 'string' ? body : JSON.stringify(body);
+
     // 验证签名并解析数据
-    const { verified, data } = await this.wechatPayService.verifyNotify(xmlBody);
+    const { verified, data } = await this.wechatPayService.verifyNotify(bodyStr, headers);
     if (!verified || !data) {
       this.logger.error('微信支付签名验证失败');
-      return this.wechatPayService.buildFailXml('签名验证失败');
+      return this.wechatPayService.buildFailResponse('签名验证失败');
     }
 
     const outTradeNo = data.out_trade_no;
@@ -474,7 +551,7 @@ export class PaymentService {
       const alreadyProcessed = await this.redis.get(redisKey);
       if (alreadyProcessed) {
         this.logger.log(`微信回调已处理过(Redis命中): ${outTradeNo}_${transactionId}`);
-        return this.wechatPayService.buildSuccessXml();
+        return this.wechatPayService.buildSuccessResponse();
       }
     } catch (redisError) {
       this.logger.warn(`Redis检查失败，降级到数据库层防重: ${redisError.message}`);
@@ -495,7 +572,7 @@ export class PaymentService {
       if (!order) {
         this.logger.error(`订单不存在: ${outTradeNo}`);
         await queryRunner.rollbackTransaction();
-        return this.wechatPayService.buildFailXml('订单不存在');
+        return this.wechatPayService.buildFailResponse('订单不存在');
       }
 
       // 如果订单已经是 paid 状态，说明已处理过
@@ -508,14 +585,14 @@ export class PaymentService {
         } catch (e) {
           // 忽略 Redis 错误
         }
-        return this.wechatPayService.buildSuccessXml();
+        return this.wechatPayService.buildSuccessResponse();
       }
 
       // 检查交易状态
       if (tradeState !== 'SUCCESS') {
         this.logger.log(`交易状态非成功: ${tradeState}`);
         await queryRunner.commitTransaction();
-        return this.wechatPayService.buildSuccessXml();
+        return this.wechatPayService.buildSuccessResponse();
       }
 
       // 更新订单状态
@@ -525,43 +602,12 @@ export class PaymentService {
       order.notifyData = JSON.stringify(data);
       await queryRunner.manager.save(order);
 
-      // 充值到用户余额（在同一事务内）
-      let balance = await queryRunner.manager.findOne(AccountBalance, {
-        where: { userId: order.userId },
-        lock: { mode: 'pessimistic_write' }
-      });
-
-      if (!balance) {
-        // 如果余额记录不存在，创建一个
-        balance = queryRunner.manager.create(AccountBalance, {
-          userId: order.userId,
-          availableBalance: 0,
-          frozenBalance: 0,
-          totalProfit: 0,
-          totalInvested: 0,
-        });
-        await queryRunner.manager.save(balance);
-      }
-
-      const balanceBefore = Number(balance.availableBalance);
-      balance.availableBalance = Number((balanceBefore + Number(order.amount)).toFixed(2));
-      await queryRunner.manager.save(balance);
-
-      // 记录资金流水
-      const transaction = queryRunner.manager.create(AccountTransaction, {
-        userId: order.userId,
-        type: TransactionType.RECHARGE,
-        amount: order.amount,
-        balanceBefore: balanceBefore,
-        balanceAfter: balance.availableBalance,
-        description: `微信支付充值 (${outTradeNo})`,
-        relatedOrderId: order.id,
-      });
-      await queryRunner.manager.save(transaction);
+      // 支付成功处理（认购直付或充值余额）
+      await this.processPaymentSuccess(order, queryRunner);
 
       await queryRunner.commitTransaction();
 
-      this.logger.log(`微信回调处理成功: ${outTradeNo}, 充值金额: ${order.amount}`);
+      this.logger.log(`微信回调处理成功: ${outTradeNo}, 金额: ${order.amount}`);
 
       // 事务成功后设置 Redis 缓存（24小时过期）
       try {
@@ -570,11 +616,11 @@ export class PaymentService {
         this.logger.warn(`Redis缓存设置失败: ${redisError.message}`);
       }
 
-      return this.wechatPayService.buildSuccessXml();
+      return this.wechatPayService.buildSuccessResponse();
     } catch (error) {
       await queryRunner.rollbackTransaction();
       this.logger.error(`微信回调处理失败: ${outTradeNo}`, error);
-      return this.wechatPayService.buildFailXml('处理失败');
+      return this.wechatPayService.buildFailResponse('处理失败');
     } finally {
       await queryRunner.release();
     }
@@ -641,42 +687,12 @@ export class PaymentService {
         order.notifyData = JSON.stringify(result);
         await queryRunner.manager.save(order);
 
-        // 充值到用户余额
-        let balance = await queryRunner.manager.findOne(AccountBalance, {
-          where: { userId: order.userId },
-          lock: { mode: 'pessimistic_write' }
-        });
-
-        if (!balance) {
-          balance = queryRunner.manager.create(AccountBalance, {
-            userId: order.userId,
-            availableBalance: 0,
-            frozenBalance: 0,
-            totalProfit: 0,
-            totalInvested: 0,
-          });
-          await queryRunner.manager.save(balance);
-        }
-
-        const balanceBefore = Number(balance.availableBalance);
-        balance.availableBalance = Number((balanceBefore + Number(order.amount)).toFixed(2));
-        await queryRunner.manager.save(balance);
-
-        // 记录资金流水
-        const transaction = queryRunner.manager.create(AccountTransaction, {
-          userId: order.userId,
-          type: TransactionType.RECHARGE,
-          amount: order.amount,
-          balanceBefore: balanceBefore,
-          balanceAfter: balance.availableBalance,
-          description: `支付宝充值 (${outTradeNo})`,
-          relatedOrderId: order.id,
-        });
-        await queryRunner.manager.save(transaction);
+        // 支付成功处理（认购直付或充值余额）
+        await this.processPaymentSuccess(order, queryRunner);
 
         await queryRunner.commitTransaction();
 
-        this.logger.log(`支付宝订单查询后处理成功: ${outTradeNo}, 充值金额: ${order.amount}`);
+        this.logger.log(`支付宝订单查询后处理成功: ${outTradeNo}, 金额: ${order.amount}`);
 
         return {
           status: PaymentStatus.PAID,
@@ -758,42 +774,12 @@ export class PaymentService {
         order.notifyData = JSON.stringify(result);
         await queryRunner.manager.save(order);
 
-        // 充值到用户余额
-        let balance = await queryRunner.manager.findOne(AccountBalance, {
-          where: { userId: order.userId },
-          lock: { mode: 'pessimistic_write' }
-        });
-
-        if (!balance) {
-          balance = queryRunner.manager.create(AccountBalance, {
-            userId: order.userId,
-            availableBalance: 0,
-            frozenBalance: 0,
-            totalProfit: 0,
-            totalInvested: 0,
-          });
-          await queryRunner.manager.save(balance);
-        }
-
-        const balanceBefore = Number(balance.availableBalance);
-        balance.availableBalance = Number((balanceBefore + Number(order.amount)).toFixed(2));
-        await queryRunner.manager.save(balance);
-
-        // 记录资金流水
-        const transaction = queryRunner.manager.create(AccountTransaction, {
-          userId: order.userId,
-          type: TransactionType.RECHARGE,
-          amount: order.amount,
-          balanceBefore: balanceBefore,
-          balanceAfter: balance.availableBalance,
-          description: `微信支付充值 (${outTradeNo})`,
-          relatedOrderId: order.id,
-        });
-        await queryRunner.manager.save(transaction);
+        // 支付成功处理（认购直付或充值余额）
+        await this.processPaymentSuccess(order, queryRunner);
 
         await queryRunner.commitTransaction();
 
-        this.logger.log(`微信订单查询后处理成功: ${outTradeNo}, 充值金额: ${order.amount}`);
+        this.logger.log(`微信订单查询后处理成功: ${outTradeNo}, 金额: ${order.amount}`);
 
         return {
           status: PaymentStatus.PAID,

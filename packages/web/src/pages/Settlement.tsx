@@ -20,7 +20,7 @@ const renderProfitCell = (value: number) => {
   const isNegative = value < 0
   return (
     <span style={{
-      color: isPositive ? '#00D4AA' : isNegative ? '#FF4D4F' : '#8B949E',
+      color: isPositive ? '#cf1322' : isNegative ? '#00b96b' : '#8B949E',
       background: isPositive ? 'rgba(0,212,170,0.1)' : isNegative ? 'rgba(255,77,79,0.1)' : 'transparent',
       padding: '2px 8px',
       borderRadius: '4px',
@@ -91,7 +91,7 @@ const StatCard = ({
   loading?: boolean
 }) => {
   const displayValue = useCountUp(value)
-  const displayColor = isProfit ? (value >= 0 ? '#00D4AA' : '#FF4D4F') : color
+  const displayColor = isProfit ? (value >= 0 ? '#cf1322' : '#00b96b') : color
   const displayPrefix = isProfit ? (value >= 0 ? '+¥' : '¥') : prefix
   
   return (
@@ -354,8 +354,8 @@ const Settlement = () => {
           <StatCard
             title="累计分润"
             value={stats?.totalProfitShare || 0}
-            icon={<ArrowUpOutlined style={{ color: '#00D4AA' }} />}
-            color="#00D4AA"
+            icon={<ArrowUpOutlined style={{ color: '#cf1322' }} />}
+            color="#cf1322"
             sparklineData={generateTrendData.profit}
             loading={statsLoading}
           />
@@ -364,8 +364,8 @@ const Settlement = () => {
           <StatCard
             title="累计承担亏损"
             value={stats?.totalLossShare || 0}
-            icon={<ArrowDownOutlined style={{ color: '#FF4D4F' }} />}
-            color="#FF4D4F"
+            icon={<ArrowDownOutlined style={{ color: '#00b96b' }} />}
+            color="#00b96b"
             sparklineData={generateTrendData.loss}
             loading={statsLoading}
           />
@@ -374,8 +374,8 @@ const Settlement = () => {
           <StatCard
             title="净收益"
             value={stats?.netProfit || 0}
-            icon={<DollarOutlined style={{ color: (stats?.netProfit || 0) >= 0 ? '#00D4AA' : '#FF4D4F' }} />}
-            color="#00D4AA"
+            icon={<DollarOutlined style={{ color: (stats?.netProfit || 0) >= 0 ? '#cf1322' : '#00b96b' }} />}
+            color="#cf1322"
             isProfit
             sparklineData={generateTrendData.net}
             loading={statsLoading}
@@ -474,7 +474,7 @@ const Settlement = () => {
             </Descriptions.Item>
             <Descriptions.Item label="当日净利润">
               <Text style={{
-                color: selectedSettlement.netProfit >= 0 ? '#00D4AA' : '#FF4D4F',
+                color: selectedSettlement.netProfit >= 0 ? '#cf1322' : '#00b96b',
                 fontFamily: "'JetBrains Mono', monospace",
                 fontWeight: 600,
               }}>
@@ -488,11 +488,11 @@ const Settlement = () => {
             </Descriptions.Item>
             <Descriptions.Item label="分润/亏损">
               {selectedSettlement.myProfitShare > 0 ? (
-                <Text style={{ color: '#00D4AA', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
+                <Text style={{ color: '#cf1322', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
                   +¥{Number(selectedSettlement.myProfitShare || 0).toFixed(2)}
                 </Text>
               ) : selectedSettlement.myLossShare > 0 ? (
-                <Text style={{ color: '#FF4D4F', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
+                <Text style={{ color: '#00b96b', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>
                   -¥{Number(selectedSettlement.myLossShare || 0).toFixed(2)}
                 </Text>
               ) : (
@@ -501,7 +501,7 @@ const Settlement = () => {
             </Descriptions.Item>
             <Descriptions.Item label="我的净收益">
               <Text style={{
-                color: selectedSettlement.myNetIncome >= 0 ? '#00D4AA' : '#FF4D4F',
+                color: selectedSettlement.myNetIncome >= 0 ? '#cf1322' : '#00b96b',
                 fontFamily: "'JetBrains Mono', monospace",
                 fontWeight: 600,
                 fontSize: 16,

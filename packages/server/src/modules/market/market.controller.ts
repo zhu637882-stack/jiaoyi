@@ -78,7 +78,7 @@ export class MarketController {
   }
 
   /**
-   * 获取垫资深度数据
+   * 获取认购深度数据
    */
   @Get('drug/:drugId/depth')
   @Public()

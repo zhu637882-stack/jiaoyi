@@ -2,24 +2,29 @@
 
 // 用户类型
 export interface User {
-  id: string
+  id: number
   username: string
-  role: 'admin' | 'trader' | 'viewer'
+  role: 'admin' | 'investor'
   status: 'active' | 'inactive'
   createdAt: string
 }
 
 // 药品类型
 export interface Drug {
-  id: string
+  id: number
   name: string
-  spec: string
-  basePrice: number
-  currentPrice: number
-  change: number
-  changePercent: number
-  stock: number
-  status: 'active' | 'inactive'
+  code: string
+  spec?: string
+  purchasePrice: number
+  sellingPrice: number
+  totalQuantity: number
+  subscribedQuantity: number
+  remainingQuantity: number
+  operationFeeRate: number
+  slowSellingDays: number
+  status: 'pending' | 'funding' | 'selling' | 'completed' | 'active' | 'inactive'
+  createdAt: string
+  updatedAt: string
 }
 
 // 行情数据类型
@@ -33,18 +38,28 @@ export interface MarketData {
   timestamp: string
 }
 
-// 交易订单类型
-export interface TradeOrder {
-  id: string
-  drugId: string
-  drugName: string
-  type: 'buy' | 'sell'
+// 认购订单类型
+export interface SubscriptionOrder {
+  id: number
+  orderNo: string
+  userId: number
+  drugId: number
   quantity: number
-  price: number
-  fundingRatio: number
-  fundingAmount: number
-  status: 'pending' | 'completed' | 'cancelled'
+  amount: number
+  settledQuantity: number
+  unsettledAmount: number
+  status: 'confirmed' | 'effective' | 'partial_returned' | 'returned' | 'cancelled' | 'slow_selling_refund'
+  confirmedAt: string
+  effectiveAt: string
+  slowSellingDeadline: string
+  returnedAt?: string
+  totalProfit: number
+  totalLoss: number
+  queuePosition: number
+  drug?: Drug
+  user?: User
   createdAt: string
+  updatedAt: string
 }
 
 // 持仓类型
@@ -60,6 +75,27 @@ export interface Position {
   status: 'holding' | 'closed'
 }
 
+// 资金记录交易类型
+export type TransactionType = 
+  | 'RECHARGE' 
+  | 'WITHDRAW' 
+  | 'SUBSCRIPTION' 
+  | 'PRINCIPAL_RETURN' 
+  | 'PROFIT_SHARE' 
+  | 'LOSS_SHARE' 
+  | 'SLOW_SELL_REFUND'
+
+// 资金记录类型
+export interface Transaction {
+  id: number
+  type: TransactionType
+  amount: number
+  balanceBefore: number
+  balanceAfter: number
+  description: string
+  createdAt: string
+}
+
 // 清算记录类型
 export interface Settlement {
   id: string
@@ -68,7 +104,8 @@ export interface Settlement {
   drugId: string
   drugName: string
   amount: number
-  fundingAmount: number
+  operationFees: number
+  returnedPrincipal: number
   profit: number
   status: 'completed' | 'processing' | 'pending'
 }

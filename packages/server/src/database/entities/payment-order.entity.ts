@@ -60,6 +60,10 @@ export class PaymentOrder {
   @Column('text', { nullable: true })
   notifyData: string;
 
+  /** 认购直付信息：{ drugId, quantity, amount }，为空则走充值余额流程 */
+  @Column('simple-json', { nullable: true, comment: '认购直付信息' })
+  subscriptionInfo: { drugId: string; quantity: number; amount: number } | null;
+
   @CreateDateColumn()
   createdAt: Date;
 

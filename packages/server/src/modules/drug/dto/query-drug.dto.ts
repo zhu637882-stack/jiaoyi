@@ -6,11 +6,19 @@ import {
   Min,
   Max,
 } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
 import { DrugStatus } from '../../../database/entities/drug.entity';
+
+// 过滤非法枚举值：空字符串、逗号分隔值、非枚举成员一律转为 undefined
+const transformDrugStatus = ({ value }: { value: string }) => {
+  if (!value || value === '' || value.includes(',')) return undefined;
+  const validValues = Object.values(DrugStatus);
+  return validValues.includes(value as DrugStatus) ? value : undefined;
+};
 
 export class QueryDrugDto {
   @IsOptional()
+  @Transform(transformDrugStatus)
   @IsEnum(DrugStatus, { message: '状态值无效' })
   status?: DrugStatus;
 

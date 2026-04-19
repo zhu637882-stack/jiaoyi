@@ -104,8 +104,8 @@ export const http = {
 export const authApi = {
   login: (username: string, password: string) =>
     http.post('/auth/login', { username, password }),
-  register: (data: { username: string; password: string; realName?: string; phone?: string }) =>
-    http.post('/auth/register', data),
+  register: (username: string, password: string, realName?: string, phone?: string) =>
+    http.post('/auth/register', { username, password, realName, phone }),
   logout: () => http.post('/auth/logout'),
   getProfile: () => http.get('/auth/profile'),
 }

@@ -4,7 +4,7 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
-import { User, UserRole } from '../../database/entities/user.entity';
+import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AuditService } from '../../common/services/audit.service';
 
@@ -137,11 +137,12 @@ export class AuthService {
     // 哈希密码
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 创建用户
+    // 创建用户（状态为待审核）
     const user = this.userRepository.create({
       username,
       password: hashedPassword,
       role: UserRole.INVESTOR,
+      status: UserStatus.PENDING,  // 新注册用户默认为待审核
       realName,
       phone,
     });

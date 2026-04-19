@@ -6,12 +6,11 @@ import {
   FileTextOutlined,
   SettingOutlined,
   LogoutOutlined,
-  MenuOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Avatar, Dropdown, Space, Typography, message, Button, Drawer } from 'antd'
+import { Avatar, Dropdown, Space, Typography, message } from 'antd'
 import { accountApi } from '../services/api'
-import logoSvg from '../assets/logo.svg'
+import logoPng from '../assets/logo.png'
 
 const { Text } = Typography
 
@@ -64,7 +63,6 @@ const BasicLayout = () => {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
   const [balanceInfo, setBalanceInfo] = useState<BalanceInfo | null>(null)
   const [isMobile, setIsMobile] = useState(false)
-  const [drawerVisible, setDrawerVisible] = useState(false)
 
   // 根据用户角色获取菜单项
   const menuItems = getMenuItems(userInfo?.role)
@@ -113,9 +111,6 @@ const BasicLayout = () => {
 
   const handleMenuClick = (key: string) => {
     navigate(key)
-    if (isMobile) {
-      setDrawerVisible(false)
-    }
   }
 
   const handleLogout = () => {
@@ -144,41 +139,50 @@ const BasicLayout = () => {
     }).format(amount)
   }
 
-  // 移动端菜单抽屉
-  const mobileMenuDrawer = isMobile && (
-    <Drawer
-      placement="left"
-      closable={false}
-      onClose={() => setDrawerVisible(false)}
-      open={drawerVisible}
-      width={240}
-      styles={{
-        body: { padding: 0, background: '#181A20' },
-        header: { display: 'none' },
+  // 移动端底部导航栏
+  const mobileBottomNav = isMobile && (
+    <nav
+      style={{
+        position: 'fixed',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        height: 56,
+        background: '#181A20',
+        borderTop: '1px solid #2B3139',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-around',
+        zIndex: 1000,
+        paddingBottom: 'env(safe-area-inset-bottom, 0)',
       }}
     >
-      <div style={{ padding: '16px 0' }}>
-        {menuItems.map((item) => (
+      {menuItems.map((item) => {
+        const isActive = location.pathname === item.path
+        return (
           <div
             key={item.path}
             onClick={() => handleMenuClick(item.path)}
             style={{
               display: 'flex',
+              flexDirection: 'column',
               alignItems: 'center',
-              gap: 12,
-              padding: '12px 24px',
-              color: location.pathname === item.path ? '#EAECEF' : '#848E9C',
-              background: location.pathname === item.path ? '#2B3139' : 'transparent',
+              justifyContent: 'center',
+              flex: 1,
+              height: '100%',
+              color: isActive ? '#F0B90B' : '#848E9C',
               cursor: 'pointer',
-              transition: 'all 0.2s',
+              transition: 'color 0.2s',
+              WebkitTapHighlightColor: 'transparent',
+              userSelect: 'none',
             }}
           >
-            {item.icon}
-            <span>{item.name}</span>
+            <span style={{ fontSize: 20, lineHeight: 1, marginBottom: 2 }}>{item.icon}</span>
+            <span style={{ fontSize: 11, lineHeight: 1.2 }}>{item.name}</span>
           </div>
-        ))}
-      </div>
-    </Drawer>
+        )
+      })}
+    </nav>
   )
 
   return (
@@ -213,31 +217,33 @@ const BasicLayout = () => {
             onClick={() => navigate('/')}
           >
             <img
-              src={logoSvg}
-              alt="药赚赚"
-              style={{ width: isMobile ? 24 : 28, height: isMobile ? 24 : 28 }}
+              src={logoPng}
+              alt="零钱保"
+              style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: 4 }}
             />
-            <Text
-              style={{
-                color: '#F0B90B',
-                fontSize: isMobile ? 16 : 18,
-                fontWeight: 700,
-                letterSpacing: '-0.5px',
-              }}
-            >
-              药赚赚
-            </Text>
-            {!isMobile && (
+            <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
               <Text
                 style={{
-                  color: '#848E9C',
-                  fontSize: 14,
-                  fontWeight: 400,
+                  color: '#F0B90B',
+                  fontSize: isMobile ? 16 : 18,
+                  fontWeight: 700,
+                  letterSpacing: '-0.5px',
                 }}
               >
-                ·交易终端
+                零钱保
               </Text>
-            )}
+              {!isMobile && (
+                <Text
+                  style={{
+                    color: '#848E9C',
+                    fontSize: 11,
+                    fontWeight: 400,
+                  }}
+                >
+                  多客数智旗下
+                </Text>
+              )}
+            </div>
           </div>
 
           {/* 桌面端导航菜单 */}
@@ -283,16 +289,6 @@ const BasicLayout = () => {
               })}
             </nav>
           )}
-
-          {/* 移动端菜单按钮 */}
-          {isMobile && (
-            <Button
-              type="text"
-              icon={<MenuOutlined style={{ color: '#848E9C', fontSize: 18 }} />}
-              onClick={() => setDrawerVisible(true)}
-              style={{ padding: 4 }}
-            />
-          )}
         </div>
 
         {/* 右侧：账户信息 + 用户 */}
@@ -315,7 +311,7 @@ const BasicLayout = () => {
                 <Text style={{ color: '#848E9C', fontSize: 12 }}>可用</Text>
                 <Text
                   style={{
-                    color: '#00D4AA',
+                    color: '#cf1322',
                     fontSize: 13,
                     fontWeight: 600,
                     fontFamily: "'JetBrains Mono', 'DIN', monospace",
@@ -335,7 +331,7 @@ const BasicLayout = () => {
                 <Text style={{ color: '#848E9C', fontSize: 12 }}>收益</Text>
                 <Text
                   style={{
-                    color: balanceInfo.totalProfit >= 0 ? '#00D4AA' : '#FF4D4F',
+                    color: balanceInfo.totalProfit >= 0 ? '#cf1322' : '#00b96b',
                     fontSize: 13,
                     fontWeight: 600,
                     fontFamily: "'JetBrains Mono', 'DIN', monospace",
@@ -392,13 +388,14 @@ const BasicLayout = () => {
         </div>
       </header>
 
-      {/* 移动端菜单抽屉 */}
-      {mobileMenuDrawer}
+      {/* 移动端底部导航栏 */}
+      {mobileBottomNav}
 
       {/* 主内容区域 - 占满100%宽度 */}
       <main
         style={{
           paddingTop: isMobile ? 56 : 64,
+          paddingBottom: isMobile ? 56 : 0,
           minHeight: '100vh',
           background: '#0D1117',
         }}

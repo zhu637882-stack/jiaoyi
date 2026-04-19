@@ -2,14 +2,15 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, Between } from 'typeorm';
+import { Repository, DataSource, In, Between } from 'typeorm';
 import { Settlement, SettlementStatus } from '../../database/entities/settlement.entity';
 import {
-  FundingOrder,
-  FundingOrderStatus,
-} from '../../database/entities/funding-order.entity';
+  SubscriptionOrder,
+  SubscriptionOrderStatus,
+} from '../../database/entities/subscription-order.entity';
 import { DailySales } from '../../database/entities/daily-sales.entity';
 import { Drug } from '../../database/entities/drug.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
@@ -18,24 +19,26 @@ import {
   TransactionType,
 } from '../../database/entities/account-transaction.entity';
 
-// 清算订单明细（用于记录解套详情）
+// 清算订单明细（用于记录退回详情）
 export interface SettlementOrderDetail {
   orderId: string;
   orderNo: string;
   userId: string;
-  settledQuantity: number;
-  settledPrincipal: number;
-  profitShare: number;
-  lossShare: number;
+  returnedQuantity: number;      // 当日退回数量
+  returnedPrincipal: number;     // 当日退回本金
+  profitShare: number;           // 当日分润
+  lossShare: number;             // 当日亏损分摊
 }
 
 @Injectable()
 export class SettlementService {
+  private readonly logger = new Logger(SettlementService.name);
+
   constructor(
     @InjectRepository(Settlement)
     private settlementRepository: Repository<Settlement>,
-    @InjectRepository(FundingOrder)
-    private fundingOrderRepository: Repository<FundingOrder>,
+    @InjectRepository(SubscriptionOrder)
+    private subscriptionOrderRepository: Repository<SubscriptionOrder>,
     @InjectRepository(DailySales)
     private dailySalesRepository: Repository<DailySales>,
     @InjectRepository(Drug)
@@ -49,11 +52,13 @@ export class SettlementService {
 
   /**
    * 执行日清日结清算（核心方法）
-   * 完整的7步清算流程，在数据库事务中执行
+   * 新清算公式：可分配收益 = 销售额 - 采购成本 - 运营费用
+   * 份额FIFO自动退回 + 30:70收益分配/亏损共担
    */
   async executeSettlement(
     drugId: string,
     settlementDateStr: string,
+    isManual: boolean = false,  // 标记是否为手动清算
   ): Promise<{
     settlement: Settlement;
     orderDetails: SettlementOrderDetail[];
@@ -98,10 +103,16 @@ export class SettlementService {
         where: { drugId, saleDate: settlementDate },
       });
 
+      // 无销售数据时返回零值清算结果（手动清算场景）
       if (sales.length === 0) {
-        throw new BadRequestException(
-          `${settlementDateStr} 没有销售记录，无法清算`,
+        await queryRunner.commitTransaction();
+        this.logger.log(
+          `清算跳过：药品 ${drug.name}，日期 ${settlementDateStr}，无销售数据`
         );
+        return {
+          settlement: null as any,
+          orderDetails: [],
+        };
       }
 
       // ========== 第一步：汇总当日销售数据 ==========
@@ -115,60 +126,63 @@ export class SettlementService {
 
       totalSalesRevenue = Number(totalSalesRevenue.toFixed(2));
 
-      // ========== 第二步：计算当日成本 ==========
+      // ========== 第二步：计算成本和费用 ==========
+      // 采购成本 = 销售数量 × 采购单价
       const purchaseCost = Number(
         (totalSalesQuantity * drug.purchasePrice).toFixed(2),
       );
-      const totalFees = Number(
-        (totalSalesQuantity * drug.unitFee).toFixed(2),
+      
+      // 运营费用 = 销售额 × 运营费用比例
+      const operationFees = Number(
+        (totalSalesRevenue * drug.operationFeeRate).toFixed(2),
       );
 
-      // ========== 第三步：按FIFO解套垫资方本金 ==========
+      // ========== 第三步：份额FIFO自动退回 ==========
       const orderDetails: SettlementOrderDetail[] = [];
-      let remainingQuantity = totalSalesQuantity;
-      let totalSettledPrincipal = 0;
-      let settledOrderCount = 0;
+      let remainingQuantity = totalSalesQuantity;  // 剩余可退数量
+      let totalReturnedPrincipal = 0;              // 当日退回总本金
+      let settledOrderCount = 0;                   // 参与订单数
 
-      // 查询所有未结清订单，按 fundedAt ASC 排序（FIFO）
-      const pendingOrders = await queryRunner.manager.find(FundingOrder, {
+      // 查询所有生效中的认购订单，按 effectiveAt ASC 排序（先认先退）
+      const activeOrders = await queryRunner.manager.find(SubscriptionOrder, {
         where: {
           drugId,
-          status: Between(FundingOrderStatus.HOLDING, FundingOrderStatus.PARTIAL_SETTLED),
+          status: In([SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_RETURNED]),
         },
-        order: { fundedAt: 'ASC' },
+        order: { effectiveAt: 'ASC' },
         lock: { mode: 'pessimistic_write' },
       });
 
-      for (const order of pendingOrders) {
+      for (const order of activeOrders) {
         if (remainingQuantity <= 0) break;
 
-        // 计算可解套数量
-        const unsettledQuantity = order.quantity - order.settledQuantity;
-        const settleQuantity = Math.min(unsettledQuantity, remainingQuantity);
+        // 计算该订单可退回数量
+        const returnableQuantity = order.quantity - order.settledQuantity;
+        const returnQuantity = Math.min(returnableQuantity, remainingQuantity);
 
-        if (settleQuantity <= 0) continue;
+        if (returnQuantity <= 0) continue;
 
-        // 计算解套金额
-        const settleAmount = Number(
-          (settleQuantity * drug.purchasePrice).toFixed(2),
-        );
+        // 计算退回金额（按订单单价计算）
+        const unitPrice = Number(order.amount) / order.quantity;
+        const returnAmount = Number((returnQuantity * unitPrice).toFixed(2));
 
-        // 更新订单
-        order.settledQuantity += settleQuantity;
+        // 更新订单状态
+        order.settledQuantity += returnQuantity;
         order.unsettledAmount = Number(
-          (Number(order.unsettledAmount) - settleAmount).toFixed(2),
+          (Number(order.unsettledAmount) - returnAmount).toFixed(2),
         );
 
-        if (order.unsettledAmount <= 0) {
-          order.status = FundingOrderStatus.SETTLED;
-          order.settledAt = new Date();
+        // 判断订单是否全部退回
+        if (order.settledQuantity >= order.quantity) {
+          order.status = SubscriptionOrderStatus.RETURNED;
+          order.returnedAt = new Date();
         } else {
-          order.status = FundingOrderStatus.PARTIAL_SETTLED;
+          order.status = SubscriptionOrderStatus.PARTIAL_RETURNED;
         }
 
         await queryRunner.manager.save(order);
 
-        // 返还本金到用户账户
+        // 退回本金到用户账户（解冻）
         const balance = await queryRunner.manager.findOne(AccountBalance, {
           where: { userId: order.userId },
           lock: { mode: 'pessimistic_write' },
@@ -179,23 +193,23 @@ export class SettlementService {
           const frozenBefore = Number(balance.frozenBalance);
 
           balance.availableBalance = Number(
-            (availableBefore + settleAmount).toFixed(2),
+            (availableBefore + returnAmount).toFixed(2),
           );
           balance.frozenBalance = Number(
-            (frozenBefore - settleAmount).toFixed(2),
+            (frozenBefore - returnAmount).toFixed(2),
           );
 
           await queryRunner.manager.save(balance);
 
-          // 记录资金流水 - 本金返还
+          // 记录资金流水 - 本金退回
           const transaction = queryRunner.manager.create(AccountTransaction, {
             userId: order.userId,
             type: TransactionType.PRINCIPAL_RETURN,
-            amount: settleAmount,
+            amount: returnAmount,
             balanceBefore: availableBefore,
             balanceAfter: balance.availableBalance,
             relatedOrderId: order.id,
-            description: `解套返还本金：${drug.name} ${settleQuantity}盒，金额 ${settleAmount}元`,
+            description: `份额退回：${drug.name} ${returnQuantity}盒，金额 ${returnAmount}元`,
           });
 
           await queryRunner.manager.save(transaction);
@@ -205,99 +219,74 @@ export class SettlementService {
           orderId: order.id,
           orderNo: order.orderNo,
           userId: order.userId,
-          settledQuantity: settleQuantity,
-          settledPrincipal: settleAmount,
+          returnedQuantity: returnQuantity,
+          returnedPrincipal: returnAmount,
           profitShare: 0,
           lossShare: 0,
         });
 
-        remainingQuantity -= settleQuantity;
-        totalSettledPrincipal += settleAmount;
+        remainingQuantity -= returnQuantity;
+        totalReturnedPrincipal += returnAmount;
         settledOrderCount++;
       }
 
-      // ========== 第四步：计算利息 ==========
-      // 重新查询所有未结清订单（包括刚刚部分解套的）
-      const activeOrders = await queryRunner.manager.find(FundingOrder, {
-        where: {
-          drugId,
-          status: Between(FundingOrderStatus.HOLDING, FundingOrderStatus.PARTIAL_SETTLED),
-        },
-      });
-
-      let totalInterest = 0;
-
-      for (const order of activeOrders) {
-        const dailyInterest = Number(
-          (
-            (Number(order.unsettledAmount) * drug.annualRate) /
-            100 /
-            360
-          ).toFixed(2),
-        );
-
-        totalInterest += dailyInterest;
-        order.totalInterest = Number(
-          (Number(order.totalInterest) + dailyInterest).toFixed(2),
-        );
-
-        await queryRunner.manager.save(order);
-      }
-
-      totalInterest = Number(totalInterest.toFixed(2));
-
-      // ========== 第五步：计算净利润/亏损 ==========
+      // ========== 第四步：计算净利润/亏损 ==========
+      // 净利润 = 销售额 - 采购成本 - 运营费用
       const netProfit = Number(
-        (
-          totalSalesRevenue -
-          purchaseCost -
-          totalFees -
-          totalInterest
-        ).toFixed(2),
+        (totalSalesRevenue - purchaseCost - operationFees).toFixed(2),
       );
 
       const isProfit = netProfit > 0;
       const profitAmount = isProfit ? netProfit : 0;
       const lossAmount = isProfit ? 0 : Math.abs(netProfit);
 
-      // ========== 第六步：3:7 分润/共担 ==========
+      // ========== 第五步：30:70 分润/共担 ==========
       let investorProfitShare = 0;
       let platformProfitShare = 0;
       let investorLossShare = 0;
       let platformLossShare = 0;
 
-      // 计算总垫资本金（解套的 + 未结清的，用于按比例分配）
-      const settledPrincipalFromDetails = orderDetails.reduce(
-        (sum, detail) => sum + detail.settledPrincipal,
+      // 计算总参与本金（当日退回的 + 仍生效的）
+      const returnedPrincipalFromDetails = orderDetails.reduce(
+        (sum, detail) => sum + detail.returnedPrincipal,
         0,
       );
-      const totalUnsettledPrincipal = activeOrders.reduce(
+
+      // 重新查询仍生效的订单
+      const remainingActiveOrders = await queryRunner.manager.find(SubscriptionOrder, {
+        where: {
+          drugId,
+          status: In([SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_RETURNED]),
+        },
+      });
+
+      const totalRemainingPrincipal = remainingActiveOrders.reduce(
         (sum, order) => sum + Number(order.unsettledAmount),
         0,
       );
-      // 总参与分润的本金 = 当日解套本金 + 当前未结清本金
-      const totalPrincipalForSharing = settledPrincipalFromDetails + totalUnsettledPrincipal;
+
+      // 总参与分配的本金 = 当日退回本金 + 仍生效的本金
+      const totalPrincipalForSharing = returnedPrincipalFromDetails + totalRemainingPrincipal;
 
       if (isProfit && profitAmount > 0 && totalPrincipalForSharing > 0) {
-        // 盈利时：垫资方30%，平台70%
+        // 盈利时：合作方（用户）30%，平台 70%
         investorProfitShare = Number((profitAmount * 0.3).toFixed(2));
         platformProfitShare = Number((profitAmount * 0.7).toFixed(2));
 
-        // 1. 先给解套订单分配分润
+        // 1. 给当日退回的订单分配分润
         for (const detail of orderDetails) {
-          if (detail.settledPrincipal <= 0) continue;
+          if (detail.returnedPrincipal <= 0) continue;
 
-          const shareRatio =
-            totalPrincipalForSharing > 0
-              ? detail.settledPrincipal / totalPrincipalForSharing
-              : 0;
+          const shareRatio = totalPrincipalForSharing > 0
+            ? detail.returnedPrincipal / totalPrincipalForSharing
+            : 0;
           const orderProfitShare = Number(
             (investorProfitShare * shareRatio).toFixed(2),
           );
 
           if (orderProfitShare > 0) {
-            // 更新订单总利润
-            const order = await queryRunner.manager.findOne(FundingOrder, {
+            // 更新订单累计收益
+            const order = await queryRunner.manager.findOne(SubscriptionOrder, {
               where: { id: detail.orderId },
               lock: { mode: 'pessimistic_write' },
             });
@@ -325,7 +314,7 @@ export class SettlementService {
 
               await queryRunner.manager.save(balance);
 
-              // 记录资金流水 - 利润分成
+              // 记录资金流水 - 收益分成
               const transaction = queryRunner.manager.create(
                 AccountTransaction,
                 {
@@ -335,31 +324,29 @@ export class SettlementService {
                   balanceBefore: availableBefore,
                   balanceAfter: balance.availableBalance,
                   relatedOrderId: detail.orderId,
-                  description: `分润收入：${drug.name}，金额 ${orderProfitShare}元`,
+                  description: `收益分成：${drug.name}，金额 ${orderProfitShare}元`,
                 },
               );
 
               await queryRunner.manager.save(transaction);
             }
 
-            // 更新订单明细
             detail.profitShare = orderProfitShare;
           }
         }
 
-        // 2. 再给未结清订单分配分润
-        for (const order of activeOrders) {
+        // 2. 给仍生效的订单分配分润（只记录，不解冻）
+        for (const order of remainingActiveOrders) {
           const orderUnsettled = Number(order.unsettledAmount);
-          const shareRatio =
-            totalPrincipalForSharing > 0
-              ? orderUnsettled / totalPrincipalForSharing
-              : 0;
+          const shareRatio = totalPrincipalForSharing > 0
+            ? orderUnsettled / totalPrincipalForSharing
+            : 0;
           const orderProfitShare = Number(
             (investorProfitShare * shareRatio).toFixed(2),
           );
 
           if (orderProfitShare > 0) {
-            // 更新订单总利润
+            // 更新订单累计收益
             order.totalProfit = Number(
               (Number(order.totalProfit) + orderProfitShare).toFixed(2),
             );
@@ -382,7 +369,7 @@ export class SettlementService {
 
               await queryRunner.manager.save(balance);
 
-              // 记录资金流水 - 利润分成
+              // 记录资金流水 - 收益分成
               const transaction = queryRunner.manager.create(
                 AccountTransaction,
                 {
@@ -392,7 +379,7 @@ export class SettlementService {
                   balanceBefore: availableBefore,
                   balanceAfter: balance.availableBalance,
                   relatedOrderId: order.id,
-                  description: `分润收入：${drug.name}，金额 ${orderProfitShare}元`,
+                  description: `收益分成：${drug.name}，金额 ${orderProfitShare}元`,
                 },
               );
 
@@ -402,14 +389,14 @@ export class SettlementService {
             // 更新订单明细
             const detail = orderDetails.find((d) => d.orderId === order.id);
             if (detail) {
-              detail.profitShare = orderProfitShare;
+              detail.profitShare = (detail.profitShare || 0) + orderProfitShare;
             } else {
               orderDetails.push({
                 orderId: order.id,
                 orderNo: order.orderNo,
                 userId: order.userId,
-                settledQuantity: 0,
-                settledPrincipal: 0,
+                returnedQuantity: 0,
+                returnedPrincipal: 0,
                 profitShare: orderProfitShare,
                 lossShare: 0,
               });
@@ -417,25 +404,24 @@ export class SettlementService {
           }
         }
       } else if (!isProfit && lossAmount > 0 && totalPrincipalForSharing > 0) {
-        // 亏损时：垫资方承担30%，平台承担70%
+        // 亏损时：合作方承担 30%，平台承担 70%
         investorLossShare = Number((lossAmount * 0.3).toFixed(2));
         platformLossShare = Number((lossAmount * 0.7).toFixed(2));
 
-        // 1. 先给解套订单分摊亏损
+        // 1. 给当日退回的订单分摊亏损
         for (const detail of orderDetails) {
-          if (detail.settledPrincipal <= 0) continue;
+          if (detail.returnedPrincipal <= 0) continue;
 
-          const shareRatio =
-            totalPrincipalForSharing > 0
-              ? detail.settledPrincipal / totalPrincipalForSharing
-              : 0;
+          const shareRatio = totalPrincipalForSharing > 0
+            ? detail.returnedPrincipal / totalPrincipalForSharing
+            : 0;
           const orderLossShare = Number(
             (investorLossShare * shareRatio).toFixed(2),
           );
 
           if (orderLossShare > 0) {
-            // 更新订单总亏损
-            const order = await queryRunner.manager.findOne(FundingOrder, {
+            // 更新订单累计亏损
+            const order = await queryRunner.manager.findOne(SubscriptionOrder, {
               where: { id: detail.orderId },
               lock: { mode: 'pessimistic_write' },
             });
@@ -445,24 +431,40 @@ export class SettlementService {
               );
               await queryRunner.manager.save(order);
 
-              // 记录资金流水 - 亏损分摊
+              // 从用户可用余额中扣除亏损（优先从服务酬劳抵扣）
               const balance = await queryRunner.manager.findOne(AccountBalance, {
                 where: { userId: detail.userId },
+                lock: { mode: 'pessimistic_write' },
               });
 
               if (balance) {
                 const availableBefore = Number(balance.availableBalance);
+                // 计算实际可扣除金额（余额不足时扣到0为止）
+                const actualDeduction = Math.min(availableBefore, orderLossShare);
+                const remainingLoss = Number((orderLossShare - actualDeduction).toFixed(2));
+
+                // 扣除余额
+                balance.availableBalance = Number(
+                  (availableBefore - actualDeduction).toFixed(2),
+                );
+                await queryRunner.manager.save(balance);
+
+                // 构建描述信息
+                let description = `亏损分摊：${drug.name}，金额 ${orderLossShare}元`;
+                if (remainingLoss > 0) {
+                  description += `（其中${remainingLoss}元待抵扣，余额不足）`;
+                }
 
                 const transaction = queryRunner.manager.create(
                   AccountTransaction,
                   {
                     userId: detail.userId,
                     type: TransactionType.LOSS_SHARE,
-                    amount: -orderLossShare,
+                    amount: -actualDeduction,
                     balanceBefore: availableBefore,
-                    balanceAfter: availableBefore,
+                    balanceAfter: balance.availableBalance,
                     relatedOrderId: detail.orderId,
-                    description: `亏损分摊：${drug.name}，金额 ${orderLossShare}元（从本金抵扣）`,
+                    description,
                   },
                 );
 
@@ -470,60 +472,61 @@ export class SettlementService {
               }
             }
 
-            // 更新订单明细
             detail.lossShare = orderLossShare;
           }
         }
 
-        // 2. 再给未结清订单分摊亏损
-        for (const order of activeOrders) {
+        // 2. 给仍生效的订单分摊亏损
+        for (const order of remainingActiveOrders) {
           const orderUnsettled = Number(order.unsettledAmount);
-          const shareRatio =
-            totalPrincipalForSharing > 0
-              ? orderUnsettled / totalPrincipalForSharing
-              : 0;
+          const shareRatio = totalPrincipalForSharing > 0
+            ? orderUnsettled / totalPrincipalForSharing
+            : 0;
           const orderLossShare = Number(
             (investorLossShare * shareRatio).toFixed(2),
           );
 
           if (orderLossShare > 0) {
-            // 更新订单总亏损
+            // 更新订单累计亏损
             order.totalLoss = Number(
               (Number(order.totalLoss) + orderLossShare).toFixed(2),
             );
-
-            // 亏损优先从后续分润抵扣，这里简化为直接从未结清本金中抵扣
-            order.unsettledAmount = Number(
-              (Number(order.unsettledAmount) - orderLossShare).toFixed(2),
-            );
-
-            // 如果本金扣完，标记为已结清
-            if (order.unsettledAmount <= 0) {
-              order.unsettledAmount = 0;
-              order.status = FundingOrderStatus.SETTLED;
-              order.settledAt = new Date();
-            }
-
             await queryRunner.manager.save(order);
 
-            // 记录资金流水 - 亏损分摊
+            // 从用户可用余额中扣除亏损
             const balance = await queryRunner.manager.findOne(AccountBalance, {
               where: { userId: order.userId },
+              lock: { mode: 'pessimistic_write' },
             });
 
             if (balance) {
               const availableBefore = Number(balance.availableBalance);
+              // 计算实际可扣除金额（余额不足时扣到0为止）
+              const actualDeduction = Math.min(availableBefore, orderLossShare);
+              const remainingLoss = Number((orderLossShare - actualDeduction).toFixed(2));
+
+              // 扣除余额
+              balance.availableBalance = Number(
+                (availableBefore - actualDeduction).toFixed(2),
+              );
+              await queryRunner.manager.save(balance);
+
+              // 构建描述信息
+              let description = `亏损分摊：${drug.name}，金额 ${orderLossShare}元`;
+              if (remainingLoss > 0) {
+                description += `（其中${remainingLoss}元待抵扣，余额不足）`;
+              }
 
               const transaction = queryRunner.manager.create(
                 AccountTransaction,
                 {
                   userId: order.userId,
                   type: TransactionType.LOSS_SHARE,
-                  amount: -orderLossShare,
+                  amount: -actualDeduction,
                   balanceBefore: availableBefore,
-                  balanceAfter: availableBefore,
+                  balanceAfter: balance.availableBalance,
                   relatedOrderId: order.id,
-                  description: `亏损分摊：${drug.name}，金额 ${orderLossShare}元（从本金抵扣）`,
+                  description,
                 },
               );
 
@@ -533,14 +536,14 @@ export class SettlementService {
             // 更新订单明细
             const detail = orderDetails.find((d) => d.orderId === order.id);
             if (detail) {
-              detail.lossShare = orderLossShare;
+              detail.lossShare = (detail.lossShare || 0) + orderLossShare;
             } else {
               orderDetails.push({
                 orderId: order.id,
                 orderNo: order.orderNo,
                 userId: order.userId,
-                settledQuantity: 0,
-                settledPrincipal: 0,
+                returnedQuantity: 0,
+                returnedPrincipal: 0,
                 profitShare: 0,
                 lossShare: orderLossShare,
               });
@@ -549,37 +552,58 @@ export class SettlementService {
         }
       }
 
-      // ========== 第七步：创建清算记录 ==========
+      // ========== 第六步：创建清算记录 ==========
       const settlement = queryRunner.manager.create(Settlement, {
         drugId,
         settlementDate,
+        totalSalesQuantity,
         totalSalesRevenue,
         totalCost: purchaseCost,
-        totalFees,
-        totalInterest,
+        totalFees: 0,  // 旧字段，保持兼容
+        operationFees: operationFees,
         netProfit,
         investorProfitShare,
         platformProfitShare,
         investorLossShare,
         platformLossShare,
-        settledPrincipal: totalSettledPrincipal,
+        returnedPrincipal: totalReturnedPrincipal,
         settledOrderCount,
         status: SettlementStatus.COMPLETED,
       });
 
       const savedSettlement = await queryRunner.manager.save(settlement);
 
-      // 更新订单明细中的 settlementId
+      // 更新订单明细中的 settlementId（加入时间范围条件避免关联历史交易）
+      const settlementDateStart = new Date(settlementDate);
+      settlementDateStart.setHours(0, 0, 0, 0);
+      const settlementDateEnd = new Date(settlementDate);
+      settlementDateEnd.setHours(23, 59, 59, 999);
+
       for (const detail of orderDetails) {
         await queryRunner.manager.update(
           AccountTransaction,
-          { relatedOrderId: detail.orderId },
+          {
+            relatedOrderId: detail.orderId,
+            createdAt: Between(settlementDateStart, settlementDateEnd),
+            type: In([
+              TransactionType.PRINCIPAL_RETURN,
+              TransactionType.PROFIT_SHARE,
+              TransactionType.LOSS_SHARE,
+            ]),
+          },
           { relatedSettlementId: savedSettlement.id },
         );
       }
 
       // 提交事务
       await queryRunner.commitTransaction();
+
+      this.logger.log(
+        `清算完成：药品 ${drug.name}，日期 ${settlementDateStr}，` +
+        `销售额 ${totalSalesRevenue}，净利润 ${netProfit}，` +
+        `退回本金 ${totalReturnedPrincipal}，参与订单 ${settledOrderCount}` +
+        `${isManual ? ' [手动清算]' : ''}`
+      );
 
       return {
         settlement: savedSettlement,
@@ -588,6 +612,9 @@ export class SettlementService {
     } catch (error) {
       // 回滚事务
       await queryRunner.rollbackTransaction();
+      this.logger.error(
+        `清算失败：药品 ${drugId}，日期 ${settlementDateStr}，错误：${error.message}`
+      );
       throw error;
     } finally {
       // 释放查询运行器
@@ -645,80 +672,62 @@ export class SettlementService {
       totalSalesRevenue += Number(sale.totalRevenue);
     }
 
-    // 5. 计算成本
+    // 5. 计算成本和费用
     const purchaseCost = totalSalesQuantity * drug.purchasePrice;
-    const totalFees = totalSalesQuantity * drug.unitFee;
+    const operationFees = totalSalesRevenue * drug.operationFeeRate;
 
-    // 6. 计算预计解套订单
-    const pendingOrders = await this.fundingOrderRepository.find({
+    // 6. 计算预计退回订单
+    const activeOrders = await this.subscriptionOrderRepository.find({
       where: {
         drugId,
-        status: Between(FundingOrderStatus.HOLDING, FundingOrderStatus.PARTIAL_SETTLED),
+        status: In([SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_RETURNED]),
       },
-      order: { fundedAt: 'ASC' },
+      order: { effectiveAt: 'ASC' },
       relations: ['user'],
     });
 
     let remainingQuantity = totalSalesQuantity;
-    const estimatedSettlements: Array<{
+    const estimatedReturns: Array<{
       orderId: string;
       orderNo: string;
       userId: string;
       username: string;
       totalQuantity: number;
       settledQuantity: number;
-      unsettledQuantity: number;
-      estimatedSettleQuantity: number;
-      estimatedSettleAmount: number;
+      returnableQuantity: number;
+      estimatedReturnQuantity: number;
+      estimatedReturnAmount: number;
     }> = [];
 
-    for (const order of pendingOrders) {
+    for (const order of activeOrders) {
       if (remainingQuantity <= 0) break;
 
-      const unsettledQuantity = order.quantity - order.settledQuantity;
-      const settleQuantity = Math.min(unsettledQuantity, remainingQuantity);
+      const returnableQuantity = order.quantity - order.settledQuantity;
+      const returnQuantity = Math.min(returnableQuantity, remainingQuantity);
 
-      if (settleQuantity > 0) {
-        estimatedSettlements.push({
+      if (returnQuantity > 0) {
+        const unitPrice = Number(order.amount) / order.quantity;
+        estimatedReturns.push({
           orderId: order.id,
           orderNo: order.orderNo,
           userId: order.userId,
           username: order.user?.username || '',
           totalQuantity: order.quantity,
           settledQuantity: order.settledQuantity,
-          unsettledQuantity,
-          estimatedSettleQuantity: settleQuantity,
-          estimatedSettleAmount: Number(
-            (settleQuantity * drug.purchasePrice).toFixed(2),
+          returnableQuantity,
+          estimatedReturnQuantity: returnQuantity,
+          estimatedReturnAmount: Number(
+            (returnQuantity * unitPrice).toFixed(2),
           ),
         });
 
-        remainingQuantity -= settleQuantity;
+        remainingQuantity -= returnQuantity;
       }
     }
 
-    // 7. 计算预计利息
-    const activeOrders = await this.fundingOrderRepository.find({
-      where: {
-        drugId,
-        status: Between(FundingOrderStatus.HOLDING, FundingOrderStatus.PARTIAL_SETTLED),
-      },
-    });
-
-    let estimatedInterest = 0;
-    for (const order of activeOrders) {
-      estimatedInterest +=
-        (Number(order.unsettledAmount) * drug.annualRate) / 100 / 360;
-    }
-
-    // 8. 计算预计利润/亏损
+    // 7. 计算预计净利润/亏损
     const estimatedNetProfit = Number(
-      (
-        totalSalesRevenue -
-        purchaseCost -
-        totalFees -
-        estimatedInterest
-      ).toFixed(2),
+      (totalSalesRevenue - purchaseCost - operationFees).toFixed(2),
     );
 
     const isProfit = estimatedNetProfit > 0;
@@ -740,10 +749,9 @@ export class SettlementService {
       },
       costSummary: {
         purchaseCost: Number(purchaseCost.toFixed(2)),
-        totalFees: Number(totalFees.toFixed(2)),
-        estimatedInterest: Number(estimatedInterest.toFixed(2)),
+        operationFees: Number(operationFees.toFixed(2)),
       },
-      estimatedSettlements,
+      estimatedReturns,
       estimatedUnsettledQuantity: remainingQuantity,
       estimatedProfit: {
         netProfit: estimatedNetProfit,
@@ -808,16 +816,16 @@ export class SettlementService {
         drugName: s.drug?.name,
         drugCode: s.drug?.code,
         settlementDate: s.settlementDate,
+        totalSalesQuantity: s.totalSalesQuantity || 0,
         totalSalesRevenue: Number(s.totalSalesRevenue),
         totalCost: Number(s.totalCost),
-        totalFees: Number(s.totalFees),
-        totalInterest: Number(s.totalInterest),
+        operationFees: Number(s.operationFees || 0),
         netProfit: Number(s.netProfit),
         investorProfitShare: Number(s.investorProfitShare),
         platformProfitShare: Number(s.platformProfitShare),
         investorLossShare: Number(s.investorLossShare),
         platformLossShare: Number(s.platformLossShare),
-        settledPrincipal: Number(s.settledPrincipal),
+        returnedPrincipal: Number(s.returnedPrincipal || 0),
         settledOrderCount: s.settledOrderCount,
         status: s.status,
         createdAt: s.createdAt,
@@ -844,7 +852,7 @@ export class SettlementService {
       throw new NotFoundException('清算记录不存在');
     }
 
-    // 获取相关交易流水（解套、分润、亏损）
+    // 获取相关交易流水（退回、分润、亏损）
     const transactions = await this.accountTransactionRepository
       .createQueryBuilder('t')
       .leftJoinAndSelect('t.user', 'user')
@@ -852,21 +860,19 @@ export class SettlementService {
       .orderBy('t.createdAt', 'ASC')
       .getMany();
 
-    // 获取解套订单明细
-    const orderDetails = await this.fundingOrderRepository
-      .createQueryBuilder('order')
-      .leftJoinAndSelect('order.user', 'user')
-      .where(
-        'order.drugId = :drugId AND order.settledAt >= :settlementDate AND order.settledAt < :nextDate',
-        {
-          drugId: settlement.drugId,
-          settlementDate: settlement.settlementDate,
-          nextDate: new Date(
-            new Date(settlement.settlementDate).getTime() + 24 * 60 * 60 * 1000,
-          ),
-        },
-      )
-      .getMany();
+    // 获取退回订单明细（通过交易流水关联的订单）
+    const orderIds = [...new Set(transactions
+      .filter((t) => t.relatedOrderId)
+      .map((t) => t.relatedOrderId))];
+
+    let orderDetails: SubscriptionOrder[] = [];
+    if (orderIds.length > 0) {
+      orderDetails = await this.subscriptionOrderRepository
+        .createQueryBuilder('order')
+        .leftJoinAndSelect('order.user', 'user')
+        .where('order.id IN (:...orderIds)', { orderIds })
+        .getMany();
+    }
 
     return {
       settlement: {
@@ -875,16 +881,16 @@ export class SettlementService {
         drugName: settlement.drug?.name,
         drugCode: settlement.drug?.code,
         settlementDate: settlement.settlementDate,
+        totalSalesQuantity: settlement.totalSalesQuantity || 0,
         totalSalesRevenue: Number(settlement.totalSalesRevenue),
         totalCost: Number(settlement.totalCost),
-        totalFees: Number(settlement.totalFees),
-        totalInterest: Number(settlement.totalInterest),
+        operationFees: Number(settlement.operationFees || 0),
         netProfit: Number(settlement.netProfit),
         investorProfitShare: Number(settlement.investorProfitShare),
         platformProfitShare: Number(settlement.platformProfitShare),
         investorLossShare: Number(settlement.investorLossShare),
         platformLossShare: Number(settlement.platformLossShare),
-        settledPrincipal: Number(settlement.settledPrincipal),
+        returnedPrincipal: Number(settlement.returnedPrincipal || 0),
         settledOrderCount: settlement.settledOrderCount,
         status: settlement.status,
         createdAt: settlement.createdAt,
@@ -930,6 +936,7 @@ export class SettlementService {
       .addSelect('SUM(s.netProfit)', 'totalNetProfit')
       .addSelect('SUM(s.investorProfitShare)', 'totalInvestorProfit')
       .addSelect('SUM(s.investorLossShare)', 'totalInvestorLoss')
+      .addSelect('SUM(s.returnedPrincipal)', 'totalReturnedPrincipal')
       .where('s.status = :status', { status: SettlementStatus.COMPLETED })
       .getRawOne();
 
@@ -937,6 +944,7 @@ export class SettlementService {
     const totalNetProfit = Number(stats?.totalNetProfit || 0);
     const totalInvestorProfit = Number(stats?.totalInvestorProfit || 0);
     const totalInvestorLoss = Number(stats?.totalInvestorLoss || 0);
+    const totalReturnedPrincipal = Number(stats?.totalReturnedPrincipal || 0);
 
     return {
       totalSettlementCount: totalCount,
@@ -949,11 +957,12 @@ export class SettlementService {
       investorNetProfit: Number(
         (totalInvestorProfit - totalInvestorLoss).toFixed(2),
       ),
+      totalReturnedPrincipal,
     };
   }
 
   /**
-   * 获取用户的清算记录（垫资方视角）
+   * 获取用户的清算记录（合作方视角）
    */
   async getUserSettlements(
     userId: string,
@@ -965,7 +974,7 @@ export class SettlementService {
     const { page = 1, pageSize = 10 } = options;
 
     // 获取用户有参与的药品ID
-    const userDrugIds = await this.fundingOrderRepository
+    const userDrugIds = await this.subscriptionOrderRepository
       .createQueryBuilder('order')
       .select('DISTINCT order.drugId', 'drugId')
       .where('order.userId = :userId', { userId })
@@ -1006,7 +1015,6 @@ export class SettlementService {
     const result = await Promise.all(
       settlements.map(async (s) => {
         // 获取用户当日的交易记录
-        // 优先通过 relatedSettlementId 查询，如果没有则通过日期范围查询
         let transactions = await this.accountTransactionRepository
           .createQueryBuilder('t')
           .where('t.userId = :userId', { userId })
@@ -1017,7 +1025,6 @@ export class SettlementService {
 
         // 如果没有找到关联的交易记录，尝试通过订单关联匹配（兼容历史数据）
         if (transactions.length === 0) {
-          // 获取用户在清算日期前后几天的相关交易
           const settlementDate = new Date(s.settlementDate);
           const startDate = new Date(settlementDate);
           startDate.setDate(startDate.getDate() - 1);
@@ -1046,7 +1053,7 @@ export class SettlementService {
             .map((t) => t.relatedOrderId);
 
           if (orderIds.length > 0) {
-            const orders = await this.fundingOrderRepository
+            const orders = await this.subscriptionOrderRepository
               .createQueryBuilder('o')
               .where('o.id IN (:...orderIds)', { orderIds })
               .andWhere('o.drugId = :drugId', { drugId: s.drugId })
@@ -1102,7 +1109,7 @@ export class SettlementService {
   }
 
   /**
-   * 获取用户的清算统计（垫资方视角）
+   * 获取用户的清算统计（合作方视角）
    */
   async getUserSettlementStats(userId: string) {
     // 获取用户所有相关交易
@@ -1114,7 +1121,6 @@ export class SettlementService {
           TransactionType.PRINCIPAL_RETURN,
           TransactionType.PROFIT_SHARE,
           TransactionType.LOSS_SHARE,
-          TransactionType.INTEREST,
         ],
       })
       .getMany();
@@ -1122,7 +1128,6 @@ export class SettlementService {
     let totalPrincipalReturn = 0;
     let totalProfitShare = 0;
     let totalLossShare = 0;
-    let totalInterest = 0;
 
     for (const t of transactions) {
       if (t.type === TransactionType.PRINCIPAL_RETURN) {
@@ -1131,8 +1136,6 @@ export class SettlementService {
         totalProfitShare += Number(t.amount);
       } else if (t.type === TransactionType.LOSS_SHARE) {
         totalLossShare += Math.abs(Number(t.amount));
-      } else if (t.type === TransactionType.INTEREST) {
-        totalInterest += Number(t.amount);
       }
     }
 
@@ -1140,13 +1143,38 @@ export class SettlementService {
       totalPrincipalReturn: Number(totalPrincipalReturn.toFixed(2)),
       totalProfitShare: Number(totalProfitShare.toFixed(2)),
       totalLossShare: Number(totalLossShare.toFixed(2)),
-      totalInterest: Number(totalInterest.toFixed(2)),
       netProfit: Number(
-        (totalProfitShare - totalLossShare + totalInterest).toFixed(2),
+        (totalProfitShare - totalLossShare).toFixed(2),
       ),
       totalReturn: Number(
-        (totalPrincipalReturn + totalProfitShare - totalLossShare + totalInterest).toFixed(2),
+        (totalPrincipalReturn + totalProfitShare - totalLossShare).toFixed(2),
       ),
     };
+  }
+
+  /**
+   * 获取需要清算的药品列表（用于定时任务）
+   * 查询所有有 EFFECTIVE/PARTIAL_RETURNED 订单的药品
+   */
+  async getDrugsNeedingSettlement(): Promise<string[]> {
+    const result = await this.subscriptionOrderRepository
+      .createQueryBuilder('order')
+      .select('DISTINCT order.drugId', 'drugId')
+      .where('order.status IN (:...statuses)', {
+        statuses: [SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_RETURNED],
+      })
+      .getRawMany();
+
+    return result.map((r) => r.drugId);
+  }
+
+  /**
+   * 检查药品在指定日期是否有销售数据
+   */
+  async hasDailySales(drugId: string, date: Date): Promise<boolean> {
+    const count = await this.dailySalesRepository.count({
+      where: { drugId, saleDate: date },
+    });
+    return count > 0;
   }
 }

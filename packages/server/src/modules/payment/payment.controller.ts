@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { PaymentService } from './payment.service';
-import { CreatePaymentDto } from './dto';
+import { CreatePaymentDto, CreateSubscriptionPaymentDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
@@ -58,13 +58,13 @@ export class PaymentController {
 
   /**
    * 微信支付异步回调
-   * 返回 XML 格式响应
+   * V2返回XML，V3返回JSON — 由PaymentService根据模式处理
    */
   @Post('wechat/notify')
   @HttpCode(200)
-  @Header('Content-Type', 'application/xml')
-  async wechatNotify(@Body() body: string) {
-    return this.paymentService.handleWechatNotify(body);
+  async wechatNotify(@Body() body: any, @Req() req: Request) {
+    const headers = req.headers as Record<string, string>;
+    return this.paymentService.handleWechatNotify(body, headers);
   }
 
   /**
@@ -93,5 +93,26 @@ export class PaymentController {
   @UseGuards(JwtAuthGuard)
   async confirmMockPayment(@Param('outTradeNo') outTradeNo: string) {
     return this.paymentService.confirmMockPayment(outTradeNo);
+  }
+
+  /**
+   * 认购直付：创建支付订单（携带认购信息）
+   * 支付成功后直接创建认购订单
+   */
+  @Post('subscribe/create')
+  @UseGuards(JwtAuthGuard)
+  async createSubscriptionPayment(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateSubscriptionPaymentDto,
+    @Req() req: Request,
+  ) {
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    return this.paymentService.createSubscriptionPayment(
+      userId,
+      dto.drugId,
+      dto.quantity,
+      dto.channel,
+      clientIp,
+    );
   }
 }

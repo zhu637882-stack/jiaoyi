@@ -1,12 +1,12 @@
 import { useEffect, useState, useCallback, useMemo } from 'react'
-import { Skeleton, Drawer, message } from 'antd'
+import { Skeleton, Drawer, message, Tag } from 'antd'
 import {
   ShoppingCartOutlined,
   StarOutlined,
   StarFilled,
   BellOutlined,
 } from '@ant-design/icons'
-import { marketApi, pendingOrderApi, accountApi, fundingApi, systemMessageApi } from '../services/api'
+import { marketApi, subscriptionApi, accountApi, systemMessageApi } from '../services/api'
 import { useWebSocket } from '../hooks/useWebSocket'
 import { wsService } from '../services/websocket'
 import KLineChart, { KLineData } from '../components/KLineChart'
@@ -14,11 +14,12 @@ import TickerBar from '../components/TickerBar'
 import OrderBook from '../components/OrderBook'
 import TradePanel from '../components/TradePanel'
 import './Dashboard.css'
+import dayjs from 'dayjs'
 
 // 通知类型定义
 interface Notification {
   id: string
-  type: 'triggered' | 'expired' | 'cancelled'
+  type: 'confirmed' | 'effective' | 'returned' | 'slow-sell-refund' | 'cancelled'
   title: string
   content: string
   timestamp: string
@@ -28,29 +29,32 @@ interface Notification {
 
 // 交易类型映射
 const transactionTypeMap: Record<string, { label: string; color: string }> = {
-  recharge: { label: '充值', color: '#FF4D4F' },
-  withdraw: { label: '提现', color: '#00D4AA' },
-  funding: { label: '投资', color: '#F0B90B' },
-  principal_return: { label: '本金返还', color: '#FF4D4F' },
-  profit_share: { label: '收益分配', color: '#FF4D4F' },
-  loss_share: { label: '亏损分摊', color: '#00D4AA' },
+  RECHARGE: { label: '充值', color: '#cf1322' },
+  WITHDRAW: { label: '提现', color: '#00b96b' },
+  SUBSCRIPTION: { label: '认购冻结', color: '#1890FF' },
+  PRINCIPAL_RETURN: { label: '份额退回', color: '#cf1322' },
+  PROFIT_SHARE: { label: '收益分成', color: '#cf1322' },
+  LOSS_SHARE: { label: '亏损承担', color: '#00b96b' },
+  SLOW_SELL_REFUND: { label: '滞销退款', color: '#722ED1' },
+  // 兼容旧类型
+  recharge: { label: '充值', color: '#cf1322' },
+  withdraw: { label: '提现', color: '#00b96b' },
+  funding: { label: '认购冻结', color: '#1890FF' },
+  principal_return: { label: '份额退回', color: '#cf1322' },
+  profit_share: { label: '收益分成', color: '#cf1322' },
+  loss_share: { label: '亏损承担', color: '#00b96b' },
   interest: { label: '利息', color: '#F0B90B' },
-  sell: { label: '卖出', color: '#00D4AA' },
+  sell: { label: '卖出', color: '#cf1322' },
 }
 
-// 委托单类型定义
-interface PendingOrder {
-  id: string
-  drugId: string
-  drugName: string
-  type: 'limit_buy' | 'limit_sell'
-  targetPrice: number
-  quantity: number
-  frozenAmount: number
-  status: 'pending' | 'triggered' | 'cancelled' | 'expired'
-  createdAt: string
-  triggeredAt?: string
-  executedQuantity?: number
+// 认购状态映射
+const subscriptionStatusMap: Record<string, { label: string; color: string }> = {
+  confirmed: { label: '待生效', color: '#1890FF' },
+  effective: { label: '认购中', color: '#cf1322' },
+  partial_returned: { label: '部分退回', color: '#FAAD14' },
+  returned: { label: '已退回', color: '#8B949E' },
+  cancelled: { label: '已取消', color: '#00b96b' },
+  slow_selling_refund: { label: '滞销退款', color: '#722ED1' },
 }
 
 // 资金记录类型定义
@@ -64,15 +68,21 @@ interface Transaction {
   createdAt: string
 }
 
-// 持仓类型定义
-interface Holding {
+// 认购类型定义
+interface Subscription {
   id: string
   drugId: string
   drugName: string
   quantity: number
   amount: number
-  status: string
+  settledQuantity: number
+  unsettledAmount: number
+  status: 'confirmed' | 'effective' | 'partial_returned' | 'returned' | 'cancelled' | 'slow_selling_refund'
+  confirmedAt: string
+  effectiveAt: string
+  slowSellingDeadline: string
   totalProfit: number
+  totalLoss: number
 }
 
 // 系统消息类型定义
@@ -134,6 +144,14 @@ interface DepthData {
   totalCount: number
 }
 
+// 认购摘要类型
+interface SubscriptionSummary {
+  totalQuantity: number
+  totalSettledQuantity: number
+  totalUnsettledAmount: number
+  activeSubscriptions: Subscription[]
+}
+
 // MT4风格统一交易界面
 const Dashboard = () => {
 
@@ -152,7 +170,7 @@ const Dashboard = () => {
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
 
   // 底部Tab状态
-  const [bottomTab, setBottomTab] = useState<'orders' | 'history' | 'funds' | 'holdings' | 'messages'>('orders')
+  const [bottomTab, setBottomTab] = useState<'subscriptions' | 'completed' | 'funds' | 'holdings' | 'messages'>('subscriptions')
 
   // 通知状态
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -170,20 +188,20 @@ const Dashboard = () => {
   })
   const [expandedMessageId, setExpandedMessageId] = useState<string | null>(null)
 
-  // 当前委托状态
-  const [pendingOrders, setPendingOrders] = useState<PendingOrder[]>([])
-  const [pendingOrdersLoading, setPendingOrdersLoading] = useState(false)
-  const [pendingOrdersPagination, setPendingOrdersPagination] = useState<PaginationData>({
+  // 我的认购状态
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([])
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
+  const [subscriptionsPagination, setSubscriptionsPagination] = useState<PaginationData>({
     page: 1,
     pageSize: 10,
     total: 0,
     totalPages: 0,
   })
 
-  // 历史委托状态
-  const [historyOrders, setHistoryOrders] = useState<PendingOrder[]>([])
-  const [historyOrdersLoading, setHistoryOrdersLoading] = useState(false)
-  const [historyOrdersPagination, setHistoryOrdersPagination] = useState<PaginationData>({
+  // 已完成认购状态
+  const [completedSubscriptions, setCompletedSubscriptions] = useState<Subscription[]>([])
+  const [completedLoading, setCompletedLoading] = useState(false)
+  const [completedPagination, setCompletedPagination] = useState<PaginationData>({
     page: 1,
     pageSize: 10,
     total: 0,
@@ -200,15 +218,9 @@ const Dashboard = () => {
     totalPages: 0,
   })
 
-  // 持仓状态
-  const [holdings, setHoldings] = useState<Holding[]>([])
+  // 认购份额状态
+  const [subscriptionSummary, setSubscriptionSummary] = useState<SubscriptionSummary | null>(null)
   const [holdingsLoading, setHoldingsLoading] = useState(false)
-  const [holdingsPagination, setHoldingsPagination] = useState<PaginationData>({
-    page: 1,
-    pageSize: 10,
-    total: 0,
-    totalPages: 0,
-  })
 
   // 加载状态
   const [loadingOverview, setLoadingOverview] = useState(true)
@@ -412,44 +424,47 @@ const Dashboard = () => {
     fetchDepthData(selectedDrugId)
   }, [selectedDrugId, fetchDepthData])
 
-  // 获取当前委托列表
-  const fetchPendingOrders = useCallback(async () => {
-    setPendingOrdersLoading(true)
+  // 获取我的认购列表（活跃状态：confirmed, effective, partial_returned）
+  const fetchSubscriptions = useCallback(async () => {
+    setSubscriptionsLoading(true)
     try {
-      const response: any = await pendingOrderApi.getList({
-        status: 'pending',
-        page: pendingOrdersPagination.page,
-        pageSize: pendingOrdersPagination.pageSize,
+      const response: any = await subscriptionApi.getMySubscriptions({
+        page: subscriptionsPagination.page,
+        limit: subscriptionsPagination.pageSize,
       })
-      setPendingOrders(response.data?.list || [])
-      setPendingOrdersPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+      const activeStatuses = ['confirmed', 'effective', 'partial_returned']
+      const list = (response.data?.list || []).filter(
+        (item: any) => activeStatuses.includes(item.status)
+      )
+      setSubscriptions(list)
+      setSubscriptionsPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
     } catch (error) {
-      console.error('获取当前委托失败:', error)
+      console.error('获取我的认购失败:', error)
     } finally {
-      setPendingOrdersLoading(false)
+      setSubscriptionsLoading(false)
     }
-  }, [pendingOrdersPagination.page, pendingOrdersPagination.pageSize])
+  }, [subscriptionsPagination.page, subscriptionsPagination.pageSize])
 
-  // 获取历史委托列表
-  const fetchHistoryOrders = useCallback(async () => {
-    setHistoryOrdersLoading(true)
+  // 获取已完成认购列表（已完成状态：returned, slow_selling_refund, cancelled）
+  const fetchCompletedSubscriptions = useCallback(async () => {
+    setCompletedLoading(true)
     try {
-      // 后端可能不支持多状态查询，先不传status参数，前端过滤
-      const response: any = await pendingOrderApi.getList({
-        page: historyOrdersPagination.page,
-        pageSize: historyOrdersPagination.pageSize,
+      const response: any = await subscriptionApi.getMySubscriptions({
+        page: completedPagination.page,
+        limit: completedPagination.pageSize,
       })
-      const allOrders = response.data?.list || []
-      // 过滤掉pending状态的，只保留triggered/cancelled/expired
-      const filteredOrders = allOrders.filter((order: PendingOrder) => order.status !== 'pending')
-      setHistoryOrders(filteredOrders)
-      setHistoryOrdersPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+      const completedStatuses = ['returned', 'slow_selling_refund', 'cancelled']
+      const list = (response.data?.list || []).filter(
+        (item: any) => completedStatuses.includes(item.status)
+      )
+      setCompletedSubscriptions(list)
+      setCompletedPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
     } catch (error) {
-      console.error('获取历史委托失败:', error)
+      console.error('获取已完成认购失败:', error)
     } finally {
-      setHistoryOrdersLoading(false)
+      setCompletedLoading(false)
     }
-  }, [historyOrdersPagination.page, historyOrdersPagination.pageSize])
+  }, [completedPagination.page, completedPagination.pageSize])
 
   // 获取资金记录列表
   const fetchTransactions = useCallback(async () => {
@@ -468,34 +483,29 @@ const Dashboard = () => {
     }
   }, [transactionsPagination.page, transactionsPagination.pageSize])
 
-  // 获取持仓列表
-  const fetchHoldings = useCallback(async () => {
+  // 获取认购份额摘要
+  const fetchSubscriptionSummary = useCallback(async () => {
     setHoldingsLoading(true)
     try {
-      const response: any = await fundingApi.getFundingOrders({
-        status: 'holding',
-        page: holdingsPagination.page,
-        pageSize: holdingsPagination.pageSize,
-      })
-      setHoldings(response.data?.list || [])
-      setHoldingsPagination(response.data?.pagination || { page: 1, pageSize: 10, total: 0, totalPages: 0 })
+      const response: any = await subscriptionApi.getActiveSubscriptionSummary()
+      setSubscriptionSummary(response.data)
     } catch (error) {
-      console.error('获取持仓失败:', error)
+      console.error('获取认购份额失败:', error)
     } finally {
       setHoldingsLoading(false)
     }
-  }, [holdingsPagination.page, holdingsPagination.pageSize])
+  }, [])
 
-  // 撤单操作
-  const handleCancelOrder = useCallback(async (id: string) => {
+  // 取消认购
+  const handleCancelSubscription = useCallback(async (id: string) => {
     try {
-      await pendingOrderApi.cancel(id)
-      message.success('撤单成功')
-      fetchPendingOrders()
+      await subscriptionApi.cancelSubscription(id)
+      message.success('取消认购成功')
+      fetchSubscriptions()
     } catch (error: any) {
-      message.error(error.response?.data?.message || '撤单失败')
+      message.error(error.response?.data?.message || '取消认购失败')
     }
-  }, [fetchPendingOrders])
+  }, [fetchSubscriptions])
 
   // 获取系统消息列表
   const fetchSystemMessages = useCallback(async () => {
@@ -516,37 +526,45 @@ const Dashboard = () => {
 
   // Tab切换时加载数据
   useEffect(() => {
-    if (bottomTab === 'orders') {
-      fetchPendingOrders()
-    } else if (bottomTab === 'history') {
-      fetchHistoryOrders()
+    if (bottomTab === 'subscriptions') {
+      fetchSubscriptions()
+    } else if (bottomTab === 'completed') {
+      fetchCompletedSubscriptions()
     } else if (bottomTab === 'funds') {
       fetchTransactions()
     } else if (bottomTab === 'holdings') {
-      fetchHoldings()
+      fetchSubscriptionSummary()
     } else if (bottomTab === 'messages') {
       fetchSystemMessages()
     }
-  }, [bottomTab, fetchPendingOrders, fetchHistoryOrders, fetchTransactions, fetchHoldings, fetchSystemMessages])
+  }, [bottomTab, fetchSubscriptions, fetchCompletedSubscriptions, fetchTransactions, fetchSubscriptionSummary, fetchSystemMessages])
 
   // 添加通知
-  const addNotification = useCallback((type: 'triggered' | 'expired' | 'cancelled', data: any) => {
+  const addNotification = useCallback((type: Notification['type'], data: any) => {
     const id = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
     let title = ''
     let content = ''
     
     switch (type) {
-      case 'triggered':
-        title = '委托已成交'
-        content = `委托单${data.orderNo}已成交，${data.drugName} ${data.quantity}盒，成交价 ¥${data.executionPrice}`
+      case 'confirmed':
+        title = '认购已确认'
+        content = `认购订单${data.orderNo}已确认，${data.drugName} ${data.quantity}盒，金额 ¥${data.amount}`
         break
-      case 'expired':
-        title = '委托已过期'
-        content = `委托单${data.orderNo}已过期，${data.drugName} ${data.quantity}盒`
+      case 'effective':
+        title = '认购已生效'
+        content = `认购订单${data.orderNo}已生效，${data.drugName} ${data.quantity}盒开始计收益`
+        break
+      case 'returned':
+        title = '份额已退回'
+        content = `认购订单${data.orderNo}份额已退回，${data.drugName} ${data.settledQuantity}盒`
+        break
+      case 'slow-sell-refund':
+        title = '滞销退款'
+        content = `认购订单${data.orderNo}触发滞销退款，${data.drugName} ${data.quantity}盒`
         break
       case 'cancelled':
-        title = '委托已撤销'
-        content = `委托单${data.orderNo}已撤销`
+        title = '认购已取消'
+        content = `认购订单${data.orderNo}已取消`
         break
     }
     
@@ -561,7 +579,7 @@ const Dashboard = () => {
     }
     
     setNotifications(prev => {
-      const updated = [newNotification, ...prev].slice(0, 10) // 保留最近10条
+      const updated = [newNotification, ...prev].slice(0, 10)
       return updated
     })
     setUnreadCount(prev => prev + 1)
@@ -610,6 +628,13 @@ const Dashboard = () => {
     return `¥${Number(value || 0).toFixed(2)}`
   }
 
+  // 计算倒计时天数
+  const getCountdownDays = (deadline: string) => {
+    if (!deadline) return null
+    const days = dayjs(deadline).diff(dayjs(), 'day')
+    return days
+  }
+
   // WebSocket 连接 - 放在所有依赖函数之后
   const { subscribeTicker } = useWebSocket({
     onMarketTicker: (data) => {
@@ -633,60 +658,72 @@ const Dashboard = () => {
     },
     onFundingUpdate: (data) => {
       if (data) {
-        // 资金更新时刷新当前委托和持仓
-        if (bottomTab === 'orders') {
-          fetchPendingOrders()
+        // 资金更新时刷新认购列表
+        if (bottomTab === 'subscriptions') {
+          fetchSubscriptions()
         } else if (bottomTab === 'holdings') {
-          fetchHoldings()
+          fetchSubscriptionSummary()
         }
       }
     },
     onSettlementComplete: (data) => {
       if (data) {
-        // 清算完成时刷新持仓
+        // 清算完成时刷新认购份额
         if (bottomTab === 'holdings') {
-          fetchHoldings()
+          fetchSubscriptionSummary()
         }
       }
     },
   })
 
-  // WebSocket 委托通知监听
+  // WebSocket 认购通知监听
   useEffect(() => {
-    const handleTriggered = (data: any) => {
-      console.log('委托成交通知:', data)
-      addNotification('triggered', data)
-      // 刷新当前委托列表
-      if (bottomTab === 'orders') {
-        fetchPendingOrders()
+    const handleConfirmed = (data: any) => {
+      console.log('认购确认通知:', data)
+      addNotification('confirmed', data)
+      if (bottomTab === 'subscriptions') {
+        fetchSubscriptions()
       }
     }
 
-    const handleExpired = (data: any) => {
-      console.log('委托过期通知:', data)
-      addNotification('expired', data)
-      // 刷新当前委托列表
-      if (bottomTab === 'orders') {
-        fetchPendingOrders()
+    const handleEffective = (data: any) => {
+      console.log('认购生效通知:', data)
+      addNotification('effective', data)
+      if (bottomTab === 'subscriptions') {
+        fetchSubscriptions()
       }
     }
 
-    const handleCancelled = (data: any) => {
-      console.log('委托撤销通知:', data)
-      addNotification('cancelled', data)
+    const handleReturned = (data: any) => {
+      console.log('份额退回通知:', data)
+      addNotification('returned', data)
+      if (bottomTab === 'subscriptions' || bottomTab === 'completed') {
+        fetchSubscriptions()
+        fetchCompletedSubscriptions()
+      }
+    }
+
+    const handleSlowSellRefund = (data: any) => {
+      console.log('滞销退款通知:', data)
+      addNotification('slow-sell-refund', data)
+      if (bottomTab === 'completed') {
+        fetchCompletedSubscriptions()
+      }
     }
 
     // 注册事件监听
-    wsService.on('pending-order:triggered', handleTriggered)
-    wsService.on('pending-order:expired', handleExpired)
-    wsService.on('pending-order:cancelled', handleCancelled)
+    wsService.on('subscription:confirmed', handleConfirmed)
+    wsService.on('subscription:effective', handleEffective)
+    wsService.on('subscription:returned', handleReturned)
+    wsService.on('subscription:slow-sell-refund', handleSlowSellRefund)
 
     return () => {
-      wsService.off('pending-order:triggered', handleTriggered)
-      wsService.off('pending-order:expired', handleExpired)
-      wsService.off('pending-order:cancelled', handleCancelled)
+      wsService.off('subscription:confirmed', handleConfirmed)
+      wsService.off('subscription:effective', handleEffective)
+      wsService.off('subscription:returned', handleReturned)
+      wsService.off('subscription:slow-sell-refund', handleSlowSellRefund)
     }
-  }, [addNotification, bottomTab, fetchPendingOrders])
+  }, [addNotification, bottomTab, fetchSubscriptions, fetchCompletedSubscriptions])
 
   // 渲染排序表头
   const renderSortHeader = (label: string, column: 'name' | 'price' | 'change') => {
@@ -931,16 +968,16 @@ const Dashboard = () => {
               {/* Tab栏 */}
               <div className="bottom-tabs">
                 <button
-                  className={`bottom-tab ${bottomTab === 'orders' ? 'active' : ''}`}
-                  onClick={() => setBottomTab('orders')}
+                  className={`bottom-tab ${bottomTab === 'subscriptions' ? 'active' : ''}`}
+                  onClick={() => setBottomTab('subscriptions')}
                 >
-                  当前委托
+                  我的认购
                 </button>
                 <button
-                  className={`bottom-tab ${bottomTab === 'history' ? 'active' : ''}`}
-                  onClick={() => setBottomTab('history')}
+                  className={`bottom-tab ${bottomTab === 'completed' ? 'active' : ''}`}
+                  onClick={() => setBottomTab('completed')}
                 >
-                  历史委托
+                  已完成
                 </button>
                 <button
                   className={`bottom-tab ${bottomTab === 'funds' ? 'active' : ''}`}
@@ -952,7 +989,7 @@ const Dashboard = () => {
                   className={`bottom-tab ${bottomTab === 'holdings' ? 'active' : ''}`}
                   onClick={() => setBottomTab('holdings')}
                 >
-                  持仓
+                  认购份额
                 </button>
                 <button
                   className={`bottom-tab ${bottomTab === 'messages' ? 'active' : ''}`}
@@ -964,69 +1001,78 @@ const Dashboard = () => {
 
               {/* Tab内容 */}
               <div className="tab-content">
-                {/* Tab 1: 当前委托 */}
-                {bottomTab === 'orders' && (
+                {/* Tab 1: 我的认购 */}
+                {bottomTab === 'subscriptions' && (
                   <div className="tab-table">
-                    <div className="table-header pending-order-header">
-                      <span className="col-time">时间</span>
+                    <div className="table-header subscription-header">
+                      <span className="col-time">确认时间</span>
                       <span className="col-drug">药品</span>
-                      <span className="col-type">类型</span>
-                      <span className="col-price">目标价</span>
                       <span className="col-qty">数量</span>
-                      <span className="col-frozen">冻结金额</span>
+                      <span className="col-amount">金额</span>
                       <span className="col-status">状态</span>
+                      <span className="col-effective">生效时间</span>
                       <span className="col-action">操作</span>
                     </div>
-                    {pendingOrdersLoading ? (
+                    {subscriptionsLoading ? (
                       <div className="empty-table">加载中...</div>
-                    ) : pendingOrders.length === 0 ? (
-                      <div className="empty-table">暂无当前委托</div>
+                    ) : subscriptions.length === 0 ? (
+                      <div className="empty-table">暂无认购记录</div>
                     ) : (
                       <div className="table-body">
-                        {pendingOrders.map(order => (
-                          <div key={order.id} className="table-row pending-order-row">
-                            <span className="col-time">{formatDate(order.createdAt)}</span>
-                            <span className="col-drug" title={order.drugName}>{order.drugName}</span>
-                            <span className="col-type">
-                              <span className={`type-tag ${order.type}`}>
-                                {order.type === 'limit_buy' ? '买入' : '卖出'}
+                        {subscriptions.map(sub => {
+                          const statusConfig = subscriptionStatusMap[sub.status] || { label: sub.status, color: '#8B949E' }
+                          return (
+                            <div key={sub.id} className="table-row subscription-row">
+                              <span className="col-time">{formatDate(sub.confirmedAt)}</span>
+                              <span className="col-drug" title={sub.drugName}>{sub.drugName}</span>
+                              <span className="col-qty">{sub.quantity}盒</span>
+                              <span className="col-amount">{formatCurrency(sub.amount)}</span>
+                              <span className="col-status">
+                                <Tag style={{ 
+                                  background: `${statusConfig.color}20`, 
+                                  borderColor: statusConfig.color, 
+                                  color: statusConfig.color,
+                                  fontSize: 11,
+                                  margin: 0
+                                }}>
+                                  {statusConfig.label}
+                                </Tag>
                               </span>
-                            </span>
-                            <span className="col-price">{formatCurrency(order.targetPrice)}</span>
-                            <span className="col-qty">{order.quantity}盒</span>
-                            <span className="col-frozen">{formatCurrency(order.frozenAmount)}</span>
-                            <span className="col-status">
-                              <span className="status-tag pending">待触发</span>
-                            </span>
-                            <span className="col-action">
-                              <button
-                                className="cancel-btn"
-                                onClick={() => handleCancelOrder(order.id)}
-                              >
-                                撤单
-                              </button>
-                            </span>
-                          </div>
-                        ))}
+                              <span className="col-effective">
+                                {sub.effectiveAt ? formatDate(sub.effectiveAt) : '-'}
+                              </span>
+                              <span className="col-action">
+                                {sub.status === 'confirmed' && (
+                                  <button
+                                    className="cancel-btn"
+                                    onClick={() => handleCancelSubscription(sub.id)}
+                                  >
+                                    取消
+                                  </button>
+                                )}
+                              </span>
+                            </div>
+                          )
+                        })}
                       </div>
                     )}
                     {/* 分页 */}
-                    {pendingOrdersPagination.totalPages > 1 && (
+                    {subscriptionsPagination.totalPages > 1 && (
                       <div className="tab-pagination">
                         <button
                           className="page-btn"
-                          disabled={pendingOrdersPagination.page <= 1}
-                          onClick={() => setPendingOrdersPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                          disabled={subscriptionsPagination.page <= 1}
+                          onClick={() => setSubscriptionsPagination(prev => ({ ...prev, page: prev.page - 1 }))}
                         >
                           上一页
                         </button>
                         <span className="page-info">
-                          {pendingOrdersPagination.page} / {pendingOrdersPagination.totalPages}
+                          {subscriptionsPagination.page} / {subscriptionsPagination.totalPages}
                         </span>
                         <button
                           className="page-btn"
-                          disabled={pendingOrdersPagination.page >= pendingOrdersPagination.totalPages}
-                          onClick={() => setPendingOrdersPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                          disabled={subscriptionsPagination.page >= subscriptionsPagination.totalPages}
+                          onClick={() => setSubscriptionsPagination(prev => ({ ...prev, page: prev.page + 1 }))}
                         >
                           下一页
                         </button>
@@ -1035,51 +1081,44 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {/* Tab 2: 历史委托 */}
-                {bottomTab === 'history' && (
+                {/* Tab 2: 已完成 */}
+                {bottomTab === 'completed' && (
                   <div className="tab-table">
-                    <div className="table-header pending-order-header">
-                      <span className="col-time">时间</span>
+                    <div className="table-header subscription-header">
+                      <span className="col-time">确认时间</span>
                       <span className="col-drug">药品</span>
-                      <span className="col-type">类型</span>
-                      <span className="col-price">目标价</span>
                       <span className="col-qty">数量</span>
-                      <span className="col-executed">成交数量</span>
+                      <span className="col-amount">金额</span>
                       <span className="col-status">状态</span>
-                      <span className="col-triggered">成交时间</span>
+                      <span className="col-returned">退回时间</span>
                     </div>
-                    {historyOrdersLoading ? (
+                    {completedLoading ? (
                       <div className="empty-table">加载中...</div>
-                    ) : historyOrders.length === 0 ? (
-                      <div className="empty-table">暂无历史委托</div>
+                    ) : completedSubscriptions.length === 0 ? (
+                      <div className="empty-table">暂无已完成记录</div>
                     ) : (
                       <div className="table-body">
-                        {historyOrders.map(order => {
-                          const statusMap: Record<string, { label: string; className: string }> = {
-                            triggered: { label: '已成交', className: 'triggered' },
-                            cancelled: { label: '已撤销', className: 'cancelled' },
-                            expired: { label: '已过期', className: 'expired' },
-                          }
-                          const statusConfig = statusMap[order.status] || { label: order.status, className: '' }
+                        {completedSubscriptions.map(sub => {
+                          const statusConfig = subscriptionStatusMap[sub.status] || { label: sub.status, color: '#8B949E' }
                           return (
-                            <div key={order.id} className="table-row pending-order-row">
-                              <span className="col-time">{formatDate(order.createdAt)}</span>
-                              <span className="col-drug" title={order.drugName}>{order.drugName}</span>
-                              <span className="col-type">
-                                <span className={`type-tag ${order.type}`}>
-                                  {order.type === 'limit_buy' ? '买入' : '卖出'}
-                                </span>
-                              </span>
-                              <span className="col-price">{formatCurrency(order.targetPrice)}</span>
-                              <span className="col-qty">{order.quantity}盒</span>
-                              <span className="col-executed">{order.executedQuantity || 0}盒</span>
+                            <div key={sub.id} className="table-row subscription-row">
+                              <span className="col-time">{formatDate(sub.confirmedAt)}</span>
+                              <span className="col-drug" title={sub.drugName}>{sub.drugName}</span>
+                              <span className="col-qty">{sub.quantity}盒</span>
+                              <span className="col-amount">{formatCurrency(sub.amount)}</span>
                               <span className="col-status">
-                                <span className={`status-tag ${statusConfig.className}`}>
+                                <Tag style={{ 
+                                  background: `${statusConfig.color}20`, 
+                                  borderColor: statusConfig.color, 
+                                  color: statusConfig.color,
+                                  fontSize: 11,
+                                  margin: 0
+                                }}>
                                   {statusConfig.label}
-                                </span>
+                                </Tag>
                               </span>
-                              <span className="col-triggered">
-                                {order.triggeredAt ? formatDate(order.triggeredAt) : '-'}
+                              <span className="col-returned">
+                                {sub.slowSellingDeadline ? formatDate(sub.slowSellingDeadline) : '-'}
                               </span>
                             </div>
                           )
@@ -1087,22 +1126,22 @@ const Dashboard = () => {
                       </div>
                     )}
                     {/* 分页 */}
-                    {historyOrdersPagination.totalPages > 1 && (
+                    {completedPagination.totalPages > 1 && (
                       <div className="tab-pagination">
                         <button
                           className="page-btn"
-                          disabled={historyOrdersPagination.page <= 1}
-                          onClick={() => setHistoryOrdersPagination(prev => ({ ...prev, page: prev.page - 1 }))}
+                          disabled={completedPagination.page <= 1}
+                          onClick={() => setCompletedPagination(prev => ({ ...prev, page: prev.page - 1 }))}
                         >
                           上一页
                         </button>
                         <span className="page-info">
-                          {historyOrdersPagination.page} / {historyOrdersPagination.totalPages}
+                          {completedPagination.page} / {completedPagination.totalPages}
                         </span>
                         <button
                           className="page-btn"
-                          disabled={historyOrdersPagination.page >= historyOrdersPagination.totalPages}
-                          onClick={() => setHistoryOrdersPagination(prev => ({ ...prev, page: prev.page + 1 }))}
+                          disabled={completedPagination.page >= completedPagination.totalPages}
+                          onClick={() => setCompletedPagination(prev => ({ ...prev, page: prev.page + 1 }))}
                         >
                           下一页
                         </button>
@@ -1130,7 +1169,7 @@ const Dashboard = () => {
                       <div className="table-body">
                         {transactions.map(tx => {
                           const config = transactionTypeMap[tx.type] || { label: tx.type, color: '#8B949E' }
-                          const isPositive = ['recharge', 'principal_return', 'profit_share', 'interest'].includes(tx.type)
+                          const isPositive = ['RECHARGE', 'PRINCIPAL_RETURN', 'PROFIT_SHARE', 'SLOW_SELL_REFUND', 'recharge', 'principal_return', 'profit_share', 'interest'].includes(tx.type)
                           return (
                             <div key={tx.id} className="table-row transaction-row">
                               <span className="col-time">{formatDate(tx.createdAt)}</span>
@@ -1178,60 +1217,104 @@ const Dashboard = () => {
                   </div>
                 )}
 
-                {/* Tab 4: 持仓 */}
+                {/* Tab 4: 认购份额 */}
                 {bottomTab === 'holdings' && (
                   <div className="tab-table">
-                    <div className="table-header holding-header">
-                      <span className="col-drug">药品</span>
-                      <span className="col-qty">数量</span>
-                      <span className="col-amount">金额</span>
-                      <span className="col-status">状态</span>
-                      <span className="col-profit">累计收益</span>
-                    </div>
                     {holdingsLoading ? (
                       <div className="empty-table">加载中...</div>
-                    ) : holdings.length === 0 ? (
+                    ) : !subscriptionSummary ? (
                       <div className="tab-placeholder">
-                        <p>暂无持仓，请前往交易页面下单</p>
+                        <p>暂无认购份额</p>
                       </div>
                     ) : (
-                      <div className="table-body">
-                        {holdings.map(holding => (
-                          <div key={holding.id} className="table-row holding-row">
-                            <span className="col-drug" title={holding.drugName}>{holding.drugName}</span>
-                            <span className="col-qty">{holding.quantity}盒</span>
-                            <span className="col-amount">{formatCurrency(holding.amount)}</span>
-                            <span className="col-status">
-                              <span className="status-tag holding">持仓中</span>
-                            </span>
-                            <span className={`col-profit ${holding.totalProfit >= 0 ? 'positive' : 'negative'}`}>
-                              {holding.totalProfit >= 0 ? '+' : ''}{formatCurrency(holding.totalProfit)}
-                            </span>
+                      <>
+                        {/* 摘要统计 */}
+                        <div className="holdings-summary" style={{ 
+                          display: 'flex', 
+                          gap: 24, 
+                          padding: '12px 16px', 
+                          borderBottom: '1px solid #30363D',
+                          background: '#0D1117'
+                        }}>
+                          <div>
+                            <span style={{ color: '#8B949E', fontSize: 12 }}>总认购数量</span>
+                            <div style={{ color: '#1890FF', fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+                              {subscriptionSummary.totalQuantity || 0} 盒
+                            </div>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                    {/* 分页 */}
-                    {holdingsPagination.totalPages > 1 && (
-                      <div className="tab-pagination">
-                        <button
-                          className="page-btn"
-                          disabled={holdingsPagination.page <= 1}
-                          onClick={() => setHoldingsPagination(prev => ({ ...prev, page: prev.page - 1 }))}
-                        >
-                          上一页
-                        </button>
-                        <span className="page-info">
-                          {holdingsPagination.page} / {holdingsPagination.totalPages}
-                        </span>
-                        <button
-                          className="page-btn"
-                          disabled={holdingsPagination.page >= holdingsPagination.totalPages}
-                          onClick={() => setHoldingsPagination(prev => ({ ...prev, page: prev.page + 1 }))}
-                        >
-                          下一页
-                        </button>
-                      </div>
+                          <div>
+                            <span style={{ color: '#8B949E', fontSize: 12 }}>已退回数量</span>
+                            <div style={{ color: '#cf1322', fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+                              {subscriptionSummary.totalSettledQuantity || 0} 盒
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: '#8B949E', fontSize: 12 }}>剩余份额</span>
+                            <div style={{ color: '#FAAD14', fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+                              {(subscriptionSummary.totalQuantity || 0) - (subscriptionSummary.totalSettledQuantity || 0)} 盒
+                            </div>
+                          </div>
+                          <div>
+                            <span style={{ color: '#8B949E', fontSize: 12 }}>未结清金额</span>
+                            <div style={{ color: '#E6EDF3', fontSize: 18, fontWeight: 600, fontFamily: 'monospace' }}>
+                              ¥{Number(subscriptionSummary.totalUnsettledAmount || 0).toFixed(2)}
+                            </div>
+                          </div>
+                        </div>
+                        {/* 详细列表 */}
+                        <div className="table-header holding-header">
+                          <span className="col-drug">药品</span>
+                          <span className="col-qty">认购数量</span>
+                          <span className="col-settled">已退回</span>
+                          <span className="col-remaining">剩余份额</span>
+                          <span className="col-deadline">滞销截止</span>
+                          <span className="col-countdown">倒计时</span>
+                        </div>
+                        <div className="table-body">
+                          {(subscriptionSummary.activeSubscriptions || []).length === 0 ? (
+                            <div className="empty-table">暂无有效认购</div>
+                          ) : (
+                            (subscriptionSummary.activeSubscriptions || []).map((sub: Subscription) => {
+                              const countdown = getCountdownDays(sub.slowSellingDeadline)
+                              const countdownColor = countdown === null ? '#8B949E' : countdown <= 7 ? '#00b96b' : countdown <= 30 ? '#FAAD14' : '#cf1322'
+                              const remaining = sub.quantity - (sub.settledQuantity || 0)
+                              const progress = sub.quantity > 0 ? ((sub.settledQuantity || 0) / sub.quantity) * 100 : 0
+                              return (
+                                <div key={sub.id} className="table-row holding-row">
+                                  <span className="col-drug" title={sub.drugName}>{sub.drugName}</span>
+                                  <span className="col-qty">{sub.quantity}盒</span>
+                                  <span className="col-settled">{sub.settledQuantity || 0}盒</span>
+                                  <span className="col-remaining">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                      <span>{remaining}盒</span>
+                                      <div style={{ 
+                                        width: 60, 
+                                        height: 6, 
+                                        background: '#21262D', 
+                                        borderRadius: 3,
+                                        overflow: 'hidden'
+                                      }}>
+                                        <div style={{
+                                          width: `${progress}%`,
+                                          height: '100%',
+                                          background: '#cf1322',
+                                          borderRadius: 3,
+                                        }} />
+                                      </div>
+                                    </div>
+                                  </span>
+                                  <span className="col-deadline">
+                                    {sub.slowSellingDeadline ? dayjs(sub.slowSellingDeadline).format('MM-DD') : '-'}
+                                  </span>
+                                  <span className="col-countdown" style={{ color: countdownColor }}>
+                                    {countdown === null ? '-' : `剩${countdown}天`}
+                                  </span>
+                                </div>
+                              )
+                            })
+                          )}
+                        </div>
+                      </>
                     )}
                   </div>
                 )}

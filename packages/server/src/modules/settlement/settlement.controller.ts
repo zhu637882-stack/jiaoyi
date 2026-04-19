@@ -11,6 +11,7 @@ import {
   ParseUUIDPipe,
 } from '@nestjs/common';
 import { SettlementService } from './settlement.service';
+import { SettlementCronService } from './settlement-cron.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../auth/guards/roles.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
@@ -23,10 +24,13 @@ import {
 
 @Controller('settlements')
 export class SettlementController {
-  constructor(private readonly settlementService: SettlementService) {}
+  constructor(
+    private readonly settlementService: SettlementService,
+    private readonly settlementCronService: SettlementCronService,
+  ) {}
 
   /**
-   * 执行日清日结清算（管理员）
+   * 手动执行日清日结清算（管理员）
    * POST /api/settlements/execute
    */
   @Post('execute')
@@ -34,14 +38,14 @@ export class SettlementController {
   @Roles(UserRole.ADMIN)
   @HttpCode(HttpStatus.OK)
   async executeSettlement(@Body() executeDto: ExecuteSettlementDto) {
-    const result = await this.settlementService.executeSettlement(
+    const result = await this.settlementCronService.triggerManualSettlement(
       executeDto.drugId,
       executeDto.settlementDate,
     );
     return {
       success: true,
       data: result,
-      message: '清算执行成功',
+      message: '手动清算执行成功',
     };
   }
 
@@ -79,7 +83,7 @@ export class SettlementController {
   }
 
   /**
-   * 获取我的清算记录（垫资方视角）
+   * 获取我的清算记录（合作方视角）
    * GET /api/settlements/my/list
    */
   @Get('my/list')
@@ -99,7 +103,7 @@ export class SettlementController {
   }
 
   /**
-   * 获取我的清算统计（垫资方视角）
+   * 获取我的清算统计（合作方视角）
    * GET /api/settlements/my/stats
    */
   @Get('my/stats')

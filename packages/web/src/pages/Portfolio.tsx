@@ -22,6 +22,7 @@ import {
   Empty,
   Radio,
   Spin,
+  Progress,
 } from 'antd'
 import {
   WalletOutlined,
@@ -38,9 +39,12 @@ import {
   LoadingOutlined,
   CheckCircleOutlined,
   CloseCircleOutlined,
+  ClockCircleOutlined,
+  LineChartOutlined,
 } from '@ant-design/icons'
-import { accountApi, fundingApi, paymentApi } from '../services/api'
+import { accountApi, subscriptionApi, paymentApi, yieldApi } from '../services/api'
 import { QRCodeSVG } from 'qrcode.react'
+import ReactECharts from 'echarts-for-react'
 import dayjs from 'dayjs'
 
 const { Title, Text } = Typography
@@ -57,8 +61,8 @@ const renderProfitCell = (value: number) => {
   const isNegative = value < 0
   return (
     <span style={{
-      color: isPositive ? '#FF4D4F' : isNegative ? '#00D4AA' : '#848E9C',
-      background: isPositive ? 'rgba(255,77,79,0.1)' : isNegative ? 'rgba(0,212,170,0.1)' : 'transparent',
+      color: isPositive ? '#00b96b' : isNegative ? '#cf1322' : '#848E9C',
+      background: isPositive ? 'rgba(0,185,107,0.1)' : isNegative ? 'rgba(207,19,34,0.1)' : 'transparent',
       padding: '2px 8px',
       borderRadius: '4px',
       fontWeight: 500,
@@ -97,7 +101,6 @@ const useCountUp = (target: number, duration = 800) => {
     const animate = () => {
       const elapsed = Date.now() - startTime
       const progress = Math.min(elapsed / duration, 1)
-      // easeOutCubic
       const eased = 1 - Math.pow(1 - progress, 3)
       setCurrent(target * eased)
       if (progress < 1) requestAnimationFrame(animate)
@@ -126,7 +129,7 @@ const StatCard = ({
   isProfit?: boolean
 }) => {
   const displayValue = useCountUp(value)
-  const displayColor = isProfit ? (value >= 0 ? '#FF4D4F' : '#00D4AA') : color
+  const displayColor = isProfit ? (value >= 0 ? '#00b96b' : '#cf1322') : color
   const displayPrefix = isProfit ? (value >= 0 ? '+¥' : '¥') : prefix
   
   return (
@@ -166,14 +169,33 @@ const StatCard = ({
 
 // 交易类型映射
 const transactionTypeMap: Record<string, { label: string; color: string }> = {
-  recharge: { label: '充值', color: '#FF4D4F' },
-  withdraw: { label: '提现', color: '#00D4AA' },
-  funding: { label: '投资', color: '#F0B90B' },
-  principal_return: { label: '本金返还', color: '#FF4D4F' },
-  profit_share: { label: '收益分配', color: '#FF4D4F' },
-  loss_share: { label: '亏损分摊', color: '#00D4AA' },
+  RECHARGE: { label: '充值', color: '#cf1322' },
+  WITHDRAW: { label: '提现', color: '#00b96b' },
+  SUBSCRIPTION: { label: '认购冻结', color: '#1890FF' },
+  PRINCIPAL_RETURN: { label: '份额退回', color: '#cf1322' },
+  PROFIT_SHARE: { label: '收益分成', color: '#cf1322' },
+  LOSS_SHARE: { label: '亏损承担', color: '#00b96b' },
+  SLOW_SELL_REFUND: { label: '滞销退款', color: '#722ED1' },
+  // 兼容旧类型
+  recharge: { label: '充值', color: '#cf1322' },
+  withdraw: { label: '提现', color: '#00b96b' },
+  funding: { label: '认购冻结', color: '#1890FF' },
+  principal_return: { label: '份额退回', color: '#cf1322' },
+  profit_share: { label: '收益分成', color: '#cf1322' },
+  loss_share: { label: '亏损承担', color: '#00b96b' },
   interest: { label: '利息', color: '#F0B90B' },
-  sell: { label: '卖出', color: '#00D4AA' },
+  sell: { label: '卖出', color: '#cf1322' },
+}
+
+// 认购状态映射
+const subscriptionStatusMap: Record<string, { label: string; color: string }> = {
+  confirmed: { label: '待生效', color: '#1890FF' },
+  effective: { label: '认购中', color: '#cf1322' },
+  return_pending: { label: '退回审核中', color: '#FAAD14' },
+  partial_returned: { label: '部分退回', color: '#FAAD14' },
+  returned: { label: '已退回', color: '#8B949E' },
+  cancelled: { label: '已取消', color: '#00b96b' },
+  slow_selling_refund: { label: '滞销退款', color: '#722ED1' },
 }
 
 interface BalanceData {
@@ -204,7 +226,7 @@ interface PaginationData {
   totalPages: number
 }
 
-interface FundingOrder {
+interface SubscriptionOrder {
   id: string
   orderNo: string
   drugId: string
@@ -215,27 +237,45 @@ interface FundingOrder {
   unsettledAmount: number
   settledQuantity: number
   status: string
-  queuePosition: number
-  fundedAt: string
-  totalProfit: number
-  totalInterest: number
-}
-
-interface FundingSummary {
-  totalHoldingAmount: number
-  totalUnsettledPrincipal: number
-  holdingOrderCount: number
-  todayEstimatedProfit: number
-}
-
-interface FundingStats {
-  totalFundingCount: number
-  totalFundingAmount: number
+  confirmedAt: string
+  effectiveAt: string
+  slowSellingDeadline: string
   totalProfit: number
   totalLoss: number
-  totalInterest: number
-  netProfit: number
-  averageHoldingDays: number
+}
+
+// 出金状态映射
+const withdrawStatusMap: Record<string, { label: string; color: string }> = {
+  pending: { label: '出金中', color: '#FAAD14' },
+  approved: { label: '已出金', color: '#00b96b' },
+  rejected: { label: '已驳回', color: '#F5222D' },
+}
+
+interface WithdrawOrderItem {
+  id: string
+  orderNo: string
+  amount: number
+  balanceBefore: number
+  status: string
+  bankInfo: string
+  description: string
+  rejectReason: string
+  createdAt: string
+  approvedAt: string
+}
+
+interface SubscriptionSummary {
+  totalOrderCount: number
+  totalQuantity: number
+  totalAmount: number
+  totalSettledQuantity: number
+  totalProfit: number
+  totalLoss: number
+  activeOrderCount: number
+  activeAmount: number
+  totalUnsettledAmount: number
+  totalConfirmedAmount: number
+  totalEffectiveAmount: number
 }
 
 const Portfolio = () => {
@@ -262,6 +302,16 @@ const Portfolio = () => {
   const [withdrawLoading, setWithdrawLoading] = useState(false)
   const [withdrawForm] = Form.useForm()
 
+  // 出金订单列表状态
+  const [withdrawOrders, setWithdrawOrders] = useState<WithdrawOrderItem[]>([])
+  const [withdrawOrdersLoading, setWithdrawOrdersLoading] = useState(false)
+  const [withdrawOrdersPagination, setWithdrawOrdersPagination] = useState<PaginationData>({
+    page: 1,
+    pageSize: 10,
+    total: 0,
+    totalPages: 0,
+  })
+
   // 支付相关状态
   const [paymentStep, setPaymentStep] = useState<'input' | 'paying' | 'success' | 'timeout'>('input')
   const [paymentChannel, setPaymentChannel] = useState<'alipay' | 'wechat'>('alipay')
@@ -274,18 +324,22 @@ const Portfolio = () => {
   const pollingRef = useRef<NodeJS.Timeout | null>(null)
   const startTimeRef = useRef<number>(0)
 
-  // 持仓相关状态
-  const [fundingOrders, setFundingOrders] = useState<FundingOrder[]>([])
-  const [fundingPagination, setFundingPagination] = useState<PaginationData>({
+  // 认购相关状态
+  const [subscriptions, setSubscriptions] = useState<SubscriptionOrder[]>([])
+  const [subscriptionPagination, setSubscriptionPagination] = useState<PaginationData>({
     page: 1,
     pageSize: 10,
     total: 0,
     totalPages: 0,
   })
-  const [fundingStatus, setFundingStatus] = useState<string | undefined>(undefined)
-  const [fundingLoading, setFundingLoading] = useState(false)
-  const [fundingSummary, setFundingSummary] = useState<FundingSummary | null>(null)
-  const [fundingStats, setFundingStats] = useState<FundingStats | null>(null)
+  const [subscriptionStatus, setSubscriptionStatus] = useState<string | undefined>(undefined)
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false)
+  const [subscriptionSummary, setSubscriptionSummary] = useState<SubscriptionSummary | null>(null)
+
+  // 收益曲线相关状态
+  const [yieldCurveData, setYieldCurveData] = useState<any[]>([])
+  const [yieldSummary, setYieldSummary] = useState<any>(null)
+  const [yieldLoading, setYieldLoading] = useState(false)
 
   useEffect(() => {
     fetchBalance()
@@ -298,18 +352,26 @@ const Portfolio = () => {
   }, [transactionPagination.page, transactionPagination.pageSize, transactionType, activeTab])
 
   useEffect(() => {
-    // 组件挂载时获取持仓概览数据
-    fetchFundingSummary()
-    fetchFundingStats()
+    // 组件挂载时获取认购概览数据
+    fetchSubscriptionSummary()
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'holdings') {
-      fetchFundingOrders()
-      fetchFundingSummary()
-      fetchFundingStats()
+    if (activeTab === 'subscriptions') {
+      fetchSubscriptions()
+      fetchSubscriptionSummary()
     }
-  }, [fundingPagination.page, fundingPagination.pageSize, fundingStatus, activeTab])
+
+    if (activeTab === 'yieldCurve') {
+      fetchYieldData()
+    }
+  }, [subscriptionPagination.page, subscriptionPagination.pageSize, subscriptionStatus, activeTab])
+
+  useEffect(() => {
+    if (activeTab === 'withdrawOrders') {
+      fetchWithdrawOrders()
+    }
+  }, [withdrawOrdersPagination.page, withdrawOrdersPagination.pageSize, activeTab])
 
   // 账户相关方法
   const fetchBalance = async () => {
@@ -330,7 +392,15 @@ const Portfolio = () => {
         pageSize: transactionPagination.pageSize,
       })
       setTransactions(response.list || [])
-      setTransactionPagination(response.pagination)
+      const pagination = response.pagination
+      if (pagination) {
+        setTransactionPagination({
+          page: pagination.page || 1,
+          pageSize: pagination.pageSize || 10,
+          total: pagination.total || 0,
+          totalPages: pagination.totalPages || 0,
+        })
+      }
     } catch (error) {
       console.error('Failed to fetch transactions:', error)
     } finally {
@@ -338,22 +408,33 @@ const Portfolio = () => {
     }
   }
 
-  // 模拟充值（保留作为测试用途）
-  const handleRecharge = async (values: { amount: number }) => {
+  // 获取出金订单列表
+  const fetchWithdrawOrders = async () => {
+    setWithdrawOrdersLoading(true)
     try {
-      await accountApi.recharge(values.amount, '账户充值')
-      message.success('充值成功')
-      setRechargeModalVisible(false)
-      rechargeForm.resetFields()
-      fetchBalance()
-      fetchTransactions()
-    } catch (error: any) {
-      message.error(error.response?.data?.message || '充值失败')
+      const response = await accountApi.getMyWithdrawOrders({
+        page: withdrawOrdersPagination.page,
+        limit: withdrawOrdersPagination.pageSize,
+      })
+      setWithdrawOrders(response.list || [])
+      const pagination = response.pagination
+      if (pagination) {
+        setWithdrawOrdersPagination({
+          page: pagination.page || 1,
+          pageSize: pagination.limit || pagination.pageSize || 10,
+          total: pagination.total || 0,
+          totalPages: pagination.totalPages || 0,
+        })
+      }
+    } catch (error) {
+      console.error('Failed to fetch withdraw orders:', error)
+    } finally {
+      setWithdrawOrdersLoading(false)
     }
   }
 
-  // 提现方法
-  const handleWithdraw = async (values: { amount: number; password?: string }) => {
+  // 提现方法（T+1申请制）
+  const handleWithdraw = async (values: { amount: number; password?: string; bankInfo?: string }) => {
     const availableBalance = balance?.availableBalance || 0
     if (values.amount <= 0) {
       message.error('提现金额必须大于0')
@@ -363,21 +444,20 @@ const Portfolio = () => {
       message.error('提现金额不能超过可用余额')
       return
     }
-    // 金额 > 5000 时必须输入密码
-    if (values.amount > 5000 && !values.password) {
-      message.error('提现金额超过5000元，需要输入密码')
-      return
-    }
     setWithdrawLoading(true)
     try {
-      await accountApi.withdraw(values.amount, '账户提现', values.password)
-      message.success('提现成功')
+      await accountApi.withdraw(values.amount, '账户提现', values.password, values.bankInfo)
+      message.success('提现申请已提交，预计T+1到账，请等待管理员确认')
       setWithdrawModalVisible(false)
       withdrawForm.resetFields()
       fetchBalance()
       fetchTransactions()
+      if (activeTab === 'withdrawOrders') {
+        fetchWithdrawOrders()
+      }
     } catch (error: any) {
-      message.error(error.response?.data?.message || '提现失败')
+      const errMsg = error.response?.data?.message
+      message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '提现失败'))
     } finally {
       setWithdrawLoading(false)
     }
@@ -493,44 +573,73 @@ const Portfolio = () => {
     }
   }, [stopPolling])
 
-  // 持仓相关方法
-  const fetchFundingOrders = async () => {
-    setFundingLoading(true)
+  // 认购相关方法
+  const fetchSubscriptions = async () => {
+    setSubscriptionLoading(true)
     try {
-      const response = await fundingApi.getFundingOrders({
-        status: fundingStatus,
-        page: fundingPagination.page,
-        pageSize: fundingPagination.pageSize,
+      const response = await subscriptionApi.getMySubscriptions({
+        status: subscriptionStatus,
+        page: subscriptionPagination.page,
+        limit: subscriptionPagination.pageSize,
       })
-      setFundingOrders(response.data?.list || [])
-      setFundingPagination(response.data?.pagination)
+      setSubscriptions(response.data?.list || [])
+      const pagination = response.data?.pagination
+      if (pagination) {
+        setSubscriptionPagination({
+          page: pagination.page || 1,
+          pageSize: pagination.pageSize || pagination.limit || 10,
+          total: pagination.total || 0,
+          totalPages: pagination.totalPages || 0,
+        })
+      }
     } catch (error) {
-      console.error('Failed to fetch funding orders:', error)
+      console.error('Failed to fetch subscriptions:', error)
     } finally {
-      setFundingLoading(false)
+      setSubscriptionLoading(false)
     }
   }
 
-  const fetchFundingSummary = async () => {
+  const fetchSubscriptionSummary = async () => {
     try {
-      const response = await fundingApi.getActiveFunding()
-      setFundingSummary(response.data)
+      const response = await subscriptionApi.getActiveSubscriptionSummary()
+      setSubscriptionSummary(response.data)
     } catch (error) {
-      console.error('Failed to fetch funding summary:', error)
+      console.error('Failed to fetch subscription summary:', error)
     }
   }
 
-  const fetchFundingStats = async () => {
+  // 申请退回认购
+  const handleRequestReturn = async (orderId: string) => {
     try {
-      const response = await fundingApi.getFundingStatistics()
-      setFundingStats(response.data)
-    } catch (error) {
-      console.error('Failed to fetch funding stats:', error)
+      const res: any = await subscriptionApi.requestReturn(orderId)
+      if (res.success) {
+        message.success('退回申请已提交，等待管理员核准')
+        fetchSubscriptions()
+        fetchSubscriptionSummary()
+        fetchBalance()
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.message
+      message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '退回申请失败'))
     }
   }
 
-  // 格式化金额
-
+  // 获取收益曲线数据
+  const fetchYieldData = async () => {
+    setYieldLoading(true)
+    try {
+      const [curveRes, summaryRes]: any[] = await Promise.all([
+        yieldApi.getMyYieldCurve({ startDate: dayjs().subtract(30, 'day').format('YYYY-MM-DD') }),
+        yieldApi.getMyYieldSummary(),
+      ])
+      if (curveRes.success) setYieldCurveData(curveRes.data || [])
+      if (summaryRes.success) setYieldSummary(summaryRes.data || null)
+    } catch (error) {
+      console.error('Failed to fetch yield data:', error)
+    } finally {
+      setYieldLoading(false)
+    }
+  }
 
   // 格式化日期
   const formatDate = (dateStr: string) => {
@@ -543,16 +652,22 @@ const Portfolio = () => {
     })
   }
 
+  // 计算倒计时天数
+  const getCountdownDays = (deadline: string) => {
+    if (!deadline) return null
+    return dayjs(deadline).diff(dayjs(), 'day')
+  }
+
   // 生成模拟趋势数据（7天）
   const generateTrendData = useMemo(() => {
     const baseData: Record<string, number[]> = {
       balance: [1200, 1350, 1280, 1420, 1380, 1500, balance?.availableBalance || 0],
       profit: [80, 120, 95, 150, 130, 180, balance?.totalProfit || 0],
       invested: [5000, 5200, 5500, 5800, 6000, 6200, balance?.totalInvested || 0],
-      holding: [3000, 3200, 3500, 3800, 4000, 4200, fundingSummary?.totalHoldingAmount || 0],
+      holding: [3000, 3200, 3500, 3800, 4000, 4200, subscriptionSummary?.totalUnsettledAmount || 0],
     }
     return baseData
-  }, [balance, fundingSummary])
+  }, [balance, subscriptionSummary])
 
   // 资金流水表格列
   const transactionColumns = [
@@ -594,7 +709,7 @@ const Portfolio = () => {
       align: 'right' as const,
       render: (amount: number, record: Transaction) => {
         const isPositive =
-          ['recharge', 'principal_return', 'profit_share', 'interest'].includes(record.type)
+          ['RECHARGE', 'PRINCIPAL_RETURN', 'PROFIT_SHARE', 'SLOW_SELL_REFUND', 'recharge', 'principal_return', 'profit_share', 'interest'].includes(record.type)
         const displayAmount = isPositive ? Math.abs(Number(amount || 0)) : -Math.abs(Number(amount || 0))
         return renderProfitCell(displayAmount)
       },
@@ -646,8 +761,8 @@ const Portfolio = () => {
     },
   ]
 
-  // 持仓表格列
-  const holdingColumns = [
+  // 认购表格列
+  const subscriptionColumns = [
     {
       title: '订单号',
       dataIndex: 'orderNo',
@@ -663,7 +778,7 @@ const Portfolio = () => {
       title: '药品',
       dataIndex: 'drugName',
       key: 'drugName',
-      render: (text: string, record: FundingOrder) => (
+      render: (text: string, record: SubscriptionOrder) => (
         <div>
           <Text style={{ color: '#E6EDF3' }}>{text}</Text>
           <br />
@@ -674,17 +789,52 @@ const Portfolio = () => {
       ),
     },
     {
-      title: '数量',
+      title: '认购数量',
       dataIndex: 'quantity',
       key: 'quantity',
-      width: 80,
+      width: 90,
       align: 'center' as const,
       render: (text: number) => (
         <Text style={{ color: '#E6EDF3', fontFamily: 'monospace' }}>{text}盒</Text>
       ),
     },
     {
-      title: '金额',
+      title: '已退回',
+      dataIndex: 'settledQuantity',
+      key: 'settledQuantity',
+      width: 80,
+      align: 'center' as const,
+      render: (text: number, record: SubscriptionOrder) => {
+        const progress = record.quantity > 0 ? ((text || 0) / record.quantity) * 100 : 0
+        return (
+          <div>
+            <Text style={{ color: '#cf1322', fontFamily: 'monospace' }}>{text || 0}盒</Text>
+            <Progress 
+              percent={progress} 
+              size="small" 
+              strokeColor="#cf1322" 
+              trailColor="#21262D"
+              showInfo={false}
+              style={{ marginTop: 4, marginBottom: 0 }}
+            />
+          </div>
+        )
+      },
+    },
+    {
+      title: '剩余份额',
+      dataIndex: 'remaining',
+      key: 'remaining',
+      width: 80,
+      align: 'center' as const,
+      render: (_: any, record: SubscriptionOrder) => (
+        <Text style={{ color: '#FAAD14', fontFamily: 'monospace' }}>
+          {record.quantity - (record.settledQuantity || 0)}盒
+        </Text>
+      ),
+    },
+    {
+      title: '认购金额',
       dataIndex: 'amount',
       key: 'amount',
       width: 120,
@@ -696,86 +846,60 @@ const Portfolio = () => {
       ),
     },
     {
-      title: '未结清本金',
-      dataIndex: 'unsettledAmount',
-      key: 'unsettledAmount',
-      width: 120,
-      align: 'right' as const,
-      render: (text: number) => (
-        <Text style={{ color: '#FAAD14', fontFamily: 'monospace' }}>
-          ¥{Number(text || 0).toFixed(2)}
-        </Text>
-      ),
-    },
-    {
       title: '状态',
       dataIndex: 'status',
       key: 'status',
       width: 100,
       align: 'center' as const,
       render: (status: string) => {
-        const configs: Record<string, { color: string; bg: string; border: string; icon: React.ReactNode; text: string }> = {
-          'holding': {
-            color: '#00D4AA',
-            bg: 'rgba(0,212,170,0.1)',
-            border: '1px solid rgba(0,212,170,0.3)',
-            icon: <span className="status-dot status-pulse" style={{ background: '#00D4AA', display: 'inline-block', width: 6, height: 6, borderRadius: '50%', marginRight: 6 }} />,
-            text: '持仓中',
-          },
-          'partial_settled': {
-            color: '#FAAD14',
-            bg: 'rgba(250,173,20,0.1)',
-            border: '1px solid rgba(250,173,20,0.3)',
-            icon: <LoadingOutlined spin style={{ marginRight: 4 }} />,
-            text: '部分结算',
-          },
-          'settled': {
-            color: '#1890FF',
-            bg: 'rgba(24,144,255,0.1)',
-            border: '1px solid rgba(24,144,255,0.3)',
-            icon: <CheckCircleOutlined style={{ marginRight: 4 }} />,
-            text: '已结算',
-          },
-        }
-        const config = configs[status] || { color: '#8B949E', bg: 'rgba(139,148,158,0.1)', border: '1px solid rgba(139,148,158,0.3)', icon: null, text: status }
+        const config = subscriptionStatusMap[status] || { label: status, color: '#8B949E' }
         return (
           <Tag
             style={{
-              background: config.bg,
-              border: config.border,
+              background: `${config.color}20`,
+              borderColor: config.color,
               color: config.color,
               fontSize: 11,
               margin: 0,
-              display: 'inline-flex',
-              alignItems: 'center',
             }}
           >
-            {config.icon}
-            {config.text}
+            {config.label}
           </Tag>
         )
       },
     },
     {
-      title: '排队',
-      dataIndex: 'queuePosition',
-      key: 'queuePosition',
-      width: 70,
-      align: 'center' as const,
-      render: (text: number) => (
-        <Text style={{ color: '#1890FF', fontFamily: 'monospace' }}>#{text}</Text>
-      ),
+      title: '滞销截止',
+      dataIndex: 'slowSellingDeadline',
+      key: 'slowSellingDeadline',
+      width: 120,
+      render: (text: string) => {
+        if (!text) return <Text style={{ color: '#8B949E', fontSize: 12 }}>-</Text>
+        const days = getCountdownDays(text)
+        const color = days === null ? '#8B949E' : days <= 7 ? '#00b96b' : days <= 30 ? '#FAAD14' : '#cf1322'
+        return (
+          <Text style={{ color, fontSize: 12 }}>
+            <ClockCircleOutlined style={{ marginRight: 4 }} />
+            {dayjs(text).format('MM-DD')}
+          </Text>
+        )
+      },
     },
     {
-      title: '垫资时间',
-      dataIndex: 'fundedAt',
-      key: 'fundedAt',
-      width: 140,
-      render: (text: string) => (
-        <Text style={{ color: '#8B949E', fontSize: 12 }}>
-          {dayjs(text).format('MM-DD HH:mm')}
-        </Text>
-      ),
+      title: '倒计时',
+      dataIndex: 'countdown',
+      key: 'countdown',
+      width: 90,
+      align: 'center' as const,
+      render: (_: any, record: SubscriptionOrder) => {
+        const days = getCountdownDays(record.slowSellingDeadline)
+        const color = days === null ? '#8B949E' : days <= 7 ? '#00b96b' : days <= 30 ? '#FAAD14' : '#cf1322'
+        return (
+          <Text style={{ color, fontSize: 12, fontWeight: 500 }}>
+            {days === null ? '-' : `剩${days}天`}
+          </Text>
+        )
+      },
     },
     {
       title: '累计收益',
@@ -783,9 +907,9 @@ const Portfolio = () => {
       key: 'totalProfit',
       width: 120,
       align: 'right' as const,
-      render: (text: number, record: FundingOrder) => {
-        const total = Number(text) + Number(record.totalInterest || 0)
-        return renderProfitCell(total)
+      render: (text: number, record: SubscriptionOrder) => {
+        const netProfit = Number(text || 0) - Number(record.totalLoss || 0)
+        return renderProfitCell(netProfit)
       },
     },
     {
@@ -793,26 +917,38 @@ const Portfolio = () => {
       key: 'action',
       width: 100,
       align: 'center' as const,
-      render: (_: any, record: FundingOrder) => (
-        <Button
-          type="link"
-          size="small"
-          icon={<EyeOutlined />}
-          onClick={() => navigate(`/trade/${record.drugId}`)}
-        >
-          查看
-        </Button>
+      render: (_: any, record: SubscriptionOrder) => (
+        <Space>
+          <Button
+            type="link"
+            size="small"
+            icon={<EyeOutlined />}
+            onClick={() => navigate(`/trade/${record.drugId}`)}
+          >
+            查看
+          </Button>
+          {(record.status === 'effective' || record.status === 'partial_returned') && (
+            <Button
+              type="link"
+              size="small"
+              danger
+              onClick={() => handleRequestReturn(record.id)}
+            >
+              退回
+            </Button>
+          )}
+        </Space>
       ),
     },
   ]
 
-  // 渲染持仓概览卡片
-  const renderHoldingOverview = () => (
+  // 渲染认购概览卡片
+  const renderSubscriptionOverview = () => (
     <Row gutter={[16, 12]} className="portfolio-overview-row">
       <Col xs={12} sm={12} md={12} lg={6}>
         <StatCard
-          title="总持仓金额"
-          value={fundingSummary?.totalHoldingAmount || 0}
+          title="总认购金额"
+          value={subscriptionSummary?.totalAmount || 0}
           icon={<ShoppingOutlined style={{ color: '#1890FF' }} />}
           color="#1890FF"
           sparklineData={generateTrendData.holding}
@@ -821,8 +957,8 @@ const Portfolio = () => {
 
       <Col xs={12} sm={12} md={12} lg={6}>
         <StatCard
-          title="未结清本金"
-          value={fundingSummary?.totalUnsettledPrincipal || 0}
+          title="未结清金额"
+          value={subscriptionSummary?.totalUnsettledAmount || 0}
           icon={<LockOutlined style={{ color: '#FAAD14' }} />}
           color="#FAAD14"
         />
@@ -830,10 +966,12 @@ const Portfolio = () => {
 
       <Col xs={12} sm={12} md={12} lg={6}>
         <StatCard
-          title="累计收益"
-          value={fundingStats?.netProfit || 0}
-          icon={<WalletOutlined style={{ color: (fundingStats?.netProfit || 0) >= 0 ? '#00D4AA' : '#FF4D4F' }} />}
-          color="#00D4AA"
+          title="累计净收益"
+          value={Number(subscriptionSummary?.totalProfit || 0) - Number(subscriptionSummary?.totalLoss || 0)}
+          icon={<WalletOutlined style={{ color: 
+            (Number(subscriptionSummary?.totalProfit || 0) - Number(subscriptionSummary?.totalLoss || 0)) >= 0 ? '#cf1322' : '#00b96b' 
+          }} />}
+          color="#cf1322"
           isProfit
           sparklineData={generateTrendData.profit}
         />
@@ -841,10 +979,11 @@ const Portfolio = () => {
 
       <Col xs={12} sm={12} md={12} lg={6}>
         <StatCard
-          title="今日预估收益"
-          value={fundingSummary?.todayEstimatedProfit || 0}
-          icon={<BarChartOutlined style={{ color: '#00D4AA' }} />}
-          color="#00D4AA"
+          title="有效认购数"
+          value={subscriptionSummary?.activeOrderCount || 0}
+          icon={<BarChartOutlined style={{ color: '#722ED1' }} />}
+          color="#722ED1"
+          prefix=""
         />
       </Col>
     </Row>
@@ -863,8 +1002,8 @@ const Portfolio = () => {
           <StatCard
             title="可用余额"
             value={balance?.availableBalance || 0}
-            icon={<DollarOutlined style={{ color: '#00D4AA' }} />}
-            color="#00D4AA"
+            icon={<DollarOutlined style={{ color: '#cf1322' }} />}
+            color="#cf1322"
             sparklineData={generateTrendData.balance}
           />
         </Col>
@@ -882,8 +1021,8 @@ const Portfolio = () => {
           <StatCard
             title="累计收益"
             value={balance?.totalProfit || 0}
-            icon={<WalletOutlined style={{ color: (balance?.totalProfit || 0) >= 0 ? '#00D4AA' : '#FF4D4F' }} />}
-            color="#00D4AA"
+            icon={<WalletOutlined style={{ color: (balance?.totalProfit || 0) >= 0 ? '#cf1322' : '#00b96b' }} />}
+            color="#cf1322"
             isProfit
             sparklineData={generateTrendData.profit}
           />
@@ -940,17 +1079,17 @@ const Portfolio = () => {
             label: (
               <Space>
                 <BarChartOutlined />
-                <span>持仓概览</span>
+                <span>认购概览</span>
               </Space>
             ),
             children: (
               <>
-                {renderHoldingOverview()}
-                {/* 持仓统计卡片 */}
+                {renderSubscriptionOverview()}
+                {/* 认购统计卡片 */}
                 <Row gutter={[16, 12]}>
                   <Col xs={12} sm={12} md={8} lg={8}>
                     <Card className="portfolio-stats-card">
-                      <Text style={{ color: '#8B949E', fontSize: 13 }}>总垫资次数</Text>
+                      <Text style={{ color: '#8B949E', fontSize: 13 }}>总认购次数</Text>
                       <div
                         className="text-value"
                         style={{
@@ -964,14 +1103,14 @@ const Portfolio = () => {
                           marginTop: 8,
                         }}
                       >
-                        <span>{fundingStats?.totalFundingCount || 0}</span>
+                        <span>{subscriptionSummary?.totalOrderCount || 0}</span>
                         <Text style={{ color: '#8B949E', fontSize: 14, fontWeight: 400 }}>笔</Text>
                       </div>
                     </Card>
                   </Col>
                   <Col xs={12} sm={12} md={8} lg={8}>
                     <Card className="portfolio-stats-card">
-                      <Text style={{ color: '#8B949E', fontSize: 13 }}>总垫资金额</Text>
+                      <Text style={{ color: '#8B949E', fontSize: 13 }}>总认购数量</Text>
                       <div
                         className="text-value"
                         style={{
@@ -982,13 +1121,14 @@ const Portfolio = () => {
                           marginTop: 8,
                         }}
                       >
-                        ¥{Number(fundingStats?.totalFundingAmount || 0).toFixed(2)}
+                        {subscriptionSummary?.totalQuantity || 0}
+                        <Text style={{ color: '#8B949E', fontSize: 14, fontWeight: 400, marginLeft: 4 }}>盒</Text>
                       </div>
                     </Card>
                   </Col>
                   <Col xs={12} sm={12} md={8} lg={8}>
                     <Card className="portfolio-stats-card">
-                      <Text style={{ color: '#8B949E', fontSize: 13 }}>平均持仓天数</Text>
+                      <Text style={{ color: '#8B949E', fontSize: 13 }}>已退回数量</Text>
                       <div
                         className="text-value"
                         style={{
@@ -997,13 +1137,13 @@ const Portfolio = () => {
                           gap: 4,
                           fontSize: 28,
                           fontWeight: 700,
-                          color: '#E6EDF3',
+                          color: '#cf1322',
                           fontFamily: "'JetBrains Mono', 'DIN', monospace",
                           marginTop: 8,
                         }}
                       >
-                        <span>{fundingStats?.averageHoldingDays || 0}</span>
-                        <Text style={{ color: '#8B949E', fontSize: 14, fontWeight: 400 }}>天</Text>
+                        <span>{subscriptionSummary?.totalSettledQuantity || 0}</span>
+                        <Text style={{ color: '#8B949E', fontSize: 14, fontWeight: 400 }}>盒</Text>
                       </div>
                     </Card>
                   </Col>
@@ -1012,11 +1152,11 @@ const Portfolio = () => {
             ),
           },
           {
-            key: 'holdings',
+            key: 'subscriptions',
             label: (
               <Space>
                 <ShoppingOutlined />
-                <span>我的持仓</span>
+                <span>我的认购</span>
               </Space>
             ),
             children: (
@@ -1026,7 +1166,7 @@ const Portfolio = () => {
                   <Space>
                     <ShoppingOutlined style={{ color: '#1890FF' }} />
                     <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 500 }}>
-                      持仓订单
+                      认购份额详情
                     </Text>
                   </Space>
                 }
@@ -1038,26 +1178,30 @@ const Portfolio = () => {
                       allowClear
                       className="portfolio-select"
                       style={{ width: 120 }}
-                      value={fundingStatus}
+                      value={subscriptionStatus}
                       onChange={(value) => {
-                        setFundingStatus(value)
-                        setFundingPagination({ ...fundingPagination, page: 1 })
+                        setSubscriptionStatus(value)
+                        setSubscriptionPagination({ ...subscriptionPagination, page: 1 })
                       }}
                       dropdownStyle={{ background: '#161B22', border: '1px solid #30363D' }}
                     >
-                      <Option value="holding">持仓中</Option>
-                      <Option value="partial_settled">部分结算</Option>
-                      <Option value="settled">已结算</Option>
+                      <Option value="confirmed">待生效</Option>
+                      <Option value="effective">认购中</Option>
+                      <Option value="return_pending">退回审核中</Option>
+                      <Option value="partial_returned">部分退回</Option>
+                      <Option value="returned">已退回</Option>
+                      <Option value="cancelled">已取消</Option>
+                      <Option value="slow_selling_refund">滞销退款</Option>
                     </Select>
                   </Space>
                 }
                 bodyStyle={{ padding: 0 }}
               >
                 <Table
-                  columns={holdingColumns}
-                  dataSource={fundingOrders}
+                  columns={subscriptionColumns}
+                  dataSource={subscriptions}
                   rowKey="id"
-                  loading={fundingLoading}
+                  loading={subscriptionLoading}
                   pagination={false}
                   scroll={{ x: 'max-content', y: 'calc(100vh - 480px)' }}
                   sticky={true}
@@ -1065,7 +1209,7 @@ const Portfolio = () => {
                     emptyText: (
                       <Empty
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={<Text style={{ color: '#8B949E' }}>暂无持仓订单</Text>}
+                        description={<Text style={{ color: '#8B949E' }}>暂无认购记录</Text>}
                         className="portfolio-empty"
                       />
                     ),
@@ -1075,20 +1219,179 @@ const Portfolio = () => {
                 />
                 <div className="portfolio-pagination">
                   <Pagination
-                    current={fundingPagination.page}
-                    pageSize={fundingPagination.pageSize}
-                    total={fundingPagination.total}
+                    current={subscriptionPagination.page}
+                    pageSize={subscriptionPagination.pageSize}
+                    total={subscriptionPagination.total}
                     showSizeChanger
                     showQuickJumper
                     showTotal={(total) => `共 ${total} 条记录`}
                     onChange={(page, pageSize) => {
-                      setFundingPagination({ ...fundingPagination, page, pageSize: pageSize || 10 })
+                      setSubscriptionPagination({ ...subscriptionPagination, page, pageSize: pageSize || 10 })
                     }}
                     onShowSizeChange={(_, size) => {
-                      setFundingPagination({ ...fundingPagination, page: 1, pageSize: size })
+                      setSubscriptionPagination({ ...subscriptionPagination, page: 1, pageSize: size })
                     }}
                   />
                 </div>
+              </Card>
+            ),
+          },
+          {
+            key: 'yieldCurve',
+            label: (
+              <Space>
+                <LineChartOutlined />
+                <span>收益曲线</span>
+              </Space>
+            ),
+            children: (
+              <Card style={{ background: '#161B22', border: '1px solid #30363D', borderRadius: 8 }}>
+                {/* 收益汇总 */}
+                {yieldSummary && (
+                  <Row gutter={[16, 12]} style={{ marginBottom: 24 }}>
+                    <Col xs={12} sm={12} md={6} lg={6}>
+                      <Card className="portfolio-stat-card" bodyStyle={{ padding: 16 }}>
+                        <Statistic
+                          title={<Text style={{ color: '#8B949E', fontSize: 13 }}>累计合伙收益(5%)</Text>}
+                          value={yieldSummary.totalBaseYield || 0}
+                          precision={2}
+                          prefix="¥"
+                          valueStyle={{ color: '#1890FF', fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}
+                        />
+                      </Card>
+                    </Col>
+                    <Col xs={12} sm={12} md={6} lg={6}>
+                      <Card className="portfolio-stat-card" bodyStyle={{ padding: 16 }}>
+                        <Statistic
+                          title={<Text style={{ color: '#8B949E', fontSize: 13 }}>累计合伙收益</Text>}
+                          value={yieldSummary.totalSubsidy || 0}
+                          precision={2}
+                          prefix="¥"
+                          valueStyle={{ color: '#F0B90B', fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}
+                        />
+                      </Card>
+                    </Col>
+                    <Col xs={12} sm={12} md={6} lg={6}>
+                      <Card className="portfolio-stat-card" bodyStyle={{ padding: 16 }}>
+                        <Statistic
+                          title={<Text style={{ color: '#8B949E', fontSize: 13 }}>累计总收益</Text>}
+                          value={yieldSummary.totalYield || 0}
+                          precision={2}
+                          prefix="¥"
+                          valueStyle={{ color: '#00b96b', fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}
+                        />
+                      </Card>
+                    </Col>
+                    <Col xs={12} sm={12} md={6} lg={6}>
+                      <Card className="portfolio-stat-card" bodyStyle={{ padding: 16 }}>
+                        <Statistic
+                          title={<Text style={{ color: '#8B949E', fontSize: 13 }}>今日收益</Text>}
+                          value={yieldSummary.todayTotalYield || 0}
+                          precision={2}
+                          prefix="¥"
+                          valueStyle={{ color: '#cf1322', fontSize: 20, fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}
+                        />
+                      </Card>
+                    </Col>
+                  </Row>
+                )}
+
+                {/* 收益曲线图 */}
+                <ReactECharts
+                  option={{
+                    backgroundColor: 'transparent',
+                    tooltip: {
+                      trigger: 'axis',
+                      backgroundColor: '#161B22',
+                      borderColor: '#30363D',
+                      textStyle: { color: '#E6EDF3' },
+                      formatter: (params: any) => {
+                        let html = `<div style="padding: 4px 0"><b>${params[0].axisValue}</b></div>`
+                        params.forEach((p: any) => {
+                          html += `<div style="display:flex;justify-content:space-between;gap:16px;padding:2px 0">
+                            <span>${p.marker} ${p.seriesName}</span>
+                            <span style="font-weight:600">¥${Number(p.value).toFixed(2)}</span>
+                          </div>`
+                        })
+                        return html
+                      },
+                    },
+                    legend: {
+                      data: ['补贴金', '合伙收益', '累计收益'],
+                      textStyle: { color: '#8B949E' },
+                      top: 0,
+                    },
+                    grid: { left: 60, right: 20, top: 40, bottom: 30 },
+                    xAxis: {
+                      type: 'category',
+                      data: yieldCurveData.map((d: any) => d.date),
+                      axisLine: { lineStyle: { color: '#30363D' } },
+                      axisLabel: { color: '#8B949E', fontSize: 11 },
+                    },
+                    yAxis: [
+                      {
+                        type: 'value',
+                        name: '日收益(¥)',
+                        axisLine: { lineStyle: { color: '#30363D' } },
+                        axisLabel: { color: '#8B949E', fontSize: 11 },
+                        splitLine: { lineStyle: { color: '#21262D' } },
+                      },
+                      {
+                        type: 'value',
+                        name: '累计(¥)',
+                        axisLine: { lineStyle: { color: '#30363D' } },
+                        axisLabel: { color: '#8B949E', fontSize: 11 },
+                        splitLine: { show: false },
+                      },
+                    ],
+                    series: [
+                      {
+                        name: '补贴金',
+                        type: 'bar',
+                        data: yieldCurveData.map((d: any) => d.baseYield),
+                        itemStyle: { color: '#1890FF', borderRadius: [2, 2, 0, 0] },
+                        barWidth: '20%',
+                      },
+                      {
+                        name: '合伙收益',
+                        type: 'bar',
+                        data: yieldCurveData.map((d: any) => d.subsidy),
+                        itemStyle: { color: '#F0B90B', borderRadius: [2, 2, 0, 0] },
+                        barWidth: '20%',
+                      },
+                      {
+                        name: '累计收益',
+                        type: 'line',
+                        yAxisIndex: 1,
+                        data: yieldCurveData.map((d: any) => d.cumulativeYield),
+                        smooth: true,
+                        lineStyle: { color: '#00b96b', width: 2 },
+                        itemStyle: { color: '#00b96b' },
+                        areaStyle: {
+                          color: {
+                            type: 'linear',
+                            x: 0, y: 0, x2: 0, y2: 1,
+                            colorStops: [
+                              { offset: 0, color: 'rgba(0, 185, 107, 0.3)' },
+                              { offset: 1, color: 'rgba(0, 185, 107, 0.02)' },
+                            ],
+                          },
+                        },
+                      },
+                    ],
+                  }}
+                  style={{ height: 400 }}
+                  theme="dark"
+                  showLoading={yieldLoading}
+                />
+
+                {yieldCurveData.length === 0 && !yieldLoading && (
+                  <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                    <Text style={{ color: '#8B949E', fontSize: 14 }}>
+                      暂无收益数据，请联系管理员生成日收益记录
+                    </Text>
+                  </div>
+                )}
               </Card>
             ),
           },
@@ -1126,13 +1429,13 @@ const Portfolio = () => {
                       }}
                       dropdownStyle={{ background: '#161B22', border: '1px solid #30363D' }}
                     >
-                      <Option value="recharge">充值</Option>
-                      <Option value="withdraw">提现</Option>
-                      <Option value="funding">投资</Option>
-                      <Option value="principal_return">本金返还</Option>
-                      <Option value="profit_share">收益分配</Option>
-                      <Option value="loss_share">亏损分摊</Option>
-                      <Option value="interest">利息</Option>
+                      <Option value="RECHARGE">充值</Option>
+                      <Option value="WITHDRAW">提现</Option>
+                      <Option value="SUBSCRIPTION">认购冻结</Option>
+                      <Option value="PRINCIPAL_RETURN">份额退回</Option>
+                      <Option value="PROFIT_SHARE">收益分成</Option>
+                      <Option value="LOSS_SHARE">亏损承担</Option>
+                      <Option value="SLOW_SELL_REFUND">滞销退款</Option>
                     </Select>
                   </Space>
                 }
@@ -1168,6 +1471,162 @@ const Portfolio = () => {
               </Card>
             ),
           },
+          {
+            key: 'withdrawOrders',
+            label: (
+              <Space>
+                <MinusOutlined />
+                <span>出金记录</span>
+              </Space>
+            ),
+            children: (
+              <Card
+                className="portfolio-table-card"
+                title={
+                  <Space>
+                    <MinusOutlined style={{ color: '#FAAD14' }} />
+                    <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 500 }}>
+                      出金记录（T+1到账）
+                    </Text>
+                  </Space>
+                }
+                extra={
+                  <Text style={{ color: '#8B949E', fontSize: 12 }}>
+                    提现申请提交后，管理员将在T+1日确认到账
+                  </Text>
+                }
+                bodyStyle={{ padding: 0 }}
+              >
+                <Table
+                  columns={[
+                    {
+                      title: '订单号',
+                      dataIndex: 'orderNo',
+                      key: 'orderNo',
+                      width: 180,
+                      render: (text: string) => (
+                        <Text style={{ color: '#58A6FF', fontFamily: 'monospace', fontSize: 12 }}>
+                          {text}
+                        </Text>
+                      ),
+                    },
+                    {
+                      title: '出金金额',
+                      dataIndex: 'amount',
+                      key: 'amount',
+                      width: 140,
+                      align: 'right' as const,
+                      render: (amount: number) => (
+                        <Text style={{
+                          color: '#00b96b',
+                          fontFamily: "'JetBrains Mono', 'DIN', monospace",
+                          fontWeight: 600,
+                          fontSize: 14,
+                        }}>
+                          ¥{Number(amount || 0).toFixed(2)}
+                        </Text>
+                      ),
+                    },
+                    {
+                      title: '状态',
+                      dataIndex: 'status',
+                      key: 'status',
+                      width: 120,
+                      align: 'center' as const,
+                      render: (status: string) => {
+                        const config = withdrawStatusMap[status] || { label: status, color: '#8B949E' }
+                        return (
+                          <Tag
+                            style={{
+                              background: `${config.color}20`,
+                              borderColor: config.color,
+                              color: config.color,
+                              fontSize: 12,
+                            }}
+                          >
+                            {status === 'pending' && <ClockCircleOutlined style={{ marginRight: 4 }} />}
+                            {status === 'approved' && <CheckCircleOutlined style={{ marginRight: 4 }} />}
+                            {status === 'rejected' && <CloseCircleOutlined style={{ marginRight: 4 }} />}
+                            {config.label}
+                          </Tag>
+                        )
+                      },
+                    },
+                    {
+                      title: '申请时间',
+                      dataIndex: 'createdAt',
+                      key: 'createdAt',
+                      width: 160,
+                      render: (text: string) => (
+                        <Text style={{ color: '#8B949E', fontSize: 13 }}>{formatDate(text)}</Text>
+                      ),
+                    },
+                    {
+                      title: '到账时间',
+                      dataIndex: 'approvedAt',
+                      key: 'approvedAt',
+                      width: 160,
+                      render: (text: string) => (
+                        <Text style={{ color: text ? '#00b96b' : '#484F58', fontSize: 13 }}>
+                          {text ? formatDate(text) : '待确认'}
+                        </Text>
+                      ),
+                    },
+                    {
+                      title: '说明',
+                      dataIndex: 'description',
+                      key: 'description',
+                      render: (text: string, record: WithdrawOrderItem) => (
+                        <div>
+                          <Text style={{ color: '#E6EDF3', fontSize: 13 }}>{text || '-'}</Text>
+                          {record.rejectReason && (
+                            <div>
+                              <Text style={{ color: '#F5222D', fontSize: 12 }}>
+                                驳回原因：{record.rejectReason}
+                              </Text>
+                            </div>
+                          )}
+                        </div>
+                      ),
+                    },
+                  ]}
+                  dataSource={withdrawOrders}
+                  rowKey="id"
+                  loading={withdrawOrdersLoading}
+                  pagination={false}
+                  scroll={{ x: 'max-content', y: 'calc(100vh - 480px)' }}
+                  sticky={true}
+                  locale={{
+                    emptyText: (
+                      <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={<Text style={{ color: '#8B949E' }}>暂无出金记录</Text>}
+                        className="portfolio-empty"
+                      />
+                    ),
+                  }}
+                  className="portfolio-table"
+                  rowClassName={() => 'portfolio-row'}
+                />
+                <div className="portfolio-pagination">
+                  <Pagination
+                    current={withdrawOrdersPagination.page}
+                    pageSize={withdrawOrdersPagination.pageSize}
+                    total={withdrawOrdersPagination.total}
+                    showSizeChanger
+                    showQuickJumper
+                    showTotal={(total) => `共 ${total} 条记录`}
+                    onChange={(page, pageSize) => {
+                      setWithdrawOrdersPagination({ ...withdrawOrdersPagination, page, pageSize: pageSize || 10 })
+                    }}
+                    onShowSizeChange={(_, size) => {
+                      setWithdrawOrdersPagination({ ...withdrawOrdersPagination, page: 1, pageSize: size })
+                    }}
+                  />
+                </div>
+              </Card>
+            ),
+          },
         ]}
       />
 
@@ -1175,7 +1634,7 @@ const Portfolio = () => {
       <Modal
         title={
           <Space>
-            <PlusOutlined style={{ color: '#00D4AA' }} />
+            <PlusOutlined style={{ color: '#cf1322' }} />
             <Text style={{ color: '#E6EDF3' }}>账户充值</Text>
           </Space>
         }
@@ -1393,7 +1852,7 @@ const Portfolio = () => {
         {/* 支付超时步骤 */}
         {paymentStep === 'timeout' && (
           <div style={{ marginTop: 48, marginBottom: 48, textAlign: 'center' }}>
-            <CloseCircleOutlined style={{ fontSize: 64, color: '#FF4D4F', marginBottom: 24 }} />
+            <CloseCircleOutlined style={{ fontSize: 64, color: '#00b96b', marginBottom: 24 }} />
             <div style={{ fontSize: 24, fontWeight: 600, color: '#E6EDF3', marginBottom: 8 }}>
               支付超时
             </div>
@@ -1402,7 +1861,7 @@ const Portfolio = () => {
               type="primary"
               onClick={() => resetPaymentState()}
               style={{
-                background: 'linear-gradient(135deg, #00D4AA 0%, #00B894 100%)',
+                background: 'linear-gradient(135deg, #cf1322 0%, #ff4d4f 100%)',
                 border: 'none',
               }}
             >
@@ -1416,7 +1875,7 @@ const Portfolio = () => {
       <Modal
         title={
           <Space>
-            <MinusOutlined style={{ color: '#FF4D4F' }} />
+            <MinusOutlined style={{ color: '#00b96b' }} />
             <Text style={{ color: '#E6EDF3' }}>账户提现</Text>
           </Space>
         }
@@ -1443,7 +1902,7 @@ const Portfolio = () => {
         >
           <div style={{ marginBottom: 16, padding: '12px 16px', background: '#0D1117', borderRadius: 8, border: '1px solid #30363D' }}>
             <Text style={{ color: '#8B949E', fontSize: 13 }}>当前可用余额</Text>
-            <div style={{ fontSize: 24, fontWeight: 700, color: '#00D4AA', fontFamily: "'JetBrains Mono', 'DIN', monospace" }}>
+            <div style={{ fontSize: 24, fontWeight: 700, color: '#cf1322', fontFamily: "'JetBrains Mono', 'DIN', monospace" }}>
               ¥{Number(balance?.availableBalance || 0).toFixed(2)}
             </div>
           </div>
@@ -1474,12 +1933,8 @@ const Portfolio = () => {
 
           <Form.Item
             name="password"
-            label={<Text style={{ color: '#8B949E' }}>密码 {withdrawForm.getFieldValue('amount') > 5000 ? <Text style={{ color: '#FF4D4F' }}>*</Text> : <Text style={{ color: '#848E9C', fontSize: 12 }}>(金额&gt;5000时必填)</Text>}</Text>}
-            rules={
-              withdrawForm.getFieldValue('amount') > 5000
-                ? [{ required: true, message: '请输入密码' }]
-                : []
-            }
+            label={<Text style={{ color: '#8B949E' }}>密码 <Text style={{ color: '#848E9C', fontSize: 12 }}>(选填)</Text></Text>}
+            rules={[]}
           >
             <Input.Password
               style={{
@@ -1487,7 +1942,7 @@ const Portfolio = () => {
                 background: '#0D1117',
                 borderColor: '#30363D',
               }}
-              placeholder={withdrawForm.getFieldValue('amount') > 5000 ? '请输入密码' : '金额超过5000元时需要输入密码'}
+              placeholder="可选，输入密码以提高安全性"
               size="large"
             />
           </Form.Item>
@@ -1500,7 +1955,7 @@ const Portfolio = () => {
               block
               loading={withdrawLoading}
               style={{
-                background: 'linear-gradient(135deg, #FF4D4F 0%, #CF1322 100%)',
+                background: 'linear-gradient(135deg, #00b96b 0%, #00d4aa 100%)',
                 border: 'none',
                 height: 44,
                 fontSize: 16,
