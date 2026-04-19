@@ -1,0 +1,106 @@
+.drug-card {
+  display: flex;
+  align-items: center;
+  padding: 14px 16px;
+  background: var(--color-bg-primary);
+  border-bottom: 1px solid var(--color-border);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.drug-card:active {
+  background: rgba(240, 185, 11, 0.04);
+}
+
+.drug-card-left {
+  flex: 1;
+  min-width: 0;
+}
+
+.drug-card-name {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  letter-spacing: 0.3px;
+}
+
+.drug-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.drug-card-code {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+.drug-card-heat {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--color-rise);
+  font-weight: 500;
+}
+
+.drug-card-center {
+  text-align: right;
+  margin-right: 14px;
+  min-width: 80px;
+}
+
+.drug-card-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
+}
+
+.drug-card-price.rise { color: var(--color-rise); }
+.drug-card-price.fall { color: var(--color-fall); }
+
+.drug-card-info {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.drug-card-right {
+  text-align: right;
+  min-width: 72px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.drug-card-right.up {
+  background: rgba(246, 70, 93, 0.12);
+  color: var(--color-rise);
+}
+
+.drug-card-right.down {
+  background: rgba(14, 203, 129, 0.12);
+  color: var(--color-fall);
+}
+
+.drug-card-change {
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+
+.drug-card-change-val {
+  font-size: 11px;
+  margin-top: 1px;
+  opacity: 0.85;
+}

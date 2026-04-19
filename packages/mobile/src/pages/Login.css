@@ -1,0 +1,107 @@
+.mobile-login {
+  min-height: 100vh;
+  background: var(--color-bg-primary);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 24px;
+  box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
+}
+
+/* 背景光晕效果 */
+.login-bg-glow {
+  position: absolute;
+  top: -30%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 300px;
+  height: 300px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+  animation: glowPulse 4s ease-in-out infinite;
+}
+
+.login-content {
+  position: relative;
+  z-index: 1;
+  animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.login-logo {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.login-logo-wrap {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  padding: 12px 20px;
+  background: rgba(240, 185, 11, 0.06);
+  border-radius: var(--radius-xl);
+  border: 1px solid rgba(240, 185, 11, 0.1);
+}
+
+.login-logo-img {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+  filter: brightness(1.1);
+}
+
+.login-subtitle {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+  margin-top: 0;
+  letter-spacing: 1px;
+}
+
+.login-form {
+  width: 100%;
+}
+
+.login-input-group {
+  position: relative;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+}
+
+.login-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+}
+
+.login-input {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 14px 16px 14px 42px !important;
+  font-size: 16px;
+  transition: all 0.3s ease;
+}
+
+.login-input:focus-within {
+  border-color: rgba(240, 185, 11, 0.3) !important;
+  background: rgba(240, 185, 11, 0.03) !important;
+  box-shadow: 0 0 0 3px rgba(240, 185, 11, 0.08);
+}
+
+.login-btn {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  letter-spacing: 4px;
+}
+
+.login-btn:active {
+  transform: scale(0.98);
+  opacity: 0.9;
+}

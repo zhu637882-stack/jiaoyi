@@ -1,0 +1,142 @@
+.mobile-portfolio {
+  min-height: 100vh;
+  background: var(--color-bg-primary);
+}
+
+.mobile-portfolio-header {
+  padding: 16px;
+  padding-top: calc(16px + env(safe-area-inset-top, 0));
+  background: var(--color-bg-primary);
+}
+
+.mobile-portfolio-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  margin: 0;
+  letter-spacing: 0.5px;
+}
+
+.mobile-portfolio-balance {
+  display: flex;
+  margin: 0 16px 12px;
+  padding: 18px 16px;
+  background: linear-gradient(135deg, rgba(240, 185, 11, 0.08) 0%, rgba(14, 203, 129, 0.04) 100%);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(240, 185, 11, 0.1);
+  animation: fadeInUp 0.4s ease-out;
+}
+
+.balance-item {
+  flex: 1;
+  text-align: center;
+}
+
+.balance-item + .balance-item {
+  border-left: 1px solid var(--color-border-light);
+}
+
+.balance-label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 6px;
+  letter-spacing: 0.5px;
+}
+
+.balance-value {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.balance-value.profit { color: var(--color-rise); }
+.balance-value.loss { color: var(--color-fall); }
+
+.mobile-portfolio-list {
+  padding: 8px 16px;
+  padding-bottom: 70px;
+}
+
+.portfolio-card {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 10px;
+  border: 1px solid var(--color-border);
+  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  transition: all 0.3s ease;
+}
+
+.portfolio-card:active {
+  transform: scale(0.98);
+  border-color: rgba(240, 185, 11, 0.15);
+}
+
+.portfolio-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.portfolio-drug-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  letter-spacing: 0.3px;
+}
+
+.portfolio-status {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(14, 203, 129, 0.1);
+}
+
+.portfolio-card-mid {
+  display: flex;
+  margin-bottom: 12px;
+  padding: 10px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.portfolio-mid-item {
+  flex: 1;
+}
+
+.portfolio-mid-item .label {
+  display: block;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  margin-bottom: 4px;
+}
+
+.portfolio-mid-item .value {
+  font-size: 15px;
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.portfolio-mid-item .value.profit { color: var(--color-rise); }
+.portfolio-mid-item .value.loss { color: var(--color-fall); }
+
+.portfolio-card-bottom {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.portfolio-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 0 40px;
+  animation: fadeInUp 0.6s ease-out;
+}
