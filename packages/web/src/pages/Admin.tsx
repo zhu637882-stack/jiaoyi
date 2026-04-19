@@ -50,9 +50,9 @@ interface Drug {
   fundedQuantity: number
   remainingQuantity: number
   status: DrugStatus
-  annualRate: number
+  operationFeeRate: number
   batchNo: string
-  unitFee: number
+  slowSellingDays: number
   createdAt: string
 }
 
@@ -211,6 +211,12 @@ const Admin = () => {
   const [reviewingUser, setReviewingUser] = useState<User | null>(null)
   const [reviewForm] = Form.useForm()
   const [reviewLoading, setReviewLoading] = useState(false)
+
+  // 用户编辑弹窗状态
+  const [isEditUserModalOpen, setIsEditUserModalOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [editUserForm] = Form.useForm()
+  const [editUserLoading, setEditUserLoading] = useState(false)
 
   // 销售管理状态
   const [salesRecords, setSalesRecords] = useState<SalesRecord[]>([])
@@ -383,6 +389,49 @@ const Admin = () => {
     }
   }
 
+  // 打开编辑用户弹窗
+  const handleEditUser = (record: User) => {
+    setEditingUser(record)
+    editUserForm.setFieldsValue({
+      realName: record.realName || '',
+      phone: record.phone || '',
+      role: record.role,
+    })
+    setIsEditUserModalOpen(true)
+  }
+
+  // 提交编辑用户
+  const handleEditUserSubmit = async () => {
+    if (!editingUser) return
+    try {
+      const values = await editUserForm.validateFields()
+      setEditUserLoading(true)
+      const res: any = await adminApi.updateUser(editingUser.id, values)
+      if (res.success || res.id) {
+        message.success('用户信息更新成功')
+        setIsEditUserModalOpen(false)
+        fetchUsers()
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || '更新失败')
+    } finally {
+      setEditUserLoading(false)
+    }
+  }
+
+  // 删除用户
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const res: any = await adminApi.deleteUser(userId)
+      if (res.success) {
+        message.success('用户删除成功')
+        fetchUsers()
+      }
+    } catch (error: any) {
+      message.error(error?.response?.data?.message || '删除失败')
+    }
+  }
+
   // ==================== 药品管理 ====================
 
   // 打开新增药品弹窗
@@ -402,8 +451,8 @@ const Admin = () => {
       sellingPrice: record.sellingPrice,
       totalQuantity: record.totalQuantity,
       batchNo: record.batchNo,
-      annualRate: record.annualRate,
-      unitFee: record.unitFee,
+      operationFeeRate: record.operationFeeRate,
+      slowSellingDays: record.slowSellingDays,
     })
     setIsDrugModalOpen(true)
   }
@@ -1038,6 +1087,34 @@ const Admin = () => {
               审核
             </Button>
           )}
+          <Button
+            type="text"
+            size="small"
+            icon={<EditOutlined />}
+            onClick={() => handleEditUser(record)}
+            style={{ color: 'var(--color-primary)' }}
+          >
+            编辑
+          </Button>
+          {record.role !== 'admin' && (
+            <Popconfirm
+              title="确认删除"
+              description="确定要删除该用户吗？此操作不可恢复。"
+              onConfirm={() => handleDeleteUser(record.id)}
+              okText="删除"
+              cancelText="取消"
+              okButtonProps={{ danger: true }}
+            >
+              <Button
+                type="text"
+                size="small"
+                icon={<DeleteOutlined />}
+                danger
+              >
+                删除
+              </Button>
+            </Popconfirm>
+          )}
           {record.status === UserStatus.REJECTED && record.reviewRemark && (
             <span className="table-cell-tertiary" style={{ fontSize: 12 }}>
               原因: {record.reviewRemark}
@@ -1104,6 +1181,15 @@ const Admin = () => {
       align: 'right',
       render: (rate: number) => (
         <span className="table-cell-mono table-cell-primary-color table-cell-bold">{Number(rate || 0).toFixed(4)}</span>
+      ),
+    },
+    {
+      title: '滞销天数',
+      dataIndex: 'slowSellingDays',
+      key: 'slowSellingDays',
+      align: 'right',
+      render: (days: number) => (
+        <span className="table-cell-mono">{days || 90}天</span>
       ),
     },
     {
@@ -2605,6 +2691,62 @@ const Admin = () => {
         </Form>
       </Modal>
 
+      {/* 编辑用户弹窗 */}
+      <Modal
+        title="编辑用户"
+        open={isEditUserModalOpen}
+        onOk={handleEditUserSubmit}
+        onCancel={() => setIsEditUserModalOpen(false)}
+        confirmLoading={editUserLoading}
+        width={480}
+        style={{ top: 100 }}
+        className="admin-modal"
+        okButtonProps={{
+          style: {
+            background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
+            border: 'none',
+          }
+        }}
+        cancelButtonProps={{
+          className: 'admin-modal-cancel-btn'
+        }}
+      >
+        {editingUser && (
+          <div style={{ marginBottom: 16 }}>
+            <p><strong>用户名：</strong>{editingUser.username}</p>
+          </div>
+        )}
+        <Form
+          form={editUserForm}
+          layout="vertical"
+          requiredMark={false}
+          className="admin-form"
+        >
+          <Form.Item
+            name="realName"
+            label="姓名"
+          >
+            <Input placeholder="请输入姓名" maxLength={50} />
+          </Form.Item>
+          <Form.Item
+            name="phone"
+            label="手机号"
+          >
+            <Input placeholder="请输入手机号" maxLength={20} />
+          </Form.Item>
+          <Form.Item
+            name="role"
+            label="角色"
+            rules={[{ required: true, message: '请选择角色' }]}
+          >
+            <Select placeholder="请选择角色">
+              <Select.Option value="investor">投资者</Select.Option>
+              <Select.Option value="admin">管理员</Select.Option>
+            </Select>
+          </Form.Item>
+        </Form>
+      </Modal>
+
       {/* 新增/编辑药品弹窗 */}
       <Modal
         title={editingDrug ? '编辑药品' : '新增药品'}
@@ -2699,27 +2841,27 @@ const Admin = () => {
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)' }}>
             <Form.Item
-              name="annualRate"
-              label="年化利率 (%)"
-              initialValue={5.0}
+              name="operationFeeRate"
+              label="运营费率"
+              initialValue={0}
             >
               <InputNumber
                 min={0}
-                max={100}
-                precision={2}
-                placeholder="5.00"
+                max={1}
+                precision={4}
+                placeholder="0.0000"
                 style={{ width: '100%' }}
               />
             </Form.Item>
             <Form.Item
-              name="unitFee"
-              label="单位费用 (¥)"
-              initialValue={1.0}
+              name="slowSellingDays"
+              label="滞销天数"
+              initialValue={90}
             >
               <InputNumber
-                min={0}
-                precision={2}
-                placeholder="1.00"
+                min={1}
+                precision={0}
+                placeholder="90"
                 style={{ width: '100%' }}
               />
             </Form.Item>

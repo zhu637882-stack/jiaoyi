@@ -144,6 +144,14 @@ export const adminApi = {
   // 审核用户
   reviewUser: (userId: string, data: { status: string; remark?: string }) =>
     http.post(`/users/${userId}/review`, data),
+
+  // 管理员编辑用户
+  updateUser: (userId: string, data: { realName?: string; phone?: string; role?: string }) =>
+    http.put(`/users/${userId}`, data),
+
+  // 管理员删除用户
+  deleteUser: (userId: string) =>
+    http.delete(`/users/${userId}`),
 }
 
 // 药品相关 API

@@ -1,7 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { User, UserStatus } from '../../database/entities/user.entity';
+import { User, UserStatus, UserRole } from '../../database/entities/user.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { ReviewUserDto } from './dto/review-user.dto';
@@ -106,6 +106,26 @@ export class UserService {
     return {
       message: reviewUserDto.status === UserStatus.APPROVED ? '审核通过' : '审核拒绝',
       user: result,
+    };
+  }
+
+  async deleteUser(userId: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new NotFoundException('用户不存在');
+    }
+
+    if (user.role === UserRole.ADMIN) {
+      throw new BadRequestException('不能删除管理员账户');
+    }
+
+    await this.userRepository.remove(user);
+    return {
+      success: true,
+      message: '用户删除成功',
     };
   }
 }
