@@ -13,23 +13,31 @@ interface UseWebSocketOptions {
   onSystemNotification?: (data: any) => void
 }
 
+// 根据环境获取 WebSocket URL
+const getDefaultWebSocketUrl = (): string => {
+  // 生产环境使用当前域名（不要加 /ws，否则 socket.io 会把 /ws 当成 namespace 导致 Invalid namespace 错误）
+  if (typeof window !== 'undefined') {
+    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+    const host = window.location.host
+    return `${protocol}//${host}`
+  }
+  return 'ws://localhost:3000'
+}
+
 export const useWebSocket = (options: UseWebSocketOptions = {}) => {
   const {
-    url = 'ws://localhost:3000/ws',
+    url = getDefaultWebSocketUrl(),
     autoConnect = true,
-    onMarketUpdate,
-    onMarketSnapshot,
-    onMarketTicker,
-    onTradeUpdate,
-    onFundingUpdate,
-    onSettlementComplete,
-    onSystemNotification,
   } = options
 
   const [isConnected, setIsConnected] = useState(false)
   const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null)
 
-  // 连接 WebSocket
+  // 用 ref 保存回调，避免 useEffect 因回调引用变化反复触发
+  const callbacksRef = useRef(options)
+  callbacksRef.current = options
+
+  // 连接 WebSocket（只依赖 url）
   const connect = useCallback(() => {
     wsService.connect(url)
   }, [url])
@@ -73,55 +81,44 @@ export const useWebSocket = (options: UseWebSocketOptions = {}) => {
       setIsConnected(wsService.isConnected())
     }, 1000)
 
-    // 注册事件处理器
-    if (onMarketUpdate) {
-      wsService.on('market:update', onMarketUpdate)
+    // 注册事件处理器（使用 ref 中的回调，避免依赖变化导致重注册）
+    const cb = callbacksRef.current
+    if (cb.onMarketUpdate) {
+      wsService.on('market:update', cb.onMarketUpdate)
     }
-    if (onMarketSnapshot) {
-      wsService.on('market:snapshot', onMarketSnapshot)
+    if (cb.onMarketSnapshot) {
+      wsService.on('market:snapshot', cb.onMarketSnapshot)
     }
-    if (onMarketTicker) {
-      wsService.on('market:ticker', onMarketTicker)
+    if (cb.onMarketTicker) {
+      wsService.on('market:ticker', cb.onMarketTicker)
     }
-    if (onTradeUpdate) {
-      wsService.on('trade:update', onTradeUpdate)
+    if (cb.onTradeUpdate) {
+      wsService.on('trade:update', cb.onTradeUpdate)
     }
-    if (onFundingUpdate) {
-      wsService.on('funding:update', onFundingUpdate)
+    if (cb.onFundingUpdate) {
+      wsService.on('funding:update', cb.onFundingUpdate)
     }
-    if (onSettlementComplete) {
-      wsService.on('settlement:complete', onSettlementComplete)
+    if (cb.onSettlementComplete) {
+      wsService.on('settlement:complete', cb.onSettlementComplete)
     }
-    if (onSystemNotification) {
-      wsService.on('system:notification', onSystemNotification)
+    if (cb.onSystemNotification) {
+      wsService.on('system:notification', cb.onSystemNotification)
     }
 
     return () => {
       clearInterval(checkConnection)
-      if (onMarketUpdate) {
-        wsService.off('market:update', onMarketUpdate)
-      }
-      if (onMarketSnapshot) {
-        wsService.off('market:snapshot', onMarketSnapshot)
-      }
-      if (onMarketTicker) {
-        wsService.off('market:ticker', onMarketTicker)
-      }
-      if (onTradeUpdate) {
-        wsService.off('trade:update', onTradeUpdate)
-      }
-      if (onFundingUpdate) {
-        wsService.off('funding:update', onFundingUpdate)
-      }
-      if (onSettlementComplete) {
-        wsService.off('settlement:complete', onSettlementComplete)
-      }
-      if (onSystemNotification) {
-        wsService.off('system:notification', onSystemNotification)
-      }
+      // 清理时移除回调
+      if (cb.onMarketUpdate) wsService.off('market:update', cb.onMarketUpdate)
+      if (cb.onMarketSnapshot) wsService.off('market:snapshot', cb.onMarketSnapshot)
+      if (cb.onMarketTicker) wsService.off('market:ticker', cb.onMarketTicker)
+      if (cb.onTradeUpdate) wsService.off('trade:update', cb.onTradeUpdate)
+      if (cb.onFundingUpdate) wsService.off('funding:update', cb.onFundingUpdate)
+      if (cb.onSettlementComplete) wsService.off('settlement:complete', cb.onSettlementComplete)
+      if (cb.onSystemNotification) wsService.off('system:notification', cb.onSystemNotification)
       disconnect()
     }
-  }, [autoConnect, connect, disconnect, onMarketUpdate, onMarketSnapshot, onMarketTicker, onTradeUpdate, onFundingUpdate, onSettlementComplete, onSystemNotification])
+    // 只在 autoConnect/connect/disconnect 变化时触发，不再依赖回调函数
+  }, [autoConnect, connect, disconnect])
 
   return {
     isConnected,

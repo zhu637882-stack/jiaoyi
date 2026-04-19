@@ -200,51 +200,47 @@ export const marketApi = {
     http.post('/market/snapshot', data),
 }
 
-// 垫资交易相关 API
-export const fundingApi = {
-  // 创建垫资订单
-  createFundingOrder: (data: { drugId: string; quantity: number }) =>
-    http.post('/funding/orders', data),
+// 认购相关 API
+export const subscriptionApi = {
+  // 创建认购
+  createSubscription: (data: { drugId: string; quantity: number }) =>
+    http.post('/subscriptions', data),
 
-  // 解套卖出
-  sellOrder: (data: { drugId: string; quantity: number }) =>
-    http.post('/funding/orders/sell', data),
+  // 取消认购（仅CONFIRMED状态可取消）
+  cancelSubscription: (id: string) =>
+    http.delete(`/subscriptions/${id}`),
 
-  // 获取我的垫资订单列表
-  getFundingOrders: (params?: { status?: string; page?: number; pageSize?: number }) =>
-    http.get('/funding/orders', { params }),
+  // 获取我的认购列表
+  getMySubscriptions: (params?: { status?: string; page?: number; limit?: number }) =>
+    http.get('/subscriptions', { params }),
 
-  // 获取订单详情
-  getFundingOrder: (id: string) =>
-    http.get(`/funding/orders/${id}`),
+  // 获取认购详情
+  getSubscriptionDetail: (id: string) =>
+    http.get(`/subscriptions/${id}`),
 
-  // 获取当前持仓摘要
-  getActiveFunding: () =>
-    http.get('/funding/orders/active/summary'),
+  // 获取当前认购摘要
+  getActiveSubscriptionSummary: () =>
+    http.get('/subscriptions/active/summary'),
 
-  // 获取某药品的垫资排队队列
-  getFundingQueue: (drugId: string) =>
-    http.get(`/funding/queue/${drugId}`),
+  // 管理员获取全部认购列表
+  getAdminSubscriptions: (params?: any) =>
+    http.get('/subscriptions/admin/list', { params }),
 
-  // 获取个人垫资统计
-  getFundingStatistics: () =>
-    http.get('/funding/statistics'),
+  // 管理员获取认购统计
+  getAdminSubscriptionStats: () =>
+    http.get('/subscriptions/admin/stats'),
 
-  // 获取某药品的我的持仓订单
-  getDrugHoldings: (drugId: string) =>
-    http.get(`/funding/holdings/${drugId}`),
-}
+  // 客户申请退回认购
+  requestReturn: (id: string) =>
+    http.post(`/subscriptions/${id}/return`),
 
-// 交易相关 API（兼容旧接口）
-export const tradeApi = {
-  createOrder: (data: any) =>
-    http.post('/funding/orders', data),
+  // 管理员核准退回
+  approveReturn: (id: string) =>
+    http.put(`/subscriptions/admin/${id}/approve-return`),
 
-  getOrders: () =>
-    http.get('/funding/orders'),
-
-  getOrderById: (id: string) =>
-    http.get(`/funding/orders/${id}`),
+  // 管理员驳回退回
+  rejectReturn: (id: string, reason: string) =>
+    http.put(`/subscriptions/admin/${id}/reject-return`, { reason }),
 }
 
 // 账户相关 API
@@ -255,8 +251,11 @@ export const accountApi = {
   recharge: (amount: number, description?: string) =>
     http.post('/account/recharge', { amount, description }),
   
-  withdraw: (amount: number, description?: string, password?: string) =>
-    http.post('/account/withdraw', { amount, description, password }),
+  withdraw: (amount: number, description?: string, password?: string, bankInfo?: string) =>
+    http.post('/account/withdraw', { amount, description, password, bankInfo }),
+
+  getMyWithdrawOrders: (params?: { page?: number; limit?: number }) =>
+    http.get('/account/withdraw/orders', { params }),
   
   getTransactions: (params?: { type?: string; page?: number; pageSize?: number }) =>
     http.get('/account/transactions', { params }),
@@ -271,17 +270,25 @@ export const accountApi = {
     http.get('/account/admin/balances', { params }),
   getAuditLogs: (params?: { action?: string; page?: number; pageSize?: number }) =>
     http.get('/account/admin/audit-logs', { params }),
+
+  // 管理员出金管理
+  adminGetWithdrawOrders: (params?: { status?: string; page?: number; limit?: number }) =>
+    http.get('/account/admin/withdraw-orders', { params }),
+  adminApproveWithdraw: (id: string, bankTransactionNo?: string) =>
+    http.post(`/account/admin/withdraw-orders/${id}/approve`, { bankTransactionNo }),
+  adminRejectWithdraw: (id: string, rejectReason: string) =>
+    http.post(`/account/admin/withdraw-orders/${id}/reject`, { rejectReason }),
 }
 
-// 持仓相关 API
+// 持仓相关 API（已废弃，使用 subscriptionApi 替代）
 export const portfolioApi = {
   // 获取账户余额和统计
   getPortfolio: () =>
     http.get('/account/balance'),
   
-  // 获取当前持仓摘要
+  // 获取当前持仓摘要 -> 映射到认购摘要
   getPositions: () =>
-    http.get('/funding/orders/active/summary'),
+    subscriptionApi.getActiveSubscriptionSummary(),
 }
 
 // 销售相关 API
@@ -331,15 +338,19 @@ export const paymentApi = {
 
   // 查询支付宝订单状态
   queryAlipayOrder: (outTradeNo: string) =>
-    http.get(`/payment/alipay/query/${outTradeNo}`),
+    http.get(`/payment/alipay/query/${outTradeNo}`, { timeout: 30000 }),
 
   // 查询微信支付订单状态
   queryWechatOrder: (outTradeNo: string) =>
-    http.get(`/payment/wechat/query/${outTradeNo}`),
+    http.get(`/payment/wechat/query/${outTradeNo}`, { timeout: 30000 }),
 
   // Mock模式确认支付（测试环境）
   confirmMockPayment: (outTradeNo: string) =>
     http.post(`/payment/mock/confirm/${outTradeNo}`),
+
+  // 认购直付：创建支付订单（携带认购信息）
+  createSubscriptionPayment: (data: { drugId: string; quantity: number; channel: 'alipay' | 'wechat' }) =>
+    http.post('/payment/subscribe/create', data),
 }
 
 // 清算相关 API
@@ -375,6 +386,33 @@ export const settlementApi = {
   getMySettlementStats: () => http.get('/settlements/my/stats'),
 }
 
+// 收益相关 API
+export const yieldApi = {
+  // 管理员：生成日收益记录
+  generateDailyYields: (yieldDate?: string) =>
+    http.post('/yield/generate', { yieldDate }),
+
+  // 管理员：获取待填写补贴金列表
+  getPendingSubsidyList: (params?: { yieldDate?: string; drugId?: string; page?: number; pageSize?: number; includeFilled?: string }) =>
+    http.get('/yield/pending-subsidy', { params }),
+
+  // 管理员：财务填写补贴金
+  fillSubsidy: (data: { yieldDate: string; items: { orderId: string; subsidy: number }[] }) =>
+    http.post('/yield/subsidy', data),
+
+  // 管理员：获取某药品收益曲线
+  getDrugYieldCurve: (drugId: string, params?: { startDate?: string; endDate?: string }) =>
+    http.get(`/yield/drug/${drugId}/curve`, { params }),
+
+  // 客户：获取我的收益曲线
+  getMyYieldCurve: (params?: { drugId?: string; startDate?: string; endDate?: string }) =>
+    http.get('/yield/my/curve', { params }),
+
+  // 客户：获取我的收益汇总
+  getMyYieldSummary: () =>
+    http.get('/yield/my/summary'),
+}
+
 // 系统消息相关 API
 export const systemMessageApi = {
   getPublished: (params?: { page?: number; pageSize?: number }) => 
@@ -389,28 +427,6 @@ export const systemMessageApi = {
     http.delete(`/system-messages/admin/${id}`),
   adminPublish: (id: string) => 
     http.patch(`/system-messages/admin/${id}/publish`),
-}
-
-// 委托订单相关 API
-export const pendingOrderApi = {
-  create: (data: { drugId: string; type: string; targetPrice: number; quantity: number; expireAt?: string }) =>
-    http.post('/pending-orders', data),
-  getList: (params?: { status?: string; page?: number; pageSize?: number }) =>
-    http.get('/pending-orders', { params }),
-  getDetail: (id: string) =>
-    http.get(`/pending-orders/${id}`),
-  cancel: (id: string) =>
-    http.delete(`/pending-orders/${id}`),
-  getActiveCount: () =>
-    http.get('/pending-orders/active/count'),
-  
-  // 管理员接口
-  adminGetList: (params?: { status?: string; page?: number; pageSize?: number }) =>
-    http.get('/pending-orders/admin/list', { params }),
-  adminCancel: (id: string) =>
-    http.delete(`/pending-orders/admin/${id}`),
-  adminGetStats: () =>
-    http.get('/pending-orders/admin/stats'),
 }
 
 // 创建 silentHttp 实例（不自动弹出错误提示）
