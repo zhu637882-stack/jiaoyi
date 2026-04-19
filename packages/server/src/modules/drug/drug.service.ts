@@ -89,6 +89,8 @@ export class DrugService {
       code: drug.code,
       purchasePrice: drug.purchasePrice,
       sellingPrice: drug.sellingPrice,
+      actualSellingPrice: drug.actualSellingPrice,
+      actualPriceUpdatedAt: drug.actualPriceUpdatedAt,
       totalQuantity: drug.totalQuantity,
       subscribedQuantity: drug.subscribedQuantity,
       remainingQuantity: drug.remainingQuantity,
@@ -168,6 +170,8 @@ export class DrugService {
       code: drug.code,
       purchasePrice: drug.purchasePrice,
       sellingPrice: drug.sellingPrice,
+      actualSellingPrice: drug.actualSellingPrice,
+      actualPriceUpdatedAt: drug.actualPriceUpdatedAt,
       totalQuantity: drug.totalQuantity,
       subscribedQuantity: drug.subscribedQuantity,
       remainingQuantity: drug.remainingQuantity,
@@ -205,9 +209,10 @@ export class DrugService {
     // 记录更新前的价格
     const oldPurchasePrice = drug.purchasePrice;
     const oldSellingPrice = drug.sellingPrice;
+    const oldActualSellingPrice = drug.actualSellingPrice;
 
     this.logger.debug(
-      `更新药品 ${id} 前的价格: 进货价=${oldPurchasePrice}(${typeof oldPurchasePrice}), 售价=${oldSellingPrice}(${typeof oldSellingPrice})`,
+      `更新药品 ${id} 前的价格: 进货价=${oldPurchasePrice}(${typeof oldPurchasePrice}), 售价=${oldSellingPrice}(${typeof oldSellingPrice}), 实际成交价=${oldActualSellingPrice}`,
     );
 
     // 如果更新编码，检查是否与其他药品冲突
@@ -221,6 +226,11 @@ export class DrugService {
       }
     }
 
+    // 如果更新实际成交价，自动设置更新日期
+    if (updateDrugDto.actualSellingPrice !== undefined) {
+      drug.actualPriceUpdatedAt = new Date();
+    }
+
     // 更新字段
     Object.assign(drug, updateDrugDto);
 
@@ -229,6 +239,7 @@ export class DrugService {
     // 检查价格是否发生变化
     const newPurchasePrice = updateDrugDto.purchasePrice;
     const newSellingPrice = updateDrugDto.sellingPrice;
+    const newActualSellingPrice = updateDrugDto.actualSellingPrice;
 
     // 使用 Number() 确保类型一致的比较
     const oldPurchasePriceNum = Number(oldPurchasePrice);
@@ -237,9 +248,9 @@ export class DrugService {
     const newSellingPriceNum = newSellingPrice !== undefined ? Number(newSellingPrice) : oldSellingPriceNum;
 
     // 价格更新时记录审计日志
-    if (newPurchasePrice !== undefined || newSellingPrice !== undefined) {
+    if (newPurchasePrice !== undefined || newSellingPrice !== undefined || newActualSellingPrice !== undefined) {
       this.logger.log(
-        `药品 ${id} 价格更新。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}`,
+        `药品 ${id} 价格更新。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}, 实际成交价: ${newActualSellingPrice}`,
       );
 
       // 记录审计日志 - 价格更新

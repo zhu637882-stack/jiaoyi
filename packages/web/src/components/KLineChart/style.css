@@ -42,27 +42,41 @@
   white-space: nowrap;
 }
 
-/* 工具栏中的价格和涨跌 */
+/* 工具栏中的收益率显示 */
 .toolbar-current-price {
-  font-size: 14px;
+  font-size: 16px;
   font-weight: 700;
   font-family: 'SF Mono', monospace;
   white-space: nowrap;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.toolbar-label {
+  font-size: 11px;
+  color: #8B949E;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .toolbar-change {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   font-family: 'SF Mono', monospace;
   white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.3);
 }
 
 .toolbar-change.up {
   color: #cf1322;
+  background: rgba(207, 19, 34, 0.15);
 }
 
 .toolbar-change.down {
   color: #00b96b;
+  background: rgba(0, 185, 107, 0.15);
 }
 
 /* 时间周期选择器 */
@@ -152,20 +166,20 @@
   min-height: 200px;
 }
 
-/* 数据显示栏 - 单行紧凑显示 */
+/* 数据显示栏 - 收益率数据展示 */
 .kline-data-bar {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 1px 8px;
-  font-size: 11px;
+  gap: 12px;
+  padding: 4px 12px;
+  font-size: 12px;
   flex-shrink: 0;
   flex-wrap: nowrap;
   overflow-x: auto;
-  min-height: 18px;
-  max-height: 20px;
-  background: #0D1117;
+  min-height: 24px;
+  background: linear-gradient(90deg, #0D1117 0%, #161B22 50%, #0D1117 100%);
   border-bottom: 1px solid rgba(33,38,45,0.8);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
 .kline-data-bar::-webkit-scrollbar {
@@ -182,39 +196,57 @@
 }
 
 .data-date {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 600;
   color: #E6EDF3;
   white-space: nowrap;
-  min-width: 75px;
+  min-width: 85px;
+  padding-right: 8px;
+  border-right: 1px solid #30363D;
 }
 
 .data-item {
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   white-space: nowrap;
   flex-shrink: 0;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: rgba(22, 27, 34, 0.5);
+  transition: background 0.2s ease;
+}
+
+.data-item:hover {
+  background: rgba(22, 27, 34, 0.8);
+}
+
+.data-item.highlight {
+  background: rgba(207, 19, 34, 0.15);
+  border: 1px solid rgba(207, 19, 34, 0.3);
 }
 
 .data-label {
-  font-size: 10px;
+  font-size: 11px;
   color: #8B949E;
+  font-weight: 500;
 }
 
 .data-value {
-  font-size: 11px;
-  font-weight: 600;
+  font-size: 12px;
+  font-weight: 700;
   color: #E6EDF3;
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
 }
 
 .data-value.up {
   color: #cf1322;
+  text-shadow: 0 0 8px rgba(207, 19, 34, 0.4);
 }
 
 .data-value.down {
   color: #00b96b;
+  text-shadow: 0 0 8px rgba(0, 185, 107, 0.4);
 }
 
 /* MA 均线数值颜色 */

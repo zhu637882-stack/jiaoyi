@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react'
+import { useEffect, useRef, useState, useMemo } from 'react'
 import './style.css'
 
 // 动态导入 klinecharts 类型
@@ -22,8 +22,8 @@ export interface KLineData {
   fundingHeat: number
 }
 
-// 周期类型
-type PeriodType = '15m' | '1h' | '4h' | '1d' | '1w' | '1mo' | '7d' | '30d' | '90d' | 'all'
+// 周期类型 - 简化：只保留日/周/月/年
+type PeriodType = '1d' | '1w' | '1mo' | '1y'
 
 interface KLineChartProps {
   data: KLineData[]
@@ -33,11 +33,7 @@ interface KLineChartProps {
   drugName?: string
 }
 
-// 指标类型
-type MainIndicatorKey = 'MA' | 'BOLL'
-type SubIndicatorKey = 'MACD' | 'RSI' | 'KDJ'
-
-// 颜色常量 - 统一主题配色（中国标准：涨红跌绿）
+// 颜色常量 - 币安风格：涨红跌绿
 const COLORS = {
   UP: '#cf1322',
   DOWN: '#00b96b',
@@ -224,15 +220,9 @@ const KLineChart = ({
   const containerRef = useRef<HTMLDivElement>(null)
   // Chart instance ref
   const chartRef = useRef<Chart | null>(null)
-  // 副图 paneId
-  const subPaneIdRef = useRef<string | null>(null)
 
   // klinecharts 模块 ref
   const klinechartsRef = useRef<typeof import('klinecharts') | null>(null)
-
-  // 指标状态
-  const [activeMainIndicators, setActiveMainIndicators] = useState<MainIndicatorKey[]>(['MA'])
-  const [activeSubIndicator, setActiveSubIndicator] = useState<SubIndicatorKey | null>(null)
 
   // klinecharts 加载状态
   const [klineLoading, setKlineLoading] = useState(true)
@@ -257,28 +247,42 @@ const KLineChart = ({
     return [...data].sort((a, b) => a.time - b.time)
   }, [data])
 
-  // 时间周期选项
+  // 时间周期选项 - 简化：只保留日/周/月/年
   const periods = [
-    { key: '15m', label: '15分' },
-    { key: '1h', label: '1时' },
-    { key: '4h', label: '4时' },
-    { key: '1d', label: '日线' },
-    { key: '1w', label: '周线' },
-    { key: '1mo', label: '月线' },
-  ] as const
+    { key: '1d' as const, label: '日' },
+    { key: '1w' as const, label: '周' },
+    { key: '1mo' as const, label: '月' },
+    { key: '1y' as const, label: '年' },
+  ]
 
-  // 转换数据格式
+  // 转换数据格式 - 将价格数据转换为客户收益率数据
+  // 客户收益率 = (收盘价 - 进价) / 进价 * 30% + 5%年化补贴
   const convertedData = useMemo((): KLineChartsData[] => {
     if (!sortedData || sortedData.length === 0) return []
-    return sortedData.map(item => ({
-      timestamp: item.time * 1000, // 秒转毫秒
-      open: Number(item.open),
-      close: Number(item.close),
-      high: Number(item.high),
-      low: Number(item.low),
-      volume: Number(item.volume || 0),
-      turnover: Number(item.dailySalesRevenue || 0),
-    }))
+    
+    // 假设进价为第一个开盘价的 80%（如果没有进价数据）
+    const basePurchasePrice = sortedData[0]?.open * 0.8 || 10
+    
+    return sortedData.map(item => {
+      // 计算客户收益率（基于价格变动）
+      const priceReturn = (item.close - basePurchasePrice) / basePurchasePrice
+      const customerReturn = priceReturn * 0.3 + (0.05 / 365) // 30%合伙收益 + 5%年化补贴
+      
+      // 计算开盘、最高、最低对应的客户收益率
+      const openReturn = ((item.open - basePurchasePrice) / basePurchasePrice) * 0.3 + (0.05 / 365)
+      const highReturn = ((item.high - basePurchasePrice) / basePurchasePrice) * 0.3 + (0.05 / 365)
+      const lowReturn = ((item.low - basePurchasePrice) / basePurchasePrice) * 0.3 + (0.05 / 365)
+      
+      return {
+        timestamp: item.time * 1000, // 秒转毫秒
+        open: Number((openReturn * 100).toFixed(4)), // 转为百分比显示
+        close: Number((customerReturn * 100).toFixed(4)),
+        high: Number((highReturn * 100).toFixed(4)),
+        low: Number((lowReturn * 100).toFixed(4)),
+        volume: Number(item.volume || 0),
+        turnover: Number(item.dailySalesRevenue || 0),
+      }
+    })
   }, [sortedData])
 
   // 数据 ref，供 DataLoader 回调使用
@@ -322,7 +326,7 @@ const KLineChart = ({
         // 因为 setDataLoader 内部会立即调用 resetData，此时需要 symbol/period 已设置
         chart.setSymbol({
           ticker: drugName || 'KLine',
-          pricePrecision: 2,
+          pricePrecision: 4, // 收益率显示4位小数
           volumePrecision: 0,
         })
         chart.setPeriod({ type: 'day', span: 1 })
@@ -349,11 +353,7 @@ const KLineChart = ({
         }
         chart.setDataLoader(dataLoader)
 
-        // 创建成交量指标（副图，始终显示）
-        chart.createIndicator('VOL', false, { height: 80 })
-
-        // 创建默认主图指标 MA
-        chart.createIndicator('MA', true)
+        // 简化：不创建任何指标，只显示K线
 
         // 订阅十字光标变化事件
         chart.subscribeAction('onCrosshairChange', (params) => {
@@ -431,52 +431,7 @@ const KLineChart = ({
     }
   }, [convertedData])
 
-  // 切换主图指标
-  const toggleMainIndicator = useCallback((name: MainIndicatorKey) => {
-    if (!chartRef.current) return
-    
-    if (activeMainIndicators.includes(name)) {
-      // 移除指标
-      chartRef.current.removeIndicator({ name })
-      setActiveMainIndicators(prev => prev.filter(i => i !== name))
-    } else {
-      // 添加指标
-      chartRef.current.createIndicator(name, true)
-      setActiveMainIndicators(prev => [...prev, name])
-    }
-  }, [activeMainIndicators])
 
-  // 切换副图指标（互斥）
-  const toggleSubIndicator = useCallback((name: SubIndicatorKey) => {
-    if (!chartRef.current) return
-    
-    if (activeSubIndicator === name) {
-      // 移除当前副图指标
-      if (subPaneIdRef.current) {
-        chartRef.current.removeIndicator({ paneId: subPaneIdRef.current, name })
-      }
-      subPaneIdRef.current = null
-      setActiveSubIndicator(null)
-    } else {
-      // 先移除之前的副图指标
-      if (activeSubIndicator && subPaneIdRef.current) {
-        chartRef.current.removeIndicator({ paneId: subPaneIdRef.current, name: activeSubIndicator })
-      }
-      // 创建新的副图指标
-      const paneId = chartRef.current.createIndicator(name, false, { height: 100 })
-      subPaneIdRef.current = paneId
-      setActiveSubIndicator(name)
-    }
-  }, [activeSubIndicator])
-
-  // 切换指标（统一入口）
-  const toggleIndicator = useCallback((key: MainIndicatorKey | SubIndicatorKey) => {
-    if (key === 'MA' || key === 'BOLL') {
-      toggleMainIndicator(key as MainIndicatorKey)
-    } else {
-      toggleSubIndicator(key as SubIndicatorKey)
-    }
-  }, [toggleMainIndicator, toggleSubIndicator])
 
   // 格式化数字显示
   const formatValue = (value: number | undefined | null, decimals: number = 2): string => {
@@ -536,21 +491,20 @@ const KLineChart = ({
           {/* 药品名称 */}
           {drugName && <span className="drug-name">{drugName}</span>}
           
-          {/* 最新价格 + 涨跌 */}
+          {/* 客户收益率显示 */}
           {displayData && (
             <>
               <span
                 className="toolbar-current-price"
-                style={{ color: displayData.close >= displayData.open ? COLORS.UP : COLORS.DOWN }}
+                style={{ color: displayData.close >= 0 ? COLORS.UP : COLORS.DOWN }}
               >
-                ¥{formatValue(displayData.close)}
+                {displayData.close >= 0 ? '+' : ''}{formatValue(displayData.close)}%
               </span>
+              <span className="toolbar-label">客户收益率</span>
               {changeInfo && (
                 <span className={`toolbar-change ${changeInfo.change >= 0 ? 'up' : 'down'}`}>
-                  {changeInfo.change >= 0 ? '+' : ''}
-                  {formatValue(changeInfo.change)}
-                  ({changeInfo.changePercent >= 0 ? '+' : ''}
-                  {formatValue(changeInfo.changePercent)}%)
+                  {changeInfo.change >= 0 ? '↗' : '↘'}
+                  {formatValue(Math.abs(changeInfo.changePercent))}%
                 </span>
               )}
             </>
@@ -570,54 +524,48 @@ const KLineChart = ({
             ))}
           </div>
 
-          {/* 指标选择器 */}
-          <div className="indicator-selector">
-            <span className="indicator-label">指标:</span>
-            {(['MA', 'MACD', 'RSI', 'KDJ', 'BOLL'] as const).map((key) => {
-              const isActive = key === 'MA' || key === 'BOLL'
-                ? activeMainIndicators.includes(key as MainIndicatorKey)
-                : activeSubIndicator === key
-              
-              return (
-                <button
-                  key={key}
-                  className={`indicator-btn ${isActive ? 'active' : ''}`}
-                  onClick={() => toggleIndicator(key)}
-                >
-                  {key}
-                </button>
-              )
-            })}
-          </div>
+
         </div>
       </div>
 
-      {/* MA/OHLC 数值显示栏 - 单行紧凑显示 */}
+      {/* 收益率数据栏 - 显示客户收益率相关信息 */}
       {displayData && (
         <div className="kline-data-bar">
           <span className="data-date">{displayData.date}</span>
           <span className="data-item">
-            <span className="data-label">开</span>
-            <span className="data-value">{formatValue(displayData.open)}</span>
-          </span>
-          <span className="data-item">
-            <span className="data-label">高</span>
-            <span className="data-value up">{formatValue(displayData.high)}</span>
-          </span>
-          <span className="data-item">
-            <span className="data-label">低</span>
-            <span className="data-value down">{formatValue(displayData.low)}</span>
-          </span>
-          <span className="data-item">
-            <span className="data-label">收</span>
-            <span className={`data-value ${displayData.close >= displayData.open ? 'up' : 'down'}`}>
-              {formatValue(displayData.close)}
+            <span className="data-label">开盘收益</span>
+            <span className={`data-value ${displayData.open >= 0 ? 'up' : 'down'}`}>
+              {displayData.open >= 0 ? '+' : ''}{formatValue(displayData.open)}%
             </span>
           </span>
           <span className="data-item">
-            <span className="data-label">量</span>
+            <span className="data-label">最高收益</span>
+            <span className="data-value up">+{formatValue(displayData.high)}%</span>
+          </span>
+          <span className="data-item">
+            <span className="data-label">最低收益</span>
+            <span className={`data-value ${displayData.low >= 0 ? 'up' : 'down'}`}>
+              {displayData.low >= 0 ? '+' : ''}{formatValue(displayData.low)}%
+            </span>
+          </span>
+          <span className="data-item">
+            <span className="data-label">收盘收益</span>
+            <span className={`data-value ${displayData.close >= 0 ? 'up' : 'down'}`}>
+              {displayData.close >= 0 ? '+' : ''}{formatValue(displayData.close)}%
+            </span>
+          </span>
+          <span className="data-item">
+            <span className="data-label">成交量</span>
             <span className="data-value">{formatVolume(displayData.volume)}</span>
           </span>
+          {displayData.cumulativeReturn !== undefined && (
+            <span className="data-item highlight">
+              <span className="data-label">累计收益</span>
+              <span className="data-value up">
+                +{(displayData.cumulativeReturn * 100).toFixed(2)}%
+              </span>
+            </span>
+          )}
         </div>
       )}
 

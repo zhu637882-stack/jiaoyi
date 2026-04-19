@@ -1,0 +1,508 @@
+/* 专业版交易面板 - 高端金融风格 */
+
+.trade-panel-pro {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+  overflow: hidden;
+}
+
+/* 空状态 */
+.trade-panel-pro-empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  text-align: center;
+  background: linear-gradient(180deg, #0d1117 0%, #161b22 100%);
+}
+
+.trade-panel-pro-empty .empty-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.6;
+}
+
+.trade-panel-pro-empty .empty-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #e6edf3;
+  margin-bottom: 8px;
+}
+
+.trade-panel-pro-empty .empty-subtext {
+  font-size: 13px;
+  color: #8b949e;
+}
+
+/* 头部 */
+.trade-header-pro {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px;
+  background: linear-gradient(90deg, rgba(255, 209, 0, 0.08) 0%, transparent 100%);
+  border-bottom: 1px solid #30363d;
+}
+
+.trade-header-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.trade-header-main .drug-name {
+  font-size: 18px;
+  font-weight: 700;
+  color: #e6edf3;
+  letter-spacing: -0.3px;
+}
+
+.trade-header-main .drug-code {
+  font-size: 12px;
+  color: #8b949e;
+  font-family: 'SF Mono', monospace;
+}
+
+.return-badge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, rgba(255, 209, 0, 0.15) 0%, rgba(255, 209, 0, 0.05) 100%);
+  border: 1px solid rgba(255, 209, 0, 0.4);
+  border-radius: 8px;
+  color: #FFD100;
+  font-size: 16px;
+  font-weight: 700;
+  font-family: 'SF Mono', monospace;
+  text-shadow: 0 0 10px rgba(255, 209, 0, 0.3);
+}
+
+.return-badge svg {
+  font-size: 18px;
+}
+
+/* 价格卡片 */
+.price-cards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid #21262d;
+}
+
+.price-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 8px;
+  background: rgba(22, 27, 34, 0.6);
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  transition: all 0.2s ease;
+}
+
+.price-card:hover {
+  background: rgba(22, 27, 34, 0.8);
+  border-color: #484f58;
+}
+
+.price-card.highlight {
+  background: linear-gradient(135deg, rgba(255, 209, 0, 0.1) 0%, rgba(255, 209, 0, 0.02) 100%);
+  border-color: rgba(255, 209, 0, 0.3);
+}
+
+.price-card-label {
+  font-size: 11px;
+  color: #8b949e;
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.price-card-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e6edf3;
+  font-family: 'SF Mono', monospace;
+}
+
+.price-card-value.up {
+  color: #00b96b;
+  text-shadow: 0 0 8px rgba(0, 185, 107, 0.3);
+}
+
+/* 进度条 */
+.progress-section {
+  padding: 16px 20px;
+  border-bottom: 1px solid #21262d;
+}
+
+.progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.progress-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #e6edf3;
+  font-weight: 600;
+}
+
+.progress-label svg {
+  color: #FFD100;
+}
+
+.progress-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #faad14;
+  font-family: 'SF Mono', monospace;
+}
+
+.progress-bar {
+  height: 8px;
+  background: #21262d;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 10px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #4B5563 0%, #6B7280 50%, #FFD100 100%);
+  border-radius: 4px;
+  transition: width 0.5s ease;
+  box-shadow: 0 0 10px rgba(255, 209, 0, 0.2);
+}
+
+.progress-stats {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #8b949e;
+}
+
+.progress-stats .remaining {
+  color: #FFD100;
+  font-weight: 500;
+}
+
+/* 交易表单 */
+.trade-form {
+  padding: 20px;
+  border-bottom: 1px solid #21262d;
+}
+
+.form-item {
+  margin-bottom: 16px;
+}
+
+.form-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #8b949e;
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.form-label svg {
+  color: #FFD100;
+}
+
+.quantity-input-group {
+  width: 100%;
+}
+
+.quantity-input {
+  flex: 1;
+}
+
+.quantity-input input {
+  height: 44px;
+  font-size: 16px;
+  font-weight: 600;
+  text-align: center;
+  background: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 8px 0 0 8px;
+  color: #e6edf3;
+}
+
+.quantity-unit {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 44px;
+  background: #21262d;
+  border: 1px solid #30363d;
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  color: #8b949e;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* 金额预览 */
+.amount-preview {
+  background: rgba(22, 27, 34, 0.6);
+  border: 1px solid #30363d;
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 16px;
+}
+
+.preview-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+  color: #8b949e;
+  margin-bottom: 10px;
+}
+
+.preview-row:last-child {
+  margin-bottom: 0;
+  padding-top: 10px;
+  border-top: 1px solid #30363d;
+}
+
+.preview-row .amount-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #e6edf3;
+  font-family: 'SF Mono', monospace;
+}
+
+.preview-row .profit-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #FFD100;
+  font-family: 'SF Mono', monospace;
+  text-shadow: 0 0 10px rgba(255, 209, 0, 0.3);
+}
+
+/* 提交按钮 */
+.submit-btn-pro {
+  height: 48px;
+  font-size: 16px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #4B5563 0%, #6B7280 100%);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+.submit-btn-pro:hover {
+  background: linear-gradient(135deg, #6B7280 0%, #9CA3AF 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 20px rgba(255, 209, 0, 0.15);
+  border-color: #FFD100;
+}
+
+.submit-btn-pro:active {
+  transform: translateY(0);
+}
+
+/* 成交记录 */
+.trade-records-section {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-bottom: 1px solid #21262d;
+}
+
+.section-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 20px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #e6edf3;
+  border-bottom: 1px solid #21262d;
+  background: rgba(22, 27, 34, 0.4);
+}
+
+.section-header svg {
+  color: #FFD100;
+}
+
+.live-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 4px 10px;
+  background: rgba(255, 209, 0, 0.1);
+  border: 1px solid rgba(255, 209, 0, 0.3);
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #FFD100;
+  letter-spacing: 1px;
+}
+
+.live-dot {
+  width: 6px;
+  height: 6px;
+  background: #FFD100;
+  border-radius: 50%;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.2); }
+}
+
+.trade-records-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 20px;
+}
+
+.records-header {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px;
+  gap: 12px;
+  padding: 10px 0;
+  font-size: 11px;
+  color: #6e7681;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  border-bottom: 1px solid #21262d;
+  position: sticky;
+  top: 0;
+  background: #161b22;
+  z-index: 1;
+}
+
+.records-body {
+  padding: 4px 0;
+}
+
+.record-row {
+  display: grid;
+  grid-template-columns: 80px 1fr 60px;
+  gap: 12px;
+  padding: 8px 0;
+  font-size: 12px;
+  border-bottom: 1px solid rgba(33, 38, 45, 0.5);
+  transition: background 0.15s ease;
+}
+
+.record-row:hover {
+  background: rgba(48, 54, 61, 0.3);
+}
+
+.record-row.new {
+  animation: highlightNew 1s ease-out;
+}
+
+@keyframes highlightNew {
+  0% { background: rgba(255, 209, 0, 0.2); }
+  100% { background: transparent; }
+}
+
+.record-time {
+  color: #6e7681;
+  font-family: 'SF Mono', monospace;
+  font-size: 11px;
+}
+
+.record-price {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-weight: 600;
+  font-family: 'SF Mono', monospace;
+}
+
+.record-price.buy {
+  color: #00b96b;
+}
+
+.record-price.sell {
+  color: #ff4d4f;
+}
+
+.record-price svg {
+  font-size: 10px;
+}
+
+.record-quantity {
+  color: #8b949e;
+  text-align: right;
+  font-family: 'SF Mono', monospace;
+}
+
+/* 底部信息 */
+.trade-footer-info {
+  display: flex;
+  justify-content: space-around;
+  padding: 14px 20px;
+  background: rgba(13, 17, 23, 0.8);
+}
+
+.info-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #8b949e;
+}
+
+.info-item .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.info-item .dot.green {
+  background: #6B7280;
+  box-shadow: 0 0 6px rgba(107, 114, 128, 0.5);
+}
+
+.info-item .dot.blue {
+  background: #9CA3AF;
+  box-shadow: 0 0 6px rgba(156, 163, 175, 0.5);
+}
+
+.info-item .dot.orange {
+  background: #FFD100;
+  box-shadow: 0 0 6px rgba(255, 209, 0, 0.5);
+}
+
+/* 滚动条 */
+.trade-records-list::-webkit-scrollbar {
+  width: 4px;
+}
+
+.trade-records-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.trade-records-list::-webkit-scrollbar-thumb {
+  background: #30363d;
+  border-radius: 2px;
+}
+
+.trade-records-list::-webkit-scrollbar-thumb:hover {
+  background: #484f58;
+}

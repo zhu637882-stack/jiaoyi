@@ -35,6 +35,12 @@ export class Drug {
   @Column('decimal', { precision: 10, scale: 2 })
   sellingPrice: number;
 
+  @Column('decimal', { precision: 10, scale: 2, default: 0, comment: '昨日实际成交价，作为今日估价' })
+  actualSellingPrice: number;
+
+  @Column({ nullable: true, comment: '实际成交价更新日期' })
+  actualPriceUpdatedAt: Date;
+
   @Column('int')
   totalQuantity: number;
 

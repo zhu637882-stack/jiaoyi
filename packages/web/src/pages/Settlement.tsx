@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react'
 import { Card, Table, Typography, Button, DatePicker, Space, Row, Col, Statistic, Modal, Descriptions } from 'antd'
 import './Settlement.css'
 import { FileTextOutlined, DownloadOutlined, DollarOutlined, ArrowUpOutlined, ArrowDownOutlined, WalletOutlined } from '@ant-design/icons'
+import { apiCall } from '../services/apiWithRetry'
 import { settlementApi } from '../services/api'
 import dayjs from 'dayjs'
 import type { ColumnsType } from 'antd/es/table'
@@ -158,6 +159,7 @@ const Settlement = () => {
   const [selectedSettlement, setSelectedSettlement] = useState<MySettlement | null>(null)
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
+  const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([dayjs().subtract(30, 'day'), dayjs()])
 
   // 响应式检测
   const checkMobile = useCallback(() => {
@@ -181,34 +183,35 @@ const Settlement = () => {
     return () => window.removeEventListener('resize', checkMobile)
   }, [checkMobile])
 
-  // 获取我的清算记录
-  const fetchSettlements = useCallback(async () => {
+  // 获取我的清算记录（带重试）
+  const fetchSettlements = useCallback(async (startDate?: string, endDate?: string) => {
     setLoading(true)
-    try {
-      const res: any = await settlementApi.getMySettlements({ page: 1, pageSize: 100 })
-      if (res.success) {
-        setSettlements(res.data.list)
-      }
-    } catch (error) {
-      console.error('获取清算记录失败:', error)
-    } finally {
-      setLoading(false)
+    const params: any = { page: 1, pageSize: 100 }
+    if (startDate && endDate) {
+      params.startDate = startDate
+      params.endDate = endDate
     }
+    const res = await apiCall(
+      () => settlementApi.getMySettlements(params),
+      { errorMessage: '获取清算记录失败，请稍后重试', showError: true }
+    )
+    if (res?.success) {
+      setSettlements(res.data.list)
+    }
+    setLoading(false)
   }, [])
 
-  // 获取我的清算统计
+  // 获取我的清算统计（带重试）
   const fetchStats = useCallback(async () => {
     setStatsLoading(true)
-    try {
-      const res: any = await settlementApi.getMySettlementStats()
-      if (res.success) {
-        setStats(res.data)
-      }
-    } catch (error) {
-      console.error('获取清算统计失败:', error)
-    } finally {
-      setStatsLoading(false)
+    const res = await apiCall(
+      () => settlementApi.getMySettlementStats(),
+      { errorMessage: '获取清算统计失败', showError: false }
+    )
+    if (res?.success) {
+      setStats(res.data)
     }
+    setStatsLoading(false)
   }, [])
 
   useEffect(() => {
@@ -220,6 +223,43 @@ const Settlement = () => {
   const handleViewDetail = (record: MySettlement) => {
     setSelectedSettlement(record)
     setIsDetailModalOpen(true)
+  }
+
+  // 日期范围变化
+  const handleDateRangeChange = (dates: any) => {
+    if (dates && dates.length === 2) {
+      setDateRange([dates[0], dates[1]])
+    }
+  }
+
+  // 查询按钮
+  const handleQuery = () => {
+    fetchSettlements(dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD'))
+  }
+
+  // 导出CSV
+  const handleExport = () => {
+    if (settlements.length === 0) return
+    
+    const headers = ['清算日期', '药品名称', '药品编码', '当日销售额', '净利润', '本金退回', '收益分成', '亏损承担', '净收入']
+    const rows = settlements.map(s => [
+      dayjs(s.settlementDate).format('YYYY-MM-DD'),
+      s.drugName,
+      s.drugCode,
+      s.totalSalesRevenue.toFixed(2),
+      s.netProfit.toFixed(2),
+      s.myPrincipalReturn.toFixed(2),
+      s.myProfitShare.toFixed(2),
+      s.myLossShare.toFixed(2),
+      s.myNetIncome.toFixed(2)
+    ])
+    
+    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+    const blob = new Blob(['\ufeff' + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const link = document.createElement('a')
+    link.href = URL.createObjectURL(blob)
+    link.download = `清算记录_${dayjs().format('YYYYMMDD')}.csv`
+    link.click()
   }
 
   const columns: ColumnsType<MySettlement> = [
@@ -395,12 +435,14 @@ const Settlement = () => {
         >
           <RangePicker 
             className="settlement-range-picker"
-            defaultValue={[dayjs().subtract(30, 'day'), dayjs()]}
+            value={dateRange}
+            onChange={handleDateRangeChange}
           />
           <Button 
             type="primary"
             className="settlement-query-btn"
             style={{ width: isMobile ? '100%' : 'auto' }}
+            onClick={handleQuery}
           >
             查询
           </Button>
@@ -408,6 +450,8 @@ const Settlement = () => {
             icon={<DownloadOutlined />}
             className="settlement-export-btn"
             style={{ width: isMobile ? '100%' : 'auto' }}
+            onClick={handleExport}
+            disabled={settlements.length === 0}
           >
             导出
           </Button>

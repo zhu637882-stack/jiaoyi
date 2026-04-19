@@ -11,8 +11,8 @@ import { useWebSocket } from '../hooks/useWebSocket'
 import { wsService } from '../services/websocket'
 import KLineChart, { KLineData } from '../components/KLineChart'
 import TickerBar from '../components/TickerBar'
-import OrderBook from '../components/OrderBook'
-import TradePanel from '../components/TradePanel'
+import SubscriptionOverview from '../components/SubscriptionOverview'
+import TradePanelPro from '../components/TradePanelPro'
 import './Dashboard.css'
 import dayjs from 'dayjs'
 
@@ -113,6 +113,7 @@ interface MarketOverviewItem {
   drugCode: string
   purchasePrice: number
   sellingPrice: number
+  actualSellingPrice?: number
   dailySalesQuantity: number
   dailySalesRevenue: number
   averageSellingPrice: number
@@ -122,6 +123,8 @@ interface MarketOverviewItem {
   fundingHeat: number
   queueDepth: number
   snapshotDate: string
+  totalQuantity?: number
+  subscribedQuantity?: number
 }
 
 interface MarketStats {
@@ -132,17 +135,7 @@ interface MarketStats {
   activeFunderCount: number
 }
 
-interface DepthData {
-  ranges: {
-    min: number
-    max: number
-    label: string
-    count: number
-    amount: number
-  }[]
-  totalAmount: number
-  totalCount: number
-}
+// DepthData 接口已废弃，深度图替换为认购概览
 
 // 认购摘要类型
 interface SubscriptionSummary {
@@ -159,9 +152,8 @@ const Dashboard = () => {
   const [marketOverview, setMarketOverview] = useState<MarketOverviewItem[]>([])
   const [, setMarketStats] = useState<MarketStats | null>(null)
   const [kLineData, setKLineData] = useState<KLineData[]>([])
-  const [depthData, setDepthData] = useState<DepthData | null>(null)
   const [selectedDrugId, setSelectedDrugId] = useState<string>('')
-  const [kLinePeriod, setKLinePeriod] = useState<'15m' | '1h' | '4h' | '1d' | '1w' | '1mo' | '7d' | '30d' | '90d' | 'all'>('1d')
+  const [kLinePeriod, setKLinePeriod] = useState<'1d' | '1w' | '1mo' | '1y'>('1d')
 
   // 左侧药品面板状态
   const [marketTab, setMarketTab] = useState<'all' | 'favorites' | 'gainers' | 'losers'>('all')
@@ -226,7 +218,6 @@ const Dashboard = () => {
   const [loadingOverview, setLoadingOverview] = useState(true)
   const [, setLoadingStats] = useState(true)
   const [loadingKLine, setLoadingKLine] = useState(true)
-  const [loadingDepth, setLoadingDepth] = useState(true)
 
   // 响应式状态
   const [isMobile, setIsMobile] = useState(false)
@@ -295,20 +286,10 @@ const Dashboard = () => {
     }
   }, [])
 
-  // 获取深度数据
-  const fetchDepthData = useCallback(async (drugId: string) => {
-    if (!drugId) return
-    try {
-      setLoadingDepth(true)
-      const res: any = await marketApi.getDrugDepth(drugId)
-      if (res.success) {
-        setDepthData(res.data)
-      }
-    } catch (error) {
-      console.error('获取深度数据失败:', error)
-    } finally {
-      setLoadingDepth(false)
-    }
+  // 获取深度数据（已废弃，保留API调用以兼容）
+  const fetchDepthData = useCallback(async (_drugId: string) => {
+    // 深度图已替换为认购概览，此函数保留以兼容旧代码
+    return Promise.resolve()
   }, [])
 
   // 从localStorage加载收藏
@@ -419,10 +400,7 @@ const Dashboard = () => {
     }
   }
 
-  // 刷新数据回调
-  const handleOrderSuccess = useCallback(() => {
-    fetchDepthData(selectedDrugId)
-  }, [selectedDrugId, fetchDepthData])
+
 
   // 获取我的认购列表（活跃状态：confirmed, effective, partial_returned）
   const fetchSubscriptions = useCallback(async () => {
@@ -920,7 +898,7 @@ const Dashboard = () => {
                 <div className="stat-item">
                   <span className="stat-label">24h最高</span>
                   <span className="stat-value">
-                    {Number(selectedDrug.sellingPrice || 0).toFixed(2)}
+                    {Number(selectedDrug.averageSellingPrice || selectedDrug.sellingPrice || 0).toFixed(2)}
                   </span>
                 </div>
                 <div className="stat-item">
@@ -956,11 +934,19 @@ const Dashboard = () => {
             />
           </div>
 
-          {/* 底部区域 - OrderBook + Tab面板 */}
+          {/* 底部区域 - 认购概览 + Tab面板 */}
           <div className="bottom-area">
-            {/* 左侧：OrderBook */}
+            {/* 左侧：认购概览 */}
             <div className="orderbook-section">
-              <OrderBook data={depthData} loading={loadingDepth} />
+              <SubscriptionOverview
+                drugName={selectedDrug?.drugName}
+                purchasePrice={selectedDrug?.purchasePrice}
+                sellingPrice={selectedDrug?.sellingPrice}
+                actualSellingPrice={selectedDrug?.actualSellingPrice}
+                totalQuantity={selectedDrug?.totalQuantity}
+                subscribedQuantity={selectedDrug?.subscribedQuantity}
+                loading={loadingOverview}
+              />
             </div>
 
             {/* 右侧：Tab面板 */}
@@ -1395,7 +1381,7 @@ const Dashboard = () => {
 
         {/* 右侧交易面板 */}
         <aside className={`trade-panel-container ${tradePanelHighlight ? 'highlight' : ''}`}>
-          <TradePanel drug={selectedDrug || null} onOrderSuccess={handleOrderSuccess} />
+          <TradePanelPro drug={selectedDrug || null} />
         </aside>
       </div>
 
@@ -1412,14 +1398,14 @@ const Dashboard = () => {
         open={showTradeDrawer}
         onClose={() => setShowTradeDrawer(false)}
         placement="right"
-        width={320}
+        width={360}
         closable={false}
         styles={{
           body: { padding: 0, background: '#161B22' },
           wrapper: { background: 'rgba(0, 0, 0, 0.5)' },
         }}
       >
-        <TradePanel drug={selectedDrug || null} onOrderSuccess={handleOrderSuccess} />
+        <TradePanelPro drug={selectedDrug || null} />
       </Drawer>
     </div>
   )

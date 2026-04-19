@@ -5,11 +5,12 @@
 }
 
 :root {
-  /* ========== 颜色系统 - 与PC端完全统一 ========== */
+  /* ========== 颜色系统 - 币安风格 ========== */
   --color-bg-primary: #0B0E11;
   --color-bg-secondary: #1E2329;
   --color-bg-tertiary: #2B3139;
   --color-bg-deep: #0D1117;
+  --color-bg-card: #1E2329;
 
   --color-border: rgba(255, 255, 255, 0.06);
   --color-border-light: rgba(255, 255, 255, 0.08);
@@ -18,16 +19,21 @@
   --color-text-secondary: #848E9C;
   --color-text-tertiary: #5E6673;
 
+  /* 币安黄 - 主强调色 */
   --color-primary: #F0B90B;
   --color-primary-light: #FCD535;
   --color-primary-dark: #D4A20A;
+  --color-primary-bg: rgba(240, 185, 11, 0.1);
+  
   --color-success: #0ECB81;
   --color-error: #F6465D;
   --color-warning: #F0B90B;
 
-  /* 涨跌色 */
+  /* 涨跌色 - 币安标准：红涨绿跌 */
   --color-rise: #F6465D;
   --color-fall: #0ECB81;
+  --color-rise-bg: rgba(246, 70, 93, 0.15);
+  --color-fall-bg: rgba(14, 203, 129, 0.15);
 
   /* ========== 字体系统 ========== */
   --font-family-base: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
@@ -154,8 +160,50 @@ input[type="number"] {
 /* 涨跌色工具类 */
 .text-rise { color: var(--color-rise); }
 .text-fall { color: var(--color-fall); }
-.bg-rise { background-color: rgba(246, 70, 93, 0.12); }
-.bg-fall { background-color: rgba(14, 203, 129, 0.12); }
+.bg-rise { background-color: var(--color-rise-bg); }
+.bg-fall { background-color: var(--color-fall-bg); }
+
+/* 币安风格标签 */
+.tag-rise {
+  background: var(--color-rise-bg);
+  color: var(--color-rise);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tag-fall {
+  background: var(--color-fall-bg);
+  color: var(--color-fall);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+/* 币安风格按钮 */
+.btn-binance {
+  background: var(--color-primary);
+  color: #181A20;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  padding: 12px 24px;
+  transition: all 0.2s ease;
+}
+
+.btn-binance:active {
+  background: var(--color-primary-dark);
+  transform: scale(0.98);
+}
+
+/* 卡片样式 */
+.card-binance {
+  background: var(--color-bg-card);
+  border-radius: 12px;
+  border: 1px solid var(--color-border);
+}
 
 /* ========== 全局动画系统 ========== */
 

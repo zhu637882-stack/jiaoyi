@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Popup, NumberKeyboard, Toast, Button } from 'antd-mobile'
+import { Popup, Toast } from 'antd-mobile'
 import { marketApi, drugApi, subscriptionApi, paymentApi } from '../services/api'
 import { wsService } from '../services/websocket'
 import './Trade.css'
@@ -70,7 +70,172 @@ const Trade: React.FC = () => {
       if (chartInstanceRef.current) {
         dispose(chartRef.current)
       }
-      const chart = init(chartRef.current)
+      
+      // 币安风格K线图配置
+      const chart = init(chartRef.current, {
+        styles: {
+          candle: {
+            bar: {
+              upColor: '#F6465D',
+              downColor: '#0ECB81',
+              noChangeColor: '#848E9C',
+              upBorderColor: '#F6465D',
+              downBorderColor: '#0ECB81',
+              noChangeBorderColor: '#848E9C',
+              upWickColor: '#F6465D',
+              downWickColor: '#0ECB81',
+              noChangeWickColor: '#848E9C',
+            },
+            priceMark: {
+              last: {
+                upColor: '#F6465D',
+                downColor: '#0ECB81',
+                noChangeColor: '#848E9C',
+                line: {
+                  show: true,
+                  style: 'dashed',
+                  dashedValue: [4, 4],
+                  size: 1,
+                },
+                text: {
+                  show: true,
+                  color: '#F0B90B',
+                  size: 12,
+                  paddingLeft: 4,
+                  paddingRight: 4,
+                  paddingTop: 4,
+                  paddingBottom: 4,
+                  borderRadius: 4,
+                },
+              },
+            },
+            tooltip: {
+              showRule: 'follow_cross',
+              showType: 'rect',
+              rect: {
+                paddingLeft: 8,
+                paddingRight: 8,
+                paddingTop: 8,
+                paddingBottom: 8,
+                offsetLeft: 20,
+                offsetTop: 8,
+                offsetRight: 20,
+                offsetBottom: 8,
+                borderRadius: 4,
+                borderSize: 1,
+                borderColor: '#2B3139',
+                color: 'rgba(30, 35, 41, 0.95)',
+              },
+            },
+          },
+          grid: {
+            show: true,
+            horizontal: {
+              show: true,
+              size: 1,
+              color: '#2B3139',
+              style: 'solid',
+              dashedValue: [2, 2],
+            },
+            vertical: {
+              show: true,
+              size: 1,
+              color: '#2B3139',
+              style: 'solid',
+              dashedValue: [2, 2],
+            },
+          },
+          xAxis: {
+            show: true,
+            size: 'auto',
+            axisLine: {
+              show: true,
+              color: '#2B3139',
+              size: 1,
+            },
+            tickText: {
+              show: true,
+              color: '#848E9C',
+              size: 10,
+              family: 'SF Pro Display, -apple-system, sans-serif',
+              marginStart: 4,
+              marginEnd: 4,
+            },
+            tickLine: {
+              show: false,
+            },
+          },
+          yAxis: {
+            show: true,
+            size: 'auto',
+            axisLine: {
+              show: false,
+            },
+            tickText: {
+              show: true,
+              color: '#848E9C',
+              size: 10,
+              family: 'SF Pro Display, -apple-system, sans-serif',
+              marginStart: 4,
+              marginEnd: 4,
+            },
+            tickLine: {
+              show: false,
+            },
+          },
+          crosshair: {
+            show: true,
+            horizontal: {
+              show: true,
+              line: {
+                show: true,
+                style: 'dashed',
+                dashedValue: [4, 4],
+                size: 1,
+                color: '#F0B90B',
+              },
+              text: {
+                show: true,
+                color: '#181A20',
+                backgroundColor: '#F0B90B',
+                size: 10,
+                paddingLeft: 4,
+                paddingRight: 4,
+                paddingTop: 2,
+                paddingBottom: 2,
+                borderRadius: 2,
+              },
+            },
+            vertical: {
+              show: true,
+              line: {
+                show: true,
+                style: 'dashed',
+                dashedValue: [4, 4],
+                size: 1,
+                color: '#F0B90B',
+              },
+              text: {
+                show: true,
+                color: '#181A20',
+                backgroundColor: '#F0B90B',
+                size: 10,
+                paddingLeft: 4,
+                paddingRight: 4,
+                paddingTop: 2,
+                paddingBottom: 2,
+                borderRadius: 2,
+              },
+            },
+          },
+          separator: {
+            size: 1,
+            color: '#2B3139',
+            fill: true,
+          },
+        },
+      })
+      
       chartInstanceRef.current = chart
 
       const formattedData = klineData.map((item: any) => ({
@@ -84,8 +249,26 @@ const Trade: React.FC = () => {
 
       if (chart) {
         (chart as any).applyNewData(formattedData)
-        ;(chart as any).createIndicator('MA', false, { id: 'candle_pane' })
-        ;(chart as any).createIndicator('VOL')
+        // 添加MA均线
+        ;(chart as any).createIndicator('MA', false, { 
+          id: 'candle_pane',
+          params: [5, 10, 20],
+          styles: {
+            lines: [
+              { color: '#F0B90B', size: 1 },
+              { color: '#848E9C', size: 1 },
+              { color: '#0ECB81', size: 1 },
+            ],
+          },
+        })
+        // 添加成交量
+        ;(chart as any).createIndicator('VOL', true, {
+          styles: {
+            bars: [
+              { upColor: 'rgba(246, 70, 93, 0.6)', downColor: 'rgba(14, 203, 129, 0.6)' },
+            ],
+          },
+        })
       }
     } catch (e) {
       console.error('Render chart error:', e)
@@ -101,11 +284,22 @@ const Trade: React.FC = () => {
       Toast.show({ content: '请输入认购数量', icon: 'fail' })
       return
     }
+    if (Number(quantity) > (drug?.remainingQuantity || 0)) {
+      Toast.show({ content: '认购数量超过剩余份额', icon: 'fail' })
+      return
+    }
     setSubscribeLoading(true)
     try {
       if (payChannel === 'balance') {
-        await subscriptionApi.createSubscription({ drugId: String(drugId), quantity: Number(quantity) })
+        const res = await subscriptionApi.createSubscription({ 
+          drugId: String(drugId), 
+          quantity: Number(quantity) 
+        }) as any
         Toast.show({ content: '认购成功', icon: 'success' })
+        setShowSubscribe(false)
+        setQuantity('')
+        // 刷新药品数据
+        loadDrugData()
       } else {
         const res = await paymentApi.createSubscriptionPayment({
           drugId: String(drugId),
@@ -116,15 +310,22 @@ const Trade: React.FC = () => {
         // 如果返回了支付链接，需要跳转
         if (payData?.qrUrl || payData?.payUrl) {
           window.open(payData.qrUrl || payData.payUrl, '_blank')
-          Toast.show({ content: '请完成支付', icon: 'success' })
+          Toast.show({ content: '请在新窗口完成支付', icon: 'success', duration: 3000 })
+          setShowSubscribe(false)
+          setQuantity('')
+        } else if (payData?.codeUrl) {
+          // 微信支付二维码
+          Toast.show({ content: '请使用微信扫码支付', icon: 'success', duration: 3000 })
         } else {
           Toast.show({ content: '订单已创建', icon: 'success' })
+          setShowSubscribe(false)
+          setQuantity('')
         }
       }
-      setShowSubscribe(false)
-      setQuantity('')
-    } catch (e) {
+    } catch (e: any) {
       console.error('Subscribe error:', e)
+      const errorMsg = e?.response?.data?.message || e?.message || '认购失败，请重试'
+      Toast.show({ content: errorMsg, icon: 'fail' })
     } finally {
       setSubscribeLoading(false)
     }
@@ -185,15 +386,12 @@ const Trade: React.FC = () => {
       <div className="mobile-trade-chart" ref={chartRef} />
 
       <div className="mobile-trade-bottom">
-        <Button
-          block
-          color="primary"
-          size="large"
+        <button
+          className="btn-subscribe-binance"
           onClick={() => setShowSubscribe(true)}
-          style={{ '--background-color': '#F0B90B', '--border-color': '#F0B90B', borderRadius: 8 }}
         >
           立即认购
-        </Button>
+        </button>
       </div>
 
       <Popup
@@ -216,8 +414,10 @@ const Trade: React.FC = () => {
               type="number"
               placeholder="输入认购数量"
               value={quantity}
-              onChange={e => setQuantity(e.target.value)}
+              onChange={e => setQuantity(e.target.value.replace(/[^0-9]/g, ''))}
               className="subscribe-input"
+              min="1"
+              max={drug?.remainingQuantity || 999999}
             />
           </div>
           {quantity && Number(quantity) > 0 && (
@@ -236,16 +436,14 @@ const Trade: React.FC = () => {
               <span>🟢 微信支付</span>
             </div>
           </div>
-          <Button
-            block
-            color="primary"
-            size="large"
-            loading={subscribeLoading}
+          <button
+            className="btn-subscribe-binance"
+            disabled={subscribeLoading}
             onClick={handleSubscribe}
-            style={{ '--background-color': '#F0B90B', '--border-color': '#F0B90B', borderRadius: 8, marginTop: 16 }}
+            style={{ marginTop: 16 }}
           >
-            确认认购
-          </Button>
+            {subscribeLoading ? '认购中...' : '确认认购'}
+          </button>
         </div>
       </Popup>
     </div>

@@ -46,6 +46,8 @@ interface Drug {
   code: string
   purchasePrice: number
   sellingPrice: number
+  actualSellingPrice?: number
+  actualPriceUpdatedAt?: string
   totalQuantity: number
   fundedQuantity: number
   remainingQuantity: number
@@ -449,6 +451,7 @@ const Admin = () => {
       code: record.code,
       purchasePrice: record.purchasePrice,
       sellingPrice: record.sellingPrice,
+      actualSellingPrice: record.actualSellingPrice,
       totalQuantity: record.totalQuantity,
       batchNo: record.batchNo,
       operationFeeRate: record.operationFeeRate,
@@ -463,15 +466,32 @@ const Admin = () => {
       const values = await drugForm.validateFields()
       setSubmitLoading(true)
 
+      // 只保留后端需要的字段，清理可能存在的旧字段
+      const cleanValues: any = {
+        name: values.name,
+        code: values.code,
+        purchasePrice: values.purchasePrice,
+        sellingPrice: values.sellingPrice,
+        totalQuantity: values.totalQuantity,
+        batchNo: values.batchNo,
+        operationFeeRate: values.operationFeeRate,
+        slowSellingDays: values.slowSellingDays,
+      }
+      
+      // 编辑时如果有实际成交价，也提交
+      if (editingDrug && values.actualSellingPrice !== undefined) {
+        cleanValues.actualSellingPrice = values.actualSellingPrice
+      }
+
       if (editingDrug) {
-        const res: any = await drugApi.updateDrug(editingDrug.id, values)
+        const res: any = await drugApi.updateDrug(editingDrug.id, cleanValues)
         if (res.success) {
           message.success('药品更新成功')
           setIsDrugModalOpen(false)
           fetchDrugs()
         }
       } else {
-        const res: any = await drugApi.createDrug(values)
+        const res: any = await drugApi.createDrug(cleanValues)
         if (res.success) {
           message.success('药品创建成功')
           setIsDrugModalOpen(false)
@@ -2805,8 +2825,8 @@ const Admin = () => {
             </Form.Item>
             <Form.Item
               name="sellingPrice"
-              label="售价 (¥)"
-              rules={[{ required: true, message: '请输入售价' }]}
+              label="估价 (¥)"
+              rules={[{ required: true, message: '请输入估价' }]}
             >
               <InputNumber
                 min={0}
@@ -2816,6 +2836,29 @@ const Admin = () => {
               />
             </Form.Item>
           </div>
+
+          {editingDrug && (
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)' }}>
+              <Form.Item
+                name="actualSellingPrice"
+                label="实际成交价 (¥)"
+              >
+                <InputNumber
+                  min={0}
+                  precision={2}
+                  placeholder="财务每日填写"
+                  style={{ width: '100%' }}
+                />
+              </Form.Item>
+              <Form.Item label="最后更新">
+                <Text type="secondary">
+                  {editingDrug?.actualPriceUpdatedAt 
+                    ? dayjs(editingDrug.actualPriceUpdatedAt).format('YYYY-MM-DD HH:mm')
+                    : '未更新'}
+                </Text>
+              </Form.Item>
+            </div>
+          )}
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)' }}>
             <Form.Item
