@@ -23,6 +23,100 @@ export class AccountService {
     private auditService: AuditService,
   ) {}
 
+  /**
+   * 管理员手动调整用户余额
+   */
+  async adjustBalance(
+    userId: string,
+    amount: number,
+    reason: string,
+    adminUserId: string,
+  ) {
+    if (amount === 0) {
+      throw new BadRequestException('调整金额不能为0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 查询并锁定用户余额
+      let balance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!balance) {
+        // 如果没有余额记录，创建一个
+        balance = queryRunner.manager.create(AccountBalance, {
+          userId,
+          availableBalance: 0,
+          frozenBalance: 0,
+          totalProfit: 0,
+          totalInvested: 0,
+        });
+        await queryRunner.manager.save(balance);
+      }
+
+      const previousBalance = Number(balance.availableBalance);
+      const newBalance = Number((previousBalance + amount).toFixed(2));
+
+      // 减少时需校验余额不能为负
+      if (newBalance < 0) {
+        throw new BadRequestException(
+          `可用余额不足，当前可用余额: ${previousBalance}，调整金额: ${amount}`,
+        );
+      }
+
+      // 更新余额
+      balance.availableBalance = newBalance;
+      await queryRunner.manager.save(balance);
+
+      // 创建交易流水
+      const transaction = queryRunner.manager.create(AccountTransaction, {
+        userId,
+        type: TransactionType.ADMIN_ADJUST,
+        amount,
+        balanceBefore: previousBalance,
+        balanceAfter: newBalance,
+        description: `管理员手动调整: ${reason}`,
+      });
+      await queryRunner.manager.save(transaction);
+
+      await queryRunner.commitTransaction();
+
+      // 记录审计日志
+      await this.auditService.log({
+        userId: adminUserId,
+        action: 'ADMIN_ADJUST_BALANCE',
+        targetType: 'account',
+        targetId: userId,
+        detail: {
+          targetUserId: userId,
+          adjustAmount: amount,
+          previousBalance,
+          newBalance,
+          reason,
+        },
+      });
+
+      return {
+        success: true,
+        userId,
+        previousBalance,
+        newBalance,
+        adjustAmount: amount,
+        reason,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
   async getBalance(userId: string) {
     const balance = await this.accountBalanceRepository.findOne({
       where: { userId },
@@ -98,9 +192,11 @@ export class AccountService {
       type?: string;
       page?: number;
       pageSize?: number;
+      startDate?: string;
+      endDate?: string;
     } = {},
   ) {
-    const { type, page = 1, pageSize = 10 } = options;
+    const { type, page = 1, pageSize = 10, startDate, endDate } = options;
 
     const queryBuilder = this.accountTransactionRepository
       .createQueryBuilder('transaction')
@@ -109,6 +205,14 @@ export class AccountService {
 
     if (type) {
       queryBuilder.andWhere('transaction.type = :type', { type });
+    }
+
+    if (startDate) {
+      queryBuilder.andWhere('transaction.createdAt >= :startDate', { startDate: new Date(startDate) });
+    }
+
+    if (endDate) {
+      queryBuilder.andWhere('transaction.createdAt <= :endDate', { endDate: new Date(endDate) });
     }
 
     const total = await queryBuilder.getCount();

@@ -399,7 +399,15 @@ export class WechatPayService implements OnModuleInit {
    */
   private async verifyNotifyV2(body: string): Promise<{ verified: boolean; data?: Record<string, string> }> {
     try {
-      const data = await this.parseXml(body);
+      let data: Record<string, string>;
+
+      // 兼容：body可能已被NestJS解析为JSON对象/字符串（某些body-parser配置下）
+      if (typeof body === 'string' && body.trim().startsWith('{')) {
+        data = JSON.parse(body);
+      } else {
+        data = await this.parseXml(body);
+      }
+
       const sign = data.sign;
       delete data.sign;
       const calculatedSign = this.generateSign(data, this.apiKey);
@@ -543,5 +551,317 @@ export class WechatPayService implements OnModuleInit {
    */
   getPayMode(): string {
     return this.payMode;
+  }
+
+  // ==================== H5 支付 ====================
+
+  /**
+   * 创建 H5 支付订单（移动端网页支付）
+   * trade_type = MWEB，返回 mweb_url 供前端跳转
+   */
+  async createH5Order(
+    outTradeNo: string,
+    amount: number,
+    description: string,
+    clientIp: string,
+  ): Promise<{ mwebUrl: string; mockMode?: boolean }> {
+    if (this.isMockMode()) {
+      const mockTradeNo = `MOCK_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      this.logger.log(`[Mock模式] 创建微信H5支付订单: ${outTradeNo}, 金额: ${amount}`);
+      return {
+        mwebUrl: `https://mock-payment.example.com/wechat/h5/${mockTradeNo}`,
+        mockMode: true,
+      };
+    }
+
+    if (this.payMode === 'v3') {
+      return this.createH5OrderV3(outTradeNo, amount, description, clientIp);
+    } else {
+      return this.createH5OrderV2(outTradeNo, amount, description, clientIp);
+    }
+  }
+
+  /**
+   * V3 创建 H5 订单
+   */
+  private async createH5OrderV3(
+    outTradeNo: string,
+    amount: number,
+    description: string,
+    clientIp: string,
+  ): Promise<{ mwebUrl: string }> {
+    const params: Record<string, any> = {
+      appid: this.configService.get('WECHAT_APP_ID'),
+      mchid: this.configService.get('WECHAT_MCH_ID'),
+      description,
+      out_trade_no: outTradeNo,
+      notify_url: this.configService.get('WECHAT_NOTIFY_URL'),
+      amount: {
+        total: Math.round(amount * 100),
+        currency: 'CNY',
+      },
+      scene_info: {
+        payer_client_ip: clientIp,
+        h5_info: {
+          type: 'Wap',
+        },
+      },
+    };
+
+    try {
+      const result = await this.wxpayV3.transactions_h5(params);
+      this.logger.log(`[V3] 微信H5创建订单成功: ${outTradeNo}`);
+
+      if (result.h5_url) {
+        return { mwebUrl: result.h5_url };
+      } else {
+        throw new Error(result.message || 'V3创建H5订单未返回h5_url');
+      }
+    } catch (error) {
+      this.logger.error(`[V3] 微信H5创建订单失败: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * V2 创建 H5 订单
+   */
+  private async createH5OrderV2(
+    outTradeNo: string,
+    amount: number,
+    description: string,
+    clientIp: string,
+  ): Promise<{ mwebUrl: string }> {
+    const appId = this.configService.get('WECHAT_APP_ID');
+    const mchId = this.configService.get('WECHAT_MCH_ID');
+    const notifyUrl = this.configService.get('WECHAT_NOTIFY_URL');
+    const totalFee = Math.round(amount * 100);
+
+    const params: Record<string, string> = {
+      appid: appId,
+      mch_id: mchId,
+      nonce_str: this.generateNonceStr(),
+      body: description,
+      out_trade_no: outTradeNo,
+      total_fee: String(totalFee),
+      spbill_create_ip: clientIp,
+      notify_url: notifyUrl,
+      trade_type: 'MWEB',
+    };
+
+    params.sign = this.generateSign(params, this.apiKey);
+    const xml = this.buildXml(params);
+
+    try {
+      const response = await axios.post(
+        'https://api.mch.weixin.qq.com/pay/unifiedorder',
+        xml,
+        { headers: { 'Content-Type': 'application/xml' } },
+      );
+
+      const result = await this.parseXml(response.data);
+      this.logger.log(`[V2] 微信H5创建订单结果: ${JSON.stringify(result)}`);
+
+      if (result.return_code === 'SUCCESS' && result.result_code === 'SUCCESS') {
+        return { mwebUrl: result.mweb_url };
+      } else {
+        const errMsg = result.err_code_des || result.return_msg || 'V2创建微信H5支付订单失败';
+        const errCode = result.err_code ? `(${result.err_code})` : '';
+        throw new Error(`${errCode}${errMsg}`);
+      }
+    } catch (error) {
+      this.logger.error(`[V2] 微信H5创建订单失败: ${error.message}`);
+      throw error;
+    }
+  }
+
+  // ==================== JSAPI 支付 ====================
+
+  /**
+   * 创建 JSAPI 支付订单（微信浏览器内支付）
+   * trade_type = JSAPI，需要 openId
+   * 返回前端调起支付所需的参数
+   */
+  async createJsapiOrder(
+    outTradeNo: string,
+    amount: number,
+    description: string,
+    clientIp: string,
+    openId: string,
+  ): Promise<{
+    appId: string;
+    timeStamp: string;
+    nonceStr: string;
+    package: string;
+    signType: string;
+    paySign: string;
+    mockMode?: boolean;
+  }> {
+    const appId = this.configService.get('WECHAT_APP_ID') as string;
+    if (this.isMockMode()) {
+      this.logger.log(`[Mock模式] 创建微信JSAPI支付订单: ${outTradeNo}, 金额: ${amount}`);
+      return {
+        appId,
+        timeStamp: String(Math.floor(Date.now() / 1000)),
+        nonceStr: this.generateNonceStr(),
+        package: `prepay_id=mock_${Date.now()}`,
+        signType: 'MD5',
+        paySign: 'MOCK_SIGN',
+        mockMode: true,
+      };
+    }
+
+    if (this.payMode === 'v3') {
+      const result = await this.createJsapiOrderV3(outTradeNo, amount, description, clientIp, openId);
+      return { appId, ...result };
+    } else {
+      const result = await this.createJsapiOrderV2(outTradeNo, amount, description, clientIp, openId);
+      return { appId, ...result };
+    }
+  }
+
+  /**
+   * V3 创建 JSAPI 订单
+   */
+  private async createJsapiOrderV3(
+    outTradeNo: string,
+    amount: number,
+    description: string,
+    clientIp: string,
+    openId: string,
+  ): Promise<{
+    timeStamp: string;
+    nonceStr: string;
+    package: string;
+    signType: string;
+    paySign: string;
+  }> {
+    const params: Record<string, any> = {
+      appid: this.configService.get('WECHAT_APP_ID'),
+      mchid: this.configService.get('WECHAT_MCH_ID'),
+      description,
+      out_trade_no: outTradeNo,
+      notify_url: this.configService.get('WECHAT_NOTIFY_URL'),
+      amount: {
+        total: Math.round(amount * 100),
+        currency: 'CNY',
+      },
+      payer: {
+        openid: openId,
+      },
+    };
+
+    try {
+      const result = await this.wxpayV3.transactions_jsapi(params);
+      this.logger.log(`[V3] 微信JSAPI创建订单成功: ${outTradeNo}`);
+
+      if (result.prepay_id) {
+        // V3 使用 APIv3 密钥签名
+        const timeStamp = String(Math.floor(Date.now() / 1000));
+        const nonceStr = this.generateNonceStr();
+        const packageStr = `prepay_id=${result.prepay_id}`;
+        
+        // V3 签名：使用私钥对字符串签名
+        const signStr = `${this.configService.get('WECHAT_APP_ID')}\n${timeStamp}\n${nonceStr}\n${packageStr}\n`;
+        const paySign = crypto.createSign('RSA-SHA256').update(signStr).sign(
+          this.wxpayV3.privateKey || '',
+          'base64'
+        );
+
+        return {
+          timeStamp,
+          nonceStr,
+          package: packageStr,
+          signType: 'RSA',
+          paySign,
+        };
+      } else {
+        throw new Error(result.message || 'V3创建JSAPI订单未返回prepay_id');
+      }
+    } catch (error) {
+      this.logger.error(`[V3] 微信JSAPI创建订单失败: ${error.message}`);
+      throw error;
+    }
+  }
+
+  /**
+   * V2 创建 JSAPI 订单
+   */
+  private async createJsapiOrderV2(
+    outTradeNo: string,
+    amount: number,
+    description: string,
+    clientIp: string,
+    openId: string,
+  ): Promise<{
+    timeStamp: string;
+    nonceStr: string;
+    package: string;
+    signType: string;
+    paySign: string;
+  }> {
+    const appId = this.configService.get('WECHAT_APP_ID');
+    const mchId = this.configService.get('WECHAT_MCH_ID');
+    const notifyUrl = this.configService.get('WECHAT_NOTIFY_URL');
+    const totalFee = Math.round(amount * 100);
+
+    const params: Record<string, string> = {
+      appid: appId,
+      mch_id: mchId,
+      nonce_str: this.generateNonceStr(),
+      body: description,
+      out_trade_no: outTradeNo,
+      total_fee: String(totalFee),
+      spbill_create_ip: clientIp,
+      notify_url: notifyUrl,
+      trade_type: 'JSAPI',
+      openid: openId,
+    };
+
+    params.sign = this.generateSign(params, this.apiKey);
+    const xml = this.buildXml(params);
+
+    try {
+      const response = await axios.post(
+        'https://api.mch.weixin.qq.com/pay/unifiedorder',
+        xml,
+        { headers: { 'Content-Type': 'application/xml' } },
+      );
+
+      const result = await this.parseXml(response.data);
+      this.logger.log(`[V2] 微信JSAPI创建订单结果: ${JSON.stringify(result)}`);
+
+      if (result.return_code === 'SUCCESS' && result.result_code === 'SUCCESS') {
+        const prepayId = result.prepay_id;
+        const timeStamp = String(Math.floor(Date.now() / 1000));
+        const nonceStr = this.generateNonceStr();
+        const packageStr = `prepay_id=${prepayId}`;
+
+        // V2 使用 MD5 签名
+        const paySignParams: Record<string, string> = {
+          appId,
+          timeStamp,
+          nonceStr,
+          package: packageStr,
+          signType: 'MD5',
+        };
+        const paySign = this.generateSign(paySignParams, this.apiKey);
+
+        return {
+          timeStamp,
+          nonceStr,
+          package: packageStr,
+          signType: 'MD5',
+          paySign,
+        };
+      } else {
+        const errMsg = result.err_code_des || result.return_msg || 'V2创建微信JSAPI支付订单失败';
+        const errCode = result.err_code ? `(${result.err_code})` : '';
+        throw new Error(`${errCode}${errMsg}`);
+      }
+    } catch (error) {
+      this.logger.error(`[V2] 微信JSAPI创建订单失败: ${error.message}`);
+      throw error;
+    }
   }
 }

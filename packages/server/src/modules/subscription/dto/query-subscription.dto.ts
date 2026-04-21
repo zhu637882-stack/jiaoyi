@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, IsEnum, IsInt, Min } from 'class-validator';
+import { IsOptional, IsUUID, IsEnum, IsIn, IsInt, Min } from 'class-validator';Vv
 import { Type, Transform } from 'class-transformer';
 import { SubscriptionOrderStatus } from '../../../database/entities/subscription-order.entity';
 
@@ -47,6 +47,10 @@ export class AdminQuerySubscriptionDto {
   @IsOptional()
   @IsUUID()
   userId?: string;
+
+  @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected'])
+  auditStatus?: 'pending' | 'approved' | 'rejected';
 
   @IsOptional()
   @Type(() => Number)

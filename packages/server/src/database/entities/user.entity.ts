@@ -62,6 +62,15 @@ export class User {
   @Column({ nullable: true, comment: '审核人ID' })
   reviewedBy: string;
 
+  @Column({ nullable: true, comment: '微信公众号OpenID' })
+  wechatOpenId: string;
+
+  @Column({ type: 'boolean', default: false, comment: '是否同意服务协议' })
+  agreedToAgreement: boolean;
+
+  @Column({ type: 'timestamp', nullable: true, comment: '同意协议时间' })
+  agreedAt: Date;
+
   @CreateDateColumn()
   createdAt: Date;
 

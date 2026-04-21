@@ -46,4 +46,4 @@ echo "🏗️ 在服务器上构建 Docker 镜像并启动..."
 ssh ${SERVER} "cd /d ${REMOTE_DIR} && copy .env.docker .env && docker compose up -d --build"
 
 echo "✅ 部署完成！"
-echo "🌐 访问 http://mufend.com"
+echo "🌐 访问 http://www.mufend.com"

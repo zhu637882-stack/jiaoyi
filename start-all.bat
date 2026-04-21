@@ -71,7 +71,6 @@ echo    启动完成!
 echo ==========================================
 echo.
 echo 访问地址:
-echo   http://mufend.com
 echo   http://www.mufend.com
 echo   http://103.43.188.127
 echo.

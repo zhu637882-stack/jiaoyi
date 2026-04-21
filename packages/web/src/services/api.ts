@@ -265,6 +265,14 @@ export const subscriptionApi = {
   // 管理员驳回退回
   rejectReturn: (id: string, reason: string) =>
     http.put(`/subscriptions/admin/${id}/reject-return`, { reason }),
+
+  // 获取待审核认购列表
+  getAuditPendingList: (params?: { page?: number; limit?: number }) =>
+    http.get('/subscriptions/admin/audit-pending', { params }),
+
+  // 审核认购订单
+  auditSubscription: (id: string, data: { approved: boolean; remark?: string }) =>
+    http.put(`/subscriptions/admin/${id}/audit`, data),
 }
 
 // 账户相关 API
@@ -302,6 +310,8 @@ export const accountApi = {
     http.post(`/account/admin/withdraw-orders/${id}/approve`, { bankTransactionNo }),
   adminRejectWithdraw: (id: string, rejectReason: string) =>
     http.post(`/account/admin/withdraw-orders/${id}/reject`, { rejectReason }),
+  adminAdjustBalance: (userId: string, data: { amount: number; reason: string }) =>
+    http.post(`/account/admin/balance/${userId}/adjust`, data),
 }
 
 // 持仓相关 API（已废弃，使用 subscriptionApi 替代）

@@ -1,6 +1,7 @@
 .mobile-portfolio {
   min-height: 100vh;
   background: var(--color-bg-primary);
+  padding-bottom: 80px;
 }
 
 .mobile-portfolio-header {
@@ -17,121 +18,589 @@
   letter-spacing: 0.5px;
 }
 
-.mobile-portfolio-balance {
+/* 账户概览 */
+.portfolio-account-overview {
+  padding: 0 16px 16px;
+}
+
+.overview-main-card {
+  background: linear-gradient(135deg, rgba(240, 185, 11, 0.15) 0%, rgba(240, 185, 11, 0.05) 100%);
+  border-radius: var(--radius-xl);
+  padding: 14px 16px;
+  border: 1px solid rgba(240, 185, 11, 0.2);
+  animation: fadeInUp 0.5s ease-out;
+}
+
+.overview-main-header {
   display: flex;
-  margin: 0 16px 12px;
-  padding: 18px 16px;
-  background: linear-gradient(135deg, rgba(240, 185, 11, 0.08) 0%, rgba(14, 203, 129, 0.04) 100%);
-  border-radius: var(--radius-lg);
-  border: 1px solid rgba(240, 185, 11, 0.1);
-  animation: fadeInUp 0.4s ease-out;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
-.balance-item {
-  flex: 1;
-  text-align: center;
+.overview-main-label {
+  font-size: 13px;
+  color: #848E9C;
+  font-weight: 500;
 }
 
-.balance-item + .balance-item {
-  border-left: 1px solid var(--color-border-light);
+.overview-actions {
+  display: flex;
+  gap: 8px;
 }
 
-.balance-label {
-  display: block;
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-  margin-bottom: 6px;
-  letter-spacing: 0.5px;
-}
-
-.balance-value {
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.balance-value.profit { color: var(--color-rise); }
-.balance-value.loss { color: var(--color-fall); }
-
-.mobile-portfolio-list {
-  padding: 8px 16px;
-  padding-bottom: 70px;
-}
-
-.portfolio-card {
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  padding: 16px;
-  margin-bottom: 10px;
-  border: 1px solid var(--color-border);
-  animation: fadeInUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+.btn-recharge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: linear-gradient(135deg, #F0B90B 0%, #D4A00A 100%);
+  border: none;
+  border-radius: 20px;
+  color: #1A1A1A;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
   transition: all 0.3s ease;
 }
 
-.portfolio-card:active {
-  transform: scale(0.98);
-  border-color: rgba(240, 185, 11, 0.15);
+.btn-recharge:active {
+  transform: scale(0.95);
 }
 
-.portfolio-card-top {
+.btn-withdraw-outline {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 1px solid rgba(240, 185, 11, 0.5);
+  border-radius: 20px;
+  color: #F0B90B;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-withdraw-outline:active {
+  background: rgba(240, 185, 11, 0.1);
+  transform: scale(0.95);
+}
+
+.overview-main-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: #EAECEF;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 14px;
+}
+
+.overview-sub-stats {
+  display: flex;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sub-stat-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sub-stat-label {
+  font-size: 11px;
+  color: #848E9C;
+}
+
+.sub-stat-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #EAECEF;
+  font-variant-numeric: tabular-nums;
+}
+
+.sub-stat-value.profit {
+  color: var(--color-rise);
+}
+
+.sub-stat-value.loss {
+  color: var(--color-fall);
+}
+
+/* Tabs */
+.portfolio-tabs {
+  --active-line-color: #F0B90B;
+  --active-title-color: #F0B90B;
+  --title-color: #848E9C;
+}
+
+.portfolio-tabs .adm-tabs-header {
+  border-bottom: 1px solid var(--color-border);
+}
+
+.portfolio-tabs .adm-tabs-tab {
+  font-size: 13px;
+  font-weight: 500;
+}
+
+/* 内容区域 */
+.mobile-portfolio-content {
+  padding: 16px;
+  min-height: 300px;
+}
+
+/* 概览网格 */
+.portfolio-overview-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+}
+
+.portfolio-overview-card {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.overview-card-title {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.overview-card-value {
+  font-size: 18px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 收益图表卡片 */
+.portfolio-yield-chart-card {
+  grid-column: span 2;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.portfolio-yield-chart-card.large {
+  min-height: 200px;
+}
+
+.yield-chart-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
 }
 
-.portfolio-drug-name {
-  font-size: 16px;
+.yield-chart-title {
+  font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-primary);
-  letter-spacing: 0.3px;
+  color: var(--color-text-secondary);
 }
 
-.portfolio-status {
+.yield-chart-total {
   font-size: 12px;
+  color: var(--color-primary);
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 4px;
-  background: rgba(14, 203, 129, 0.1);
 }
 
-.portfolio-card-mid {
+.yield-chart-loading {
   display: flex;
-  margin-bottom: 12px;
-  padding: 10px 0;
-  border-top: 1px solid var(--color-border);
-  border-bottom: 1px solid var(--color-border);
+  justify-content: center;
+  padding: 40px 0;
 }
 
-.portfolio-mid-item {
-  flex: 1;
+.yield-chart-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 0;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+  min-height: 200px;
 }
 
-.portfolio-mid-item .label {
+.yield-chart-subtitle {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+  font-weight: 400;
+}
+
+.yield-svg-chart {
+  width: 100%;
+  height: auto;
   display: block;
+}
+
+/* 收益汇总 */
+.yield-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.yield-summary-card {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 14px;
+  border: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.yield-summary-label {
   font-size: 11px;
   color: var(--color-text-tertiary);
-  margin-bottom: 4px;
 }
 
-.portfolio-mid-item .value {
-  font-size: 15px;
-  color: var(--color-text-primary);
-  font-weight: 600;
+.yield-summary-value {
+  font-size: 16px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
-.portfolio-mid-item .value.profit { color: var(--color-rise); }
-.portfolio-mid-item .value.loss { color: var(--color-fall); }
+/* 列表内容 */
+.portfolio-list-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
-.portfolio-card-bottom {
+/* 筛选栏 */
+.portfolio-filter-bar {
+  margin-bottom: 8px;
+}
+
+.portfolio-filter-select {
+  width: 100%;
+  padding: 10px 14px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  color: var(--color-text-primary);
+  font-size: 14px;
+  outline: none;
+}
+
+.portfolio-filter-select:focus {
+  border-color: var(--color-primary);
+}
+
+/* 认购卡片 */
+.portfolio-subscription-card {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  transition: all 0.3s ease;
+}
+
+.portfolio-subscription-card:active {
+  transform: scale(0.98);
+  border-color: rgba(240, 185, 11, 0.15);
+}
+
+.sub-card-header {
   display: flex;
   justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.sub-drug-name {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.sub-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.sub-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.sub-info-row {
+  display: flex;
+  gap: 16px;
+}
+
+.sub-info-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.info-label {
   font-size: 11px;
   color: var(--color-text-tertiary);
 }
 
+.info-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.info-value.profit {
+  color: var(--color-rise);
+}
+
+.info-value.loss {
+  color: var(--color-fall);
+}
+
+.sub-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.sub-order-no {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.sub-return-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 10px;
+  background: transparent;
+  border: 1px solid var(--color-accent, #F0B90B);
+  border-radius: var(--radius-md);
+  color: var(--color-accent, #F0B90B);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.sub-return-btn:active:not(:disabled) {
+  background: rgba(240, 185, 11, 0.1);
+}
+
+.sub-return-btn:disabled,
+.sub-return-btn.disabled {
+  opacity: 0.5;
+  border-color: var(--color-text-secondary, #848E9C);
+  color: var(--color-text-secondary, #848E9C);
+  cursor: not-allowed;
+}
+
+/* 交易卡片 */
+.portfolio-transaction-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 14px 16px;
+  border: 1px solid var(--color-border);
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  transition: all 0.3s ease;
+}
+
+.portfolio-transaction-card:active {
+  transform: scale(0.98);
+  border-color: rgba(240, 185, 11, 0.15);
+}
+
+.tx-type-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.tx-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.tx-desc {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tx-time {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.tx-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.tx-amount-value {
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-amount-value.income {
+  color: var(--color-rise);
+}
+
+.tx-amount-value.expense {
+  color: var(--color-fall);
+}
+
+.tx-balance {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+/* 出金卡片 */
+.portfolio-withdraw-card {
+  background: var(--color-bg-secondary);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  border: 1px solid var(--color-border);
+  border-left: 3px solid #F0B90B;
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  transition: all 0.3s ease;
+}
+
+.portfolio-withdraw-card:active {
+  transform: scale(0.98);
+}
+
+.withdraw-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.withdraw-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.withdraw-status {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 4px;
+}
+
+.withdraw-card-body {
+  padding: 12px 0;
+  border-top: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
+  margin-bottom: 12px;
+}
+
+.withdraw-info-row {
+  display: flex;
+  gap: 16px;
+}
+
+.withdraw-info-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.withdraw-amount {
+  color: #0ECB81;
+}
+
+.withdraw-card-footer {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.withdraw-order-no {
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.withdraw-dates {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
+}
+
+.withdraw-reject-reason {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: rgba(246, 70, 93, 0.08);
+  border-radius: 6px;
+  font-size: 12px;
+  color: #F6465D;
+  border-left: 2px solid #F6465D;
+}
+
+/* 加载状态 */
+.portfolio-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 0;
+  color: var(--color-text-tertiary);
+  gap: 12px;
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-border);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* 空状态 */
 .portfolio-empty {
   display: flex;
   flex-direction: column;
@@ -139,4 +608,549 @@
   justify-content: center;
   padding: 80px 0 40px;
   animation: fadeInUp 0.6s ease-out;
+  color: var(--color-text-tertiary);
+  font-size: 14px;
+}
+
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  margin-bottom: 16px;
+  opacity: 0.5;
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 提现弹窗 */
+.mobile-withdraw-popup {
+  padding: 20px 16px 32px;
+}
+
+.withdraw-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.withdraw-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.withdraw-close:active {
+  background: var(--color-bg-tertiary);
+}
+
+.withdraw-balance-info {
+  background: linear-gradient(135deg, rgba(240, 185, 11, 0.08) 0%, rgba(14, 203, 129, 0.04) 100%);
+  border: 1px solid rgba(240, 185, 11, 0.15);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.withdraw-balance-label {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
+
+.withdraw-balance-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--color-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.withdraw-input-section {
+  margin-bottom: 20px;
+}
+
+.withdraw-input-label {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.withdraw-optional {
+  color: var(--color-text-tertiary);
+  font-size: 12px;
+}
+
+.withdraw-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0 16px;
+  height: 52px;
+  transition: all 0.2s ease;
+}
+
+.withdraw-input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  background: rgba(240, 185, 11, 0.02);
+}
+
+.withdraw-currency {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-right: 8px;
+}
+
+.withdraw-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.withdraw-input::placeholder {
+  color: var(--color-text-tertiary);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.withdraw-bank-input {
+  width: 100%;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-size: 15px;
+  color: var(--color-text-primary);
+  outline: none;
+  transition: all 0.2s ease;
+  box-sizing: border-box;
+}
+
+.withdraw-bank-input:focus {
+  border-color: var(--color-primary);
+  background: rgba(240, 185, 11, 0.02);
+}
+
+.withdraw-bank-input::placeholder {
+  color: var(--color-text-tertiary);
+}
+
+.withdraw-error {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: #F6465D;
+}
+
+.withdraw-tips {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: rgba(14, 203, 129, 0.06);
+  border-radius: 8px;
+}
+
+.withdraw-tip-icon {
+  font-size: 14px;
+  color: #0ECB81;
+  flex-shrink: 0;
+}
+
+.withdraw-tip-text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.btn-confirm-withdraw {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #F0B90B 0%, #D4A00A 100%);
+  border: none;
+  border-radius: 10px;
+  color: #1A1A1A;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(240, 185, 11, 0.3);
+}
+
+.btn-confirm-withdraw:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.2);
+}
+
+.btn-confirm-withdraw:disabled {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* 充值弹窗 */
+.mobile-recharge-popup {
+  padding: 20px 16px 32px;
+}
+
+.recharge-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.recharge-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.recharge-close:active {
+  background: var(--color-bg-tertiary);
+}
+
+.recharge-amounts {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.recharge-amount-btn {
+  padding: 12px 0;
+  text-align: center;
+  background: var(--color-bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-variant-numeric: tabular-nums;
+}
+
+.recharge-amount-btn.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(240, 185, 11, 0.08);
+}
+
+.recharge-input-section {
+  margin-bottom: 20px;
+}
+
+.recharge-input-label {
+  display: block;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  margin-bottom: 8px;
+}
+
+.recharge-input-wrapper {
+  display: flex;
+  align-items: center;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  padding: 0 16px;
+  height: 52px;
+  transition: all 0.2s ease;
+}
+
+.recharge-input-wrapper:focus-within {
+  border-color: var(--color-primary);
+  background: rgba(240, 185, 11, 0.02);
+}
+
+.recharge-currency {
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-right: 8px;
+}
+
+.recharge-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  outline: none;
+  font-variant-numeric: tabular-nums;
+}
+
+.recharge-input::placeholder {
+  color: var(--color-text-tertiary);
+  font-size: 16px;
+  font-weight: 400;
+}
+
+.recharge-channels {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.recharge-channel {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  background: var(--color-bg-tertiary);
+  border: 2px solid transparent;
+  border-radius: var(--radius-md);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.recharge-channel.active {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background: rgba(240, 185, 11, 0.08);
+}
+
+.channel-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.channel-icon.alipay {
+  background: #1677FF;
+  color: white;
+}
+
+.channel-icon.wechat {
+  background: #07C160;
+  color: white;
+}
+
+.btn-confirm-recharge {
+  width: 100%;
+  padding: 16px;
+  background: linear-gradient(135deg, #F0B90B 0%, #D4A00A 100%);
+  border: none;
+  border-radius: 10px;
+  color: #1A1A1A;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(240, 185, 11, 0.3);
+}
+
+.btn-confirm-recharge:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.2);
+}
+
+.btn-confirm-recharge:disabled {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* ========== 退回确认弹窗 ========== */
+.mobile-return-popup {
+  padding: 20px 16px 32px;
+}
+
+.return-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+}
+
+.return-close {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--color-text-tertiary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+}
+
+.return-close:active {
+  background: var(--color-bg-tertiary);
+}
+
+.return-info {
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.return-info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.return-info-item:last-child {
+  border-bottom: none;
+}
+
+.return-info-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+.return-info-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+}
+
+.return-info-value.amount {
+  color: var(--color-accent, #F0B90B);
+  font-size: 18px;
+}
+
+.return-tips {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin-bottom: 24px;
+  padding: 12px;
+  background: rgba(240, 185, 11, 0.06);
+  border-radius: 8px;
+}
+
+.return-tip-icon {
+  font-size: 14px;
+  color: var(--color-accent, #F0B90B);
+  flex-shrink: 0;
+}
+
+.return-tip-text {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  line-height: 1.5;
+}
+
+.return-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-cancel-return {
+  flex: 1;
+  padding: 14px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.btn-cancel-return:active:not(:disabled) {
+  background: var(--color-border);
+}
+
+.btn-cancel-return:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-confirm-return {
+  flex: 1;
+  padding: 14px;
+  background: linear-gradient(135deg, #F0B90B 0%, #D4A00A 100%);
+  border: none;
+  border-radius: 10px;
+  color: #1A1A1A;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 16px rgba(240, 185, 11, 0.3);
+}
+
+.btn-confirm-return:active:not(:disabled) {
+  transform: scale(0.98);
+  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.2);
+}
+
+.btn-confirm-return:disabled {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+/* 适配安全区域 */
+@supports (padding-bottom: env(safe-area-inset-bottom)) {
+  .mobile-portfolio {
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
+  }
 }

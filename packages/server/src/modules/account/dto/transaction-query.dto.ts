@@ -17,4 +17,12 @@ export class TransactionQueryDto {
   @IsOptional()
   @Type(() => Number)
   pageSize?: number = 10;
+
+  @IsString()
+  @IsOptional()
+  startDate?: string;
+
+  @IsString()
+  @IsOptional()
+  endDate?: string;
 }

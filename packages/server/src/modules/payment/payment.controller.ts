@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { Request } from 'express';
 import { PaymentService } from './payment.service';
-import { CreatePaymentDto, CreateSubscriptionPaymentDto } from './dto';
+import { CreatePaymentDto, CreateSubscriptionPaymentDto, CreateH5PaymentDto, CreateJsapiPaymentDto } from './dto';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
@@ -112,6 +112,78 @@ export class PaymentController {
       dto.drugId,
       dto.quantity,
       dto.channel,
+      clientIp,
+    );
+  }
+
+  /**
+   * 创建微信 H5 支付订单（移动端网页支付）
+   */
+  @Post('wechat/h5')
+  @UseGuards(JwtAuthGuard)
+  async createWechatH5Order(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateH5PaymentDto,
+    @Req() req: Request,
+  ) {
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    return this.paymentService.createWechatH5Order(userId, dto.amount, clientIp);
+  }
+
+  /**
+   * 创建微信 JSAPI 支付订单（微信浏览器内支付）
+   */
+  @Post('wechat/jsapi')
+  @UseGuards(JwtAuthGuard)
+  async createWechatJsapiOrder(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateJsapiPaymentDto,
+    @Req() req: Request,
+  ) {
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    return this.paymentService.createWechatJsapiOrder(
+      userId,
+      dto.amount,
+      dto.openId || '',
+      clientIp,
+    );
+  }
+
+  /**
+   * 认购直付：创建 H5 支付订单
+   */
+  @Post('subscribe/h5')
+  @UseGuards(JwtAuthGuard)
+  async createSubscriptionH5Payment(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateSubscriptionPaymentDto,
+    @Req() req: Request,
+  ) {
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    return this.paymentService.createSubscriptionH5Payment(
+      userId,
+      dto.drugId,
+      dto.quantity,
+      clientIp,
+    );
+  }
+
+  /**
+   * 认购直付：创建 JSAPI 支付订单
+   */
+  @Post('subscribe/jsapi')
+  @UseGuards(JwtAuthGuard)
+  async createSubscriptionJsapiPayment(
+    @CurrentUser('userId') userId: string,
+    @Body() dto: CreateSubscriptionPaymentDto & { openId?: string },
+    @Req() req: Request,
+  ) {
+    const clientIp = req.ip || req.socket.remoteAddress || '127.0.0.1';
+    return this.paymentService.createSubscriptionJsapiPayment(
+      userId,
+      dto.drugId,
+      dto.quantity,
+      dto.openId || '',
       clientIp,
     );
   }

@@ -2,6 +2,8 @@
 export interface User {
   id: number
   username: string
+  realName?: string
+  phone?: string
   role: 'admin' | 'investor'
   status: 'active' | 'inactive'
   createdAt: string
@@ -60,6 +62,19 @@ export interface SubscriptionOrder {
   updatedAt: string
 }
 
+// 持仓类型
+export interface Position {
+  id: string
+  drugId: string
+  drugName: string
+  quantity: number
+  costPrice: number
+  currentPrice: number
+  profit: number
+  profitRate: number
+  status: 'holding' | 'closed'
+}
+
 // 资金记录交易类型
 export type TransactionType =
   | 'RECHARGE'
@@ -81,9 +96,86 @@ export interface Transaction {
   createdAt: string
 }
 
+// 清算记录类型
+export interface Settlement {
+  id: string
+  settlementNo: string
+  date: string
+  drugId: string
+  drugName: string
+  amount: number
+  operationFees: number
+  returnedPrincipal: number
+  profit: number
+  status: 'completed' | 'processing' | 'pending'
+}
+
+// API 响应类型
+export interface ApiResponse<T = any> {
+  code: number
+  message: string
+  data: T
+  success?: boolean
+}
+
+// 分页响应类型
+export interface PaginatedResponse<T = any> {
+  list: T[]
+  total: number
+  page: number
+  pageSize: number
+  totalPages: number
+}
+
+// WebSocket 消息类型
+export interface WebSocketMessage {
+  type: 'market' | 'trade' | 'system'
+  data: any
+  timestamp: string
+}
+
 // 登录响应类型
 export interface LoginResponse {
   access_token: string
   refresh_token?: string
   user: User
+}
+
+// 账户余额类型
+export interface BalanceData {
+  availableBalance: number
+  frozenBalance: number
+  frozenAmount?: number
+  balance: number
+  totalProfit: number
+  totalInvested: number
+}
+
+// 出金订单类型
+export interface WithdrawOrder {
+  id: string
+  orderNo: string
+  amount: number
+  balanceBefore: number
+  status: 'pending' | 'approved' | 'rejected'
+  bankInfo: string
+  description: string
+  rejectReason: string
+  createdAt: string
+  approvedAt: string
+}
+
+// 认购摘要类型
+export interface SubscriptionSummary {
+  totalOrderCount: number
+  totalQuantity: number
+  totalAmount: number
+  totalSettledQuantity: number
+  totalProfit: number
+  totalLoss: number
+  activeOrderCount: number
+  activeAmount: number
+  totalUnsettledAmount: number
+  totalConfirmedAmount: number
+  totalEffectiveAmount: number
 }

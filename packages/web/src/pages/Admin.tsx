@@ -35,6 +35,8 @@ interface User {
   phone?: string
   reviewRemark?: string
   reviewedAt?: string
+  agreedToAgreement?: boolean
+  agreedAt?: string
   createdAt: string
   updatedAt?: string
 }
@@ -256,6 +258,12 @@ const Admin = () => {
   const [balanceTotal, setBalanceTotal] = useState(0)
   const [balanceSearchText, setBalanceSearchText] = useState<string>('')
 
+  // 余额调整弹窗状态
+  const [isAdjustBalanceModalOpen, setIsAdjustBalanceModalOpen] = useState(false)
+  const [adjustingUser, setAdjustingUser] = useState<UserBalance | null>(null)
+  const [adjustBalanceForm] = Form.useForm()
+  const [adjustBalanceLoading, setAdjustBalanceLoading] = useState(false)
+
   // 审计日志状态
   const [auditLogs, setAuditLogs] = useState<AuditLog[]>([])
   const [auditLogsLoading, setAuditLogsLoading] = useState(false)
@@ -300,6 +308,20 @@ const Admin = () => {
   const [pendingSubsidyLoading, setPendingSubsidyLoading] = useState(false)
   const [subsidyYieldDate, setSubsidyYieldDate] = useState<string>(dayjs().format('YYYY-MM-DD'))
 
+  // 认购审核状态
+  const [auditOrders, setAuditOrders] = useState<any[]>([])
+  const [auditOrdersLoading, setAuditOrdersLoading] = useState(false)
+  const [auditStatusFilter, setAuditStatusFilter] = useState<string>('all')
+  const [auditPage, setAuditPage] = useState(1)
+  const [auditPageSize, setAuditPageSize] = useState(10)
+  const [auditTotal, setAuditTotal] = useState(0)
+
+  // 认购审核弹窗状态
+  const [auditModalVisible, setAuditModalVisible] = useState(false)
+  const [auditOrderInfo, setAuditOrderInfo] = useState<any>(null)
+  const [auditAction, setAuditAction] = useState<'approve' | 'reject'>('approve')
+  const [auditForm] = Form.useForm()
+  const [auditLoading, setAuditLoading] = useState(false)
 
   // 获取药品列表
   const fetchDrugs = useCallback(async () => {
@@ -454,7 +476,7 @@ const Admin = () => {
       actualSellingPrice: record.actualSellingPrice,
       totalQuantity: record.totalQuantity,
       batchNo: record.batchNo,
-      operationFeeRate: record.operationFeeRate,
+      operationFeeRate: record.operationFeeRate != null ? +(record.operationFeeRate * 100).toFixed(4) : 0,
       slowSellingDays: record.slowSellingDays,
     })
     setIsDrugModalOpen(true)
@@ -474,7 +496,7 @@ const Admin = () => {
         sellingPrice: values.sellingPrice,
         totalQuantity: values.totalQuantity,
         batchNo: values.batchNo,
-        operationFeeRate: values.operationFeeRate,
+        operationFeeRate: values.operationFeeRate != null ? values.operationFeeRate / 100 : 0,
         slowSellingDays: values.slowSellingDays,
       }
       
@@ -700,6 +722,60 @@ const Admin = () => {
     }
   }, [])
 
+  // 获取认购审核列表
+  const fetchAuditOrders = useCallback(async () => {
+    setAuditOrdersLoading(true)
+    try {
+      const params: any = {
+        page: auditPage,
+        limit: auditPageSize,
+      }
+      if (auditStatusFilter !== 'all') {
+        params.auditStatus = auditStatusFilter
+      }
+      const res: any = await subscriptionApi.getAdminSubscriptions(params)
+      if (res.success) {
+        setAuditOrders(res.data?.list || [])
+        setAuditTotal(res.data?.pagination?.total || 0)
+      }
+    } catch (error) {
+      console.error('获取认购审核列表失败:', error)
+      message.error('获取认购审核列表失败')
+    } finally {
+      setAuditOrdersLoading(false)
+    }
+  }, [auditStatusFilter, auditPage, auditPageSize])
+
+  // 认购审核 tab 切换或筛选条件变化时自动刷新
+  useEffect(() => {
+    if (activeTab === 'subscriptionAudit') {
+      fetchAuditOrders()
+    }
+  }, [activeTab, auditStatusFilter, auditPage, auditPageSize, fetchAuditOrders])
+
+  // 提交认购审核
+  const handleAuditSubmit = async () => {
+    if (!auditOrderInfo) return
+    try {
+      const values = await auditForm.validateFields()
+      setAuditLoading(true)
+      const res: any = await subscriptionApi.auditSubscription(auditOrderInfo.id, {
+        approved: auditAction === 'approve',
+        remark: values.remark || '',
+      })
+      if (res.success) {
+        message.success(res.message || (auditAction === 'approve' ? '审核通过' : '审核已拒绝'))
+        setAuditModalVisible(false)
+        fetchAuditOrders()
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.message
+      message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '审核失败'))
+    } finally {
+      setAuditLoading(false)
+    }
+  }
+
   // ==================== 资金监控 ====================
 
   // 获取用户余额列表
@@ -733,6 +809,33 @@ const Admin = () => {
       console.error('获取资金总览失败:', error)
     }
   }, [])
+
+  // 打开调整余额弹窗
+  const handleAdjustBalance = (record: UserBalance) => {
+    setAdjustingUser(record)
+    adjustBalanceForm.resetFields()
+    setIsAdjustBalanceModalOpen(true)
+  }
+
+  // 提交余额调整
+  const handleAdjustBalanceSubmit = async (values: { amount: number; reason: string }) => {
+    if (!adjustingUser) return
+    setAdjustBalanceLoading(true)
+    try {
+      const res: any = await accountApi.adminAdjustBalance(adjustingUser.userId, values)
+      if (res.success || res.message) {
+        message.success(res.message || '余额调整成功')
+        setIsAdjustBalanceModalOpen(false)
+        fetchUserBalances()
+        fetchAccountOverview()
+      }
+    } catch (error) {
+      console.error('余额调整失败:', error)
+      message.error('余额调整失败')
+    } finally {
+      setAdjustBalanceLoading(false)
+    }
+  }
 
   // ==================== 审计日志 ====================
 
@@ -1086,6 +1189,16 @@ const Admin = () => {
       render: (text: string) => <span className="table-cell-tertiary">{text || '-'}</span>,
     },
     {
+      title: '协议状态',
+      dataIndex: 'agreedToAgreement',
+      key: 'agreedToAgreement',
+      render: (agreed: boolean, record: User) => (
+        agreed
+          ? <Tag color="green">已同意</Tag>
+          : <Tag color="default">未同意</Tag>
+      ),
+    },
+    {
       title: '创建时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
@@ -1200,7 +1313,7 @@ const Admin = () => {
       key: 'operationFeeRate',
       align: 'right',
       render: (rate: number) => (
-        <span className="table-cell-mono table-cell-primary-color table-cell-bold">{Number(rate || 0).toFixed(4)}</span>
+        <span className="table-cell-mono table-cell-primary-color table-cell-bold">{rate != null ? `${(rate * 100).toFixed(2)}%` : '0%'}</span>
       ),
     },
     {
@@ -1287,10 +1400,9 @@ const Admin = () => {
               </Button>
             </Popconfirm>
           )}
-          {record.status === DrugStatus.PENDING && (
-            <Popconfirm
+          <Popconfirm
               title="确认删除"
-              description="确定要删除该药品吗？此操作不可恢复。"
+              description={`确定要删除药品「${record.name}」吗？此操作不可恢复。`}
               onConfirm={() => handleDeleteDrug(record.id)}
               okText="删除"
               cancelText="取消"
@@ -1305,7 +1417,6 @@ const Admin = () => {
                 删除
               </Button>
             </Popconfirm>
-          )}
         </Space>
       ),
     },
@@ -1580,6 +1691,142 @@ const Admin = () => {
     },
   ]
 
+  // 认购审核表格列
+  const subscriptionAuditColumns: ColumnsType<any> = [
+    {
+      title: '订单号',
+      dataIndex: 'orderNo',
+      key: 'orderNo',
+      render: (text: string) => (
+        <span style={{ fontFamily: 'monospace', color: '#58A6FF', fontSize: 12 }}>{text}</span>
+      ),
+    },
+    {
+      title: '客户',
+      key: 'customer',
+      render: (_: any, record: any) => (
+        <div className="table-cell-with-sub">
+          <span className="table-cell-primary table-cell-bold">{record.realName || record.username || '-'}</span>
+          <span className="table-cell-code">{record.username || '-'}</span>
+        </div>
+      ),
+    },
+    {
+      title: '药品',
+      key: 'drug',
+      render: (_: any, record: any) => (
+        <div className="table-cell-with-sub">
+          <span className="table-cell-primary">{record.drugName || '-'}</span>
+          <span className="table-cell-code">{record.drugCode || '-'}</span>
+        </div>
+      ),
+    },
+    {
+      title: '数量',
+      dataIndex: 'quantity',
+      key: 'quantity',
+      align: 'right',
+      render: (quantity: number) => (
+        <span className="table-cell-mono">{Number(quantity || 0).toLocaleString()} 盒</span>
+      ),
+    },
+    {
+      title: '认购金额',
+      dataIndex: 'amount',
+      key: 'amount',
+      align: 'right',
+      render: (amount: number) => (
+        <span className="table-cell-mono">¥{Number(amount || 0).toFixed(2)}</span>
+      ),
+    },
+    {
+      title: '认购时间',
+      dataIndex: 'createdAt',
+      key: 'createdAt',
+      render: (text: string) => (
+        <span className="table-cell-tertiary">{text ? dayjs(text).format('MM-DD HH:mm') : '-'}</span>
+      ),
+    },
+    {
+      title: '审核状态',
+      dataIndex: 'auditStatus',
+      key: 'auditStatus',
+      render: (auditStatus: string) => {
+        const config: Record<string, { className: string; text: string }> = {
+          pending: { className: 'status-tag-warning', text: '待审核' },
+          approved: { className: 'status-tag-success', text: '已通过' },
+          rejected: { className: 'status-tag-error', text: '已拒绝' },
+        }
+        const { className, text } = config[auditStatus] || { className: 'status-tag-default', text: auditStatus }
+        return <Tag className={`status-tag ${className}`}>{text}</Tag>
+      },
+    },
+    {
+      title: '审核时间',
+      dataIndex: 'auditAt',
+      key: 'auditAt',
+      render: (text: string) => (
+        <span className="table-cell-tertiary">{text ? dayjs(text).format('MM-DD HH:mm') : '-'}</span>
+      ),
+    },
+    {
+      title: '审核人',
+      dataIndex: 'auditBy',
+      key: 'auditBy',
+      render: (text: string) => (
+        <span className="table-cell-tertiary">{text || '-'}</span>
+      ),
+    },
+    {
+      title: '审核备注',
+      dataIndex: 'auditRemark',
+      key: 'auditRemark',
+      render: (text: string) => (
+        <span className="table-cell-tertiary" style={{ maxWidth: 150, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text || '-'}</span>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      align: 'center',
+      fixed: 'right',
+      render: (_: any, record: any) => {
+        if (record.auditStatus !== 'pending') {
+          return <span className="table-cell-tertiary">-</span>
+        }
+        return (
+          <Space>
+            <Button
+              type="primary"
+              size="small"
+              style={{ background: '#00b96b', borderColor: '#00b96b' }}
+              onClick={() => {
+                setAuditOrderInfo(record)
+                setAuditAction('approve')
+                auditForm.resetFields()
+                setAuditModalVisible(true)
+              }}
+            >
+              通过
+            </Button>
+            <Button
+              size="small"
+              danger
+              onClick={() => {
+                setAuditOrderInfo(record)
+                setAuditAction('reject')
+                auditForm.resetFields()
+                setAuditModalVisible(true)
+              }}
+            >
+              拒绝
+            </Button>
+          </Space>
+        )
+      },
+    },
+  ]
+
   // 用户余额表格列
   const userBalanceColumns: ColumnsType<UserBalance> = [
     {
@@ -1630,6 +1877,25 @@ const Admin = () => {
       align: 'right',
       render: (value: number) => (
         <span className="table-cell-mono">¥{Number(value || 0).toFixed(2)}</span>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      align: 'center',
+      width: 120,
+      render: (_: unknown, record: UserBalance) => (
+        <Button
+          type="primary"
+          size="small"
+          onClick={() => handleAdjustBalance(record)}
+          style={{
+            background: 'var(--color-primary)',
+            border: 'none',
+          }}
+        >
+          调整余额
+        </Button>
       ),
     },
   ]
@@ -2522,6 +2788,56 @@ const Admin = () => {
       ),
     },
     {
+      key: 'subscriptionAudit',
+      label: (
+        <span>
+          <AuditOutlined style={{ marginRight: 8 }} />
+          认购审核
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          <div className="admin-action-bar">
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 500 }}>认购订单审核</Text>
+            <Select
+              placeholder="筛选审核状态"
+              allowClear
+              style={{ width: 160 }}
+              onChange={(value) => {
+                setAuditStatusFilter(value || 'all')
+                setAuditPage(1)
+              }}
+              value={auditStatusFilter || undefined}
+            >
+              <Option value="all">全部</Option>
+              <Option value="pending">待审核</Option>
+              <Option value="approved">已通过</Option>
+              <Option value="rejected">已拒绝</Option>
+            </Select>
+          </div>
+          <Table
+            columns={subscriptionAuditColumns}
+            dataSource={auditOrders}
+            rowKey="id"
+            loading={auditOrdersLoading}
+            pagination={{
+              current: auditPage,
+              pageSize: auditPageSize,
+              total: auditTotal,
+              onChange: (page, pageSize) => {
+                setAuditPage(page)
+                setAuditPageSize(pageSize || 10)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+        </Card>
+      ),
+    },
+    {
       key: 'subsidy',
       label: (
         <span>
@@ -2885,14 +3201,16 @@ const Admin = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)' }}>
             <Form.Item
               name="operationFeeRate"
-              label="运营费率"
+              label="运营费率 (%)"
               initialValue={0}
             >
               <InputNumber
                 min={0}
-                max={1}
-                precision={4}
-                placeholder="0.0000"
+                max={100}
+                step={0.1}
+                precision={2}
+                placeholder="0"
+                addonAfter="%"
                 style={{ width: '100%' }}
               />
             </Form.Item>
@@ -3421,6 +3739,158 @@ const Admin = () => {
               showCount
               style={{ background: '#0D1117', borderColor: '#30363D' }}
             />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 认购审核弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <AuditOutlined style={{ color: auditAction === 'approve' ? '#00b96b' : '#F5222D' }} />
+            <span>{auditAction === 'approve' ? '通过认购审核' : '拒绝认购审核'}</span>
+          </Space>
+        }
+        open={auditModalVisible}
+        onOk={handleAuditSubmit}
+        onCancel={() => setAuditModalVisible(false)}
+        confirmLoading={auditLoading}
+        okText={auditAction === 'approve' ? '确认通过' : '确认拒绝'}
+        width={520}
+        className="admin-modal"
+        okButtonProps={{
+          style: {
+            background: auditAction === 'approve'
+              ? 'linear-gradient(135deg, #00b96b 0%, #00d4aa 100%)'
+              : 'linear-gradient(135deg, #F5222D 0%, #CF1322 100%)',
+            border: 'none',
+          }
+        }}
+        cancelButtonProps={{
+          className: 'admin-modal-cancel-btn'
+        }}
+      >
+        {auditOrderInfo && (
+          <div style={{ marginBottom: 16, padding: 16, background: '#0D1117', borderRadius: 8, border: '1px solid #30363D' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>客户</Text>
+                <div style={{ color: '#E6EDF3', fontWeight: 500 }}>{auditOrderInfo.realName || auditOrderInfo.username || '-'}</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>药品</Text>
+                <div style={{ color: '#E6EDF3', fontWeight: 500 }}>{auditOrderInfo.drugName || '-'}</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>数量</Text>
+                <div style={{ color: '#E6EDF3', fontWeight: 500 }}>{auditOrderInfo.quantity} 盒</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>认购金额</Text>
+                <div style={{ color: '#00b96b', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", fontSize: 18 }}>¥{Number(auditOrderInfo.amount || 0).toFixed(2)}</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>订单号</Text>
+                <div style={{ color: '#58A6FF', fontFamily: 'monospace', fontSize: 12 }}>{auditOrderInfo.orderNo}</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>认购时间</Text>
+                <div style={{ color: '#E6EDF3', fontSize: 13 }}>{auditOrderInfo.createdAt ? new Date(auditOrderInfo.createdAt).toLocaleString('zh-CN') : '-'}</div>
+              </div>
+            </div>
+          </div>
+        )}
+        <Form form={auditForm} layout="vertical" requiredMark={false} className="admin-form">
+          <Form.Item
+            name="remark"
+            label={<Text style={{ color: '#8B949E' }}>审核备注</Text>}
+            rules={auditAction === 'reject' ? [{ required: true, message: '请填写拒绝原因' }] : undefined}
+          >
+            <Input.TextArea
+              placeholder={auditAction === 'approve' ? '选填：通过原因或备注' : '请填写拒绝原因'}
+              rows={3}
+              maxLength={500}
+              showCount
+              style={{ background: '#0D1117', borderColor: '#30363D' }}
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 调整余额弹窗 */}
+      <Modal
+        title={adjustingUser ? `调整用户余额 - ${adjustingUser.username}` : '调整用户余额'}
+        open={isAdjustBalanceModalOpen}
+        onOk={() => adjustBalanceForm.submit()}
+        onCancel={() => setIsAdjustBalanceModalOpen(false)}
+        confirmLoading={adjustBalanceLoading}
+        width={480}
+        style={{ top: 100 }}
+        className="admin-modal"
+        okText="确认调整"
+        cancelText="取消"
+        okButtonProps={{
+          style: {
+            background: 'var(--color-primary)',
+            border: 'none',
+          }
+        }}
+        cancelButtonProps={{
+          className: 'admin-modal-cancel-btn'
+        }}
+      >
+        {adjustingUser && (
+          <div style={{ marginBottom: 24, padding: 16, background: '#0D1117', borderRadius: 8, border: '1px solid #30363D' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12 }}>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>可用余额</Text>
+                <div style={{ color: 'var(--color-primary)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                  ¥{Number(adjustingUser.availableBalance || 0).toFixed(2)}
+                </div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>冻结余额</Text>
+                <div style={{ color: 'var(--color-warning)', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                  ¥{Number(adjustingUser.frozenBalance || 0).toFixed(2)}
+                </div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>总资产</Text>
+                <div style={{ color: '#E6EDF3', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace" }}>
+                  ¥{Number((adjustingUser.availableBalance || 0) + (adjustingUser.frozenBalance || 0)).toFixed(2)}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <Form
+          form={adjustBalanceForm}
+          layout="vertical"
+          requiredMark={false}
+          className="admin-form"
+          onFinish={handleAdjustBalanceSubmit}
+        >
+          <Form.Item
+            name="amount"
+            label="调整金额"
+            rules={[{ required: true, message: '请输入调整金额' }]}
+            extra="正数=增加余额，负数=减少余额"
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              precision={2}
+              placeholder="请输入调整金额"
+              prefix="¥"
+              min={-99999999}
+              max={99999999}
+            />
+          </Form.Item>
+          <Form.Item
+            name="reason"
+            label="调整原因"
+            rules={[{ required: true, message: '请填写调整原因' }]}
+          >
+            <Input.TextArea rows={3} placeholder="请填写调整原因，将记录到审计日志" maxLength={500} showCount />
           </Form.Item>
         </Form>
       </Modal>

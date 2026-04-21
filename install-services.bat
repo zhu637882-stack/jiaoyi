@@ -90,7 +90,6 @@ echo.
 echo 服务已设置为自动启动，服务器重启后会自动运行。
 echo.
 echo 访问地址:
-echo   http://mufend.com
 echo   http://www.mufend.com
 echo   http://103.43.188.127
 echo.

@@ -7,6 +7,7 @@ import { RechargeDto } from './dto/recharge.dto';
 import { TransactionQueryDto } from './dto/transaction-query.dto';
 import { WithdrawDto } from './dto/withdraw.dto';
 import { ApproveWithdrawDto } from './dto/approve-withdraw.dto';
+import { AdjustBalanceDto } from './dto/adjust-balance.dto';
 import { UserRole } from '../../database/entities/user.entity';
 import { Idempotent } from '../../common/decorators/idempotent.decorator';
 import { AuditService } from '../../common/services/audit.service';
@@ -124,6 +125,8 @@ export class AccountController {
       type: query.type,
       page: query.page,
       pageSize: query.pageSize,
+      startDate: query.startDate,
+      endDate: query.endDate,
     });
   }
 
@@ -217,5 +220,25 @@ export class AccountController {
       return { success: false, message: '请填写驳回原因' };
     }
     return this.accountService.rejectWithdraw(orderId, adminUserId, dto.rejectReason);
+  }
+
+  /**
+   * 管理员：手动调整用户余额
+   * POST /api/account/admin/balance/:userId/adjust
+   */
+  @Post('admin/balance/:userId/adjust')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async adjustBalance(
+    @Param('userId') userId: string,
+    @CurrentUser('userId') adminUserId: string,
+    @Body() dto: AdjustBalanceDto,
+  ) {
+    return this.accountService.adjustBalance(
+      userId,
+      dto.amount,
+      dto.reason,
+      adminUserId,
+    );
   }
 }

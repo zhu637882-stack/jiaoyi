@@ -92,6 +92,18 @@ export class SubscriptionOrder {
   @Column({ nullable: true, comment: '退回驳回原因' })
   returnRejectReason: string;
 
+  @Column({ type: 'varchar', length: 20, default: 'pending' })
+  auditStatus: 'pending' | 'approved' | 'rejected';  // 审核状态
+
+  @Column({ type: 'timestamp', nullable: true })
+  auditAt: Date;  // 审核时间
+
+  @Column({ nullable: true })
+  auditBy: string;  // 审核人（管理员ID）
+
+  @Column({ type: 'text', nullable: true })
+  auditRemark: string;  // 审核备注
+
   @Column('decimal', { precision: 12, scale: 2, default: 0, comment: '累计收益' })
   totalProfit: number;
 

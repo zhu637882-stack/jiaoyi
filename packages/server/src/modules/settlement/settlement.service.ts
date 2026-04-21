@@ -143,11 +143,12 @@ export class SettlementService {
       let totalReturnedPrincipal = 0;              // 当日退回总本金
       let settledOrderCount = 0;                   // 参与订单数
 
-      // 查询所有生效中的认购订单，按 effectiveAt ASC 排序（先认先退）
+      // 查询所有生效中且审核通过的认购订单，按 effectiveAt ASC 排序（先认先退）
       const activeOrders = await queryRunner.manager.find(SubscriptionOrder, {
         where: {
           drugId,
           status: In([SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_RETURNED]),
+          auditStatus: 'approved',
         },
         order: { effectiveAt: 'ASC' },
         lock: { mode: 'pessimistic_write' },
@@ -252,11 +253,12 @@ export class SettlementService {
         0,
       );
 
-      // 重新查询仍生效的订单
+      // 重新查询仍生效且审核通过的订单
       const remainingActiveOrders = await queryRunner.manager.find(SubscriptionOrder, {
         where: {
           drugId,
           status: In([SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_RETURNED]),
+          auditStatus: 'approved',
         },
       });
 
@@ -676,11 +678,12 @@ export class SettlementService {
     const purchaseCost = totalSalesQuantity * drug.purchasePrice;
     const operationFees = totalSalesRevenue * drug.operationFeeRate;
 
-    // 6. 计算预计退回订单
+    // 6. 计算预计退回订单（只包含审核通过的订单）
     const activeOrders = await this.subscriptionOrderRepository.find({
       where: {
         drugId,
         status: In([SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_RETURNED]),
+        auditStatus: 'approved',
       },
       order: { effectiveAt: 'ASC' },
       relations: ['user'],

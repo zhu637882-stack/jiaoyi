@@ -85,7 +85,6 @@ Write-Host "`n==========================================" -ForegroundColor Green
 Write-Host "    启动完成!" -ForegroundColor Green
 Write-Host "==========================================" -ForegroundColor Green
 Write-Host "`n访问地址:" -ForegroundColor Cyan
-Write-Host "  http://mufend.com" -ForegroundColor White
 Write-Host "  http://www.mufend.com" -ForegroundColor White
 Write-Host "  http://103.43.188.127" -ForegroundColor White
 

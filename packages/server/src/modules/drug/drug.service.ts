@@ -6,9 +6,13 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, Like } from 'typeorm';
+import { Repository, Like, In } from 'typeorm';
 import { Drug, DrugStatus } from '../../database/entities/drug.entity';
 import { MarketSnapshot } from '../../database/entities/market-snapshot.entity';
+import {
+  SubscriptionOrder,
+  SubscriptionOrderStatus,
+} from '../../database/entities/subscription-order.entity';
 import {
   CreateDrugDto,
   UpdateDrugDto,
@@ -26,6 +30,8 @@ export class DrugService {
     private readonly drugRepository: Repository<Drug>,
     @InjectRepository(MarketSnapshot)
     private readonly marketSnapshotRepository: Repository<MarketSnapshot>,
+    @InjectRepository(SubscriptionOrder)
+    private readonly subscriptionOrderRepository: Repository<SubscriptionOrder>,
     private readonly auditService: AuditService,
   ) {}
 
@@ -89,13 +95,15 @@ export class DrugService {
       code: drug.code,
       purchasePrice: drug.purchasePrice,
       sellingPrice: drug.sellingPrice,
-      actualSellingPrice: drug.actualSellingPrice,
-      actualPriceUpdatedAt: drug.actualPriceUpdatedAt,
       totalQuantity: drug.totalQuantity,
       subscribedQuantity: drug.subscribedQuantity,
       remainingQuantity: drug.remainingQuantity,
       status: drug.status,
       batchNo: drug.batchNo,
+      actualSellingPrice: drug.actualSellingPrice,
+      actualPriceUpdatedAt: drug.actualPriceUpdatedAt,
+      operationFeeRate: drug.operationFeeRate,
+      slowSellingDays: drug.slowSellingDays,
       createdAt: drug.createdAt,
       subscriptionProgress:
         drug.totalQuantity > 0
@@ -138,19 +146,28 @@ export class DrugService {
 
   /**
    * 查询单个药品详情
+   * 支持通过 id (UUID) 或 code (如 DRUG-001) 查询
    */
   async findOne(id: string) {
-    const drug = await this.drugRepository.findOne({
-      where: { id },
+    // 先尝试通过 code 查询（因为前端传入的通常是 code 如 DRUG-001）
+    let drug = await this.drugRepository.findOne({
+      where: { code: id },
     });
+
+    // 如果通过 code 查不到，再尝试通过 id 查询
+    if (!drug) {
+      drug = await this.drugRepository.findOne({
+        where: { id },
+      });
+    }
 
     if (!drug) {
       throw new NotFoundException('药品不存在');
     }
 
-    // 获取最新行情快照
+    // 获取最新行情快照（使用查询到的药品的 id）
     const latestSnapshot = await this.marketSnapshotRepository.findOne({
-      where: { drugId: id },
+      where: { drugId: drug.id },
       order: { snapshotDate: 'DESC' },
     });
 
@@ -170,8 +187,6 @@ export class DrugService {
       code: drug.code,
       purchasePrice: drug.purchasePrice,
       sellingPrice: drug.sellingPrice,
-      actualSellingPrice: drug.actualSellingPrice,
-      actualPriceUpdatedAt: drug.actualPriceUpdatedAt,
       totalQuantity: drug.totalQuantity,
       subscribedQuantity: drug.subscribedQuantity,
       remainingQuantity: drug.remainingQuantity,
@@ -209,10 +224,9 @@ export class DrugService {
     // 记录更新前的价格
     const oldPurchasePrice = drug.purchasePrice;
     const oldSellingPrice = drug.sellingPrice;
-    const oldActualSellingPrice = drug.actualSellingPrice;
 
     this.logger.debug(
-      `更新药品 ${id} 前的价格: 进货价=${oldPurchasePrice}(${typeof oldPurchasePrice}), 售价=${oldSellingPrice}(${typeof oldSellingPrice}), 实际成交价=${oldActualSellingPrice}`,
+      `更新药品 ${id} 前的价格: 进货价=${oldPurchasePrice}(${typeof oldPurchasePrice}), 售价=${oldSellingPrice}(${typeof oldSellingPrice})`,
     );
 
     // 如果更新编码，检查是否与其他药品冲突
@@ -226,11 +240,6 @@ export class DrugService {
       }
     }
 
-    // 如果更新实际成交价，自动设置更新日期
-    if (updateDrugDto.actualSellingPrice !== undefined) {
-      drug.actualPriceUpdatedAt = new Date();
-    }
-
     // 更新字段
     Object.assign(drug, updateDrugDto);
 
@@ -239,7 +248,6 @@ export class DrugService {
     // 检查价格是否发生变化
     const newPurchasePrice = updateDrugDto.purchasePrice;
     const newSellingPrice = updateDrugDto.sellingPrice;
-    const newActualSellingPrice = updateDrugDto.actualSellingPrice;
 
     // 使用 Number() 确保类型一致的比较
     const oldPurchasePriceNum = Number(oldPurchasePrice);
@@ -248,9 +256,9 @@ export class DrugService {
     const newSellingPriceNum = newSellingPrice !== undefined ? Number(newSellingPrice) : oldSellingPriceNum;
 
     // 价格更新时记录审计日志
-    if (newPurchasePrice !== undefined || newSellingPrice !== undefined || newActualSellingPrice !== undefined) {
+    if (newPurchasePrice !== undefined || newSellingPrice !== undefined) {
       this.logger.log(
-        `药品 ${id} 价格更新。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}, 实际成交价: ${newActualSellingPrice}`,
+        `药品 ${id} 价格更新。进货价: ${newPurchasePriceNum}, 售价: ${newSellingPriceNum}`,
       );
 
       // 记录审计日志 - 价格更新
@@ -297,7 +305,8 @@ export class DrugService {
   }
 
   /**
-   * 删除药品（仅 pending 状态可删除）
+   * 删除药品
+   * 检查是否有关联的未完成认购订单，有则禁止删除
    */
   async remove(id: string): Promise<void> {
     const drug = await this.drugRepository.findOne({ where: { id } });
@@ -306,8 +315,25 @@ export class DrugService {
       throw new NotFoundException('药品不存在');
     }
 
-    if (drug.status !== DrugStatus.PENDING) {
-      throw new ForbiddenException('只有 pending 状态的药品可以删除');
+    // 检查是否有关联的未完成认购订单
+    const activeStatuses = [
+      SubscriptionOrderStatus.CONFIRMED,
+      SubscriptionOrderStatus.EFFECTIVE,
+      SubscriptionOrderStatus.RETURN_PENDING,
+      SubscriptionOrderStatus.PARTIAL_RETURNED,
+    ];
+
+    const activeOrderCount = await this.subscriptionOrderRepository.count({
+      where: {
+        drugId: id,
+        status: In(activeStatuses),
+      },
+    });
+
+    if (activeOrderCount > 0) {
+      throw new BadRequestException(
+        `该药品有 ${activeOrderCount} 笔未完成的认购订单，无法删除。请先处理相关订单。`,
+      );
     }
 
     await this.drugRepository.remove(drug);

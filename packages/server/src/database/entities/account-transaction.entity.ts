@@ -13,11 +13,14 @@ export enum TransactionType {
   RECHARGE = 'recharge',
   WITHDRAW = 'withdraw',
   SUBSCRIPTION = 'subscription',
+  SETTLEMENT = 'settlement',
   PRINCIPAL_RETURN = 'principal_return',
   PROFIT_SHARE = 'profit_share',
   LOSS_SHARE = 'loss_share',
   SLOW_SELL_REFUND = 'slow_sell_refund',
   RETURN_PROFIT = 'return_profit',
+  YIELD = 'yield',
+  ADMIN_ADJUST = 'admin_adjust',
 }
 
 @Entity('account_transactions')

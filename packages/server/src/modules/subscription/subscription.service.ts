@@ -437,6 +437,7 @@ export class SubscriptionService {
         settledQuantity: order.settledQuantity,
         unsettledAmount: Number(order.unsettledAmount),
         status: order.status,
+        auditStatus: order.auditStatus,
         queuePosition: order.queuePosition,
         confirmedAt: order.confirmedAt,
         effectiveAt: order.effectiveAt,
@@ -490,6 +491,7 @@ export class SubscriptionService {
       settledQuantity: order.settledQuantity,
       unsettledAmount: Number(order.unsettledAmount),
       status: order.status,
+      auditStatus: order.auditStatus,
       queuePosition: order.queuePosition,
       confirmedAt: order.confirmedAt,
       effectiveAt: order.effectiveAt,
@@ -579,7 +581,7 @@ export class SubscriptionService {
   async getAdminSubscriptions(
     query: AdminQuerySubscriptionDto,
   ): Promise<{ list: any[]; pagination: any }> {
-    const { status, drugId, userId, page = 1, limit = 10 } = query;
+    const { status, drugId, userId, auditStatus, page = 1, limit = 10 } = query;
 
     const queryBuilder = this.subscriptionOrderRepository
       .createQueryBuilder('order')
@@ -604,6 +606,10 @@ export class SubscriptionService {
       queryBuilder.andWhere('order.userId = :userId', { userId });
     }
 
+    if (auditStatus) {
+      queryBuilder.andWhere('order.auditStatus = :auditStatus', { auditStatus });
+    }
+
     const total = await queryBuilder.getCount();
 
     const orders = await queryBuilder
@@ -626,6 +632,10 @@ export class SubscriptionService {
         settledQuantity: order.settledQuantity,
         unsettledAmount: Number(order.unsettledAmount),
         status: order.status,
+        auditStatus: order.auditStatus,
+        auditAt: order.auditAt,
+        auditBy: order.auditBy,
+        auditRemark: order.auditRemark,
         queuePosition: order.queuePosition,
         confirmedAt: order.confirmedAt,
         effectiveAt: order.effectiveAt,
@@ -877,5 +887,160 @@ export class SubscriptionService {
     order.returnApprovedBy = adminUserId;
     order.returnRejectReason = reason;
     return this.subscriptionOrderRepository.save(order);
+  }
+
+  /**
+   * 审核认购订单
+   */
+  async auditSubscription(adminUserId: string, orderId: string, approved: boolean, remark?: string): Promise<SubscriptionOrder> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.findOne(SubscriptionOrder, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+        relations: ['drug'],
+      });
+
+      if (!order) {
+        throw new NotFoundException('认购订单不存在');
+      }
+
+      // 必须是 CONFIRMED 或 EFFECTIVE 状态且 auditStatus='pending'
+      if (order.status !== SubscriptionOrderStatus.CONFIRMED && order.status !== SubscriptionOrderStatus.EFFECTIVE) {
+        throw new BadRequestException('该订单当前状态不可审核');
+      }
+
+      if (order.auditStatus !== 'pending') {
+        throw new BadRequestException('该订单已审核，不可重复审核');
+      }
+
+      order.auditAt = new Date();
+      order.auditBy = adminUserId;
+      order.auditRemark = remark || '';
+
+      if (approved) {
+        // 审核通过
+        order.auditStatus = 'approved';
+        await queryRunner.manager.save(order);
+      } else {
+        // 审核拒绝
+        order.auditStatus = 'rejected';
+        order.status = SubscriptionOrderStatus.CANCELLED;
+        await queryRunner.manager.save(order);
+
+        // 退回本金到用户可用余额，解冻冻结资金
+        const balance = await queryRunner.manager.findOne(AccountBalance, {
+          where: { userId: order.userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (balance) {
+          const availableBefore = Number(balance.availableBalance);
+          const frozenBefore = Number(balance.frozenBalance);
+          const amount = Number(order.amount);
+
+          balance.availableBalance = Number((availableBefore + amount).toFixed(2));
+          balance.frozenBalance = Number((frozenBefore - amount).toFixed(2));
+
+          await queryRunner.manager.save(balance);
+
+          // 记录资金流水 - 认购审核拒绝退款
+          const transaction = queryRunner.manager.create(AccountTransaction, {
+            userId: order.userId,
+            type: TransactionType.SUBSCRIPTION,
+            amount: amount,
+            balanceBefore: availableBefore,
+            balanceAfter: balance.availableBalance,
+            relatedOrderId: order.id,
+            description: `认购审核拒绝退款：${order.drug?.name || ''} ${order.quantity}盒，订单号：${order.orderNo}`,
+          });
+
+          await queryRunner.manager.save(transaction);
+        }
+
+        // 更新药品已认购数量
+        const drug = await queryRunner.manager.findOne(Drug, {
+          where: { id: order.drugId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (drug) {
+          drug.subscribedQuantity = Math.max(0, Number(drug.subscribedQuantity) - order.quantity);
+          await queryRunner.manager.save(drug);
+        }
+      }
+
+      await queryRunner.commitTransaction();
+      return order;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 获取待审核列表
+   */
+  async getAuditPendingList(page: number = 1, limit: number = 10, filters?: { drugId?: string; userId?: string }): Promise<{ list: any[]; pagination: any }> {
+    const queryBuilder = this.subscriptionOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.drug', 'drug')
+      .leftJoinAndMapOne(
+        'order.user',
+        User,
+        'user',
+        'user.id = order.userId',
+      )
+      .where('order.auditStatus = :auditStatus', { auditStatus: 'pending' })
+      .andWhere('order.status IN (:...statuses)', {
+        statuses: [SubscriptionOrderStatus.CONFIRMED, SubscriptionOrderStatus.EFFECTIVE],
+      })
+      .orderBy('order.createdAt', 'DESC');
+
+    if (filters?.drugId) {
+      queryBuilder.andWhere('order.drugId = :drugId', { drugId: filters.drugId });
+    }
+
+    if (filters?.userId) {
+      queryBuilder.andWhere('order.userId = :userId', { userId: filters.userId });
+    }
+
+    const total = await queryBuilder.getCount();
+
+    const orders = await queryBuilder
+      .skip((page - 1) * limit)
+      .take(limit)
+      .getMany();
+
+    return {
+      list: orders.map((order: any) => ({
+        id: order.id,
+        orderNo: order.orderNo,
+        userId: order.userId,
+        username: order.user?.username,
+        realName: order.user?.realName,
+        drugId: order.drugId,
+        drugName: order.drug?.name,
+        drugCode: order.drug?.code,
+        quantity: order.quantity,
+        amount: Number(order.amount),
+        status: order.status,
+        auditStatus: order.auditStatus,
+        confirmedAt: order.confirmedAt,
+        effectiveAt: order.effectiveAt,
+        createdAt: order.createdAt,
+      })),
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit),
+      },
+    };
   }
 }

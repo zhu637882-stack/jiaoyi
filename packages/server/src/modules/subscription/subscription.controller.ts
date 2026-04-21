@@ -224,4 +224,53 @@ export class SubscriptionController {
       message: '退回申请已驳回',
     };
   }
+
+  /**
+   * 获取待审核认购列表
+   * GET /api/subscriptions/admin/audit-pending
+   */
+  @Get('admin/audit-pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAuditPending(
+    @Query('page') page: string = '1',
+    @Query('limit') limit: string = '10',
+    @Query('drugId') drugId?: string,
+    @Query('userId') userId?: string,
+  ) {
+    const result = await this.subscriptionService.getAuditPendingList(
+      parseInt(page, 10),
+      parseInt(limit, 10),
+      { drugId, userId },
+    );
+    return {
+      success: true,
+      data: result,
+    };
+  }
+
+  /**
+   * 审核认购
+   * PUT /api/subscriptions/admin/:id/audit
+   */
+  @Put('admin/:id/audit')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async auditSubscription(
+    @CurrentUser('userId') adminUserId: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) orderId: string,
+    @Body() body: { approved: boolean; remark?: string },
+  ) {
+    const order = await this.subscriptionService.auditSubscription(
+      adminUserId,
+      orderId,
+      body.approved,
+      body.remark,
+    );
+    return {
+      success: true,
+      data: order,
+      message: body.approved ? '认购审核已通过' : '认购审核已拒绝',
+    };
+  }
 }

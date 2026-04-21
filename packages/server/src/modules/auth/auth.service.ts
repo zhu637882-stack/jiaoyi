@@ -124,7 +124,7 @@ export class AuthService {
     }
   }
 
-  async register(username: string, password: string, realName?: string, phone?: string) {
+  async register(username: string, password: string, realName?: string, phone?: string, agreedToAgreement?: boolean) {
     // 检查用户名是否已存在
     const existingUser = await this.userRepository.findOne({
       where: { username },
@@ -145,6 +145,8 @@ export class AuthService {
       status: UserStatus.PENDING,  // 新注册用户默认为待审核
       realName,
       phone,
+      agreedToAgreement: agreedToAgreement ?? false,
+      agreedAt: agreedToAgreement ? new Date() : null,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -174,5 +176,39 @@ export class AuthService {
 
     const { password, ...result } = user;
     return result;
+  }
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    const user = await this.userRepository.findOne({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('用户不存在');
+    }
+
+    // 验证旧密码
+    const isOldPasswordValid = await bcrypt.compare(oldPassword, user.password);
+    if (!isOldPasswordValid) {
+      throw new UnauthorizedException('旧密码不正确');
+    }
+
+    // 哈希新密码
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 更新密码
+    user.password = hashedPassword;
+    await this.userRepository.save(user);
+
+    // 记录审计日志
+    await this.auditService.log({
+      userId,
+      action: 'CHANGE_PASSWORD',
+      targetType: 'user',
+      targetId: userId,
+      detail: { message: '密码修改成功' },
+    });
+
+    return { success: true, message: '密码修改成功' };
   }
 }

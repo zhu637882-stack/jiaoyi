@@ -117,12 +117,12 @@ export class DrugController {
   }
 
   /**
-   * 删除药品（管理员，仅 pending 状态可删）
+   * 删除药品（管理员，有关联订单时禁止删除）
    * DELETE /api/drugs/:id
    */
   @Delete(':id')
   @UseGuards(JwtAuthGuard, AdminGuard)
-  @HttpCode(HttpStatus.NO_CONTENT)
+  @HttpCode(HttpStatus.OK)
   async remove(@Param('id') id: string) {
     await this.drugService.remove(id);
     return {

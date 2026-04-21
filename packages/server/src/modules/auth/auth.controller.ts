@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Get, HttpCode, HttpStatus, UseGuards, UnauthorizedException } from '@nestjs/common';
+import { Controller, Post, Body, Get, HttpCode, HttpStatus, UseGuards, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -42,6 +42,7 @@ export class AuthController {
       registerDto.password,
       registerDto.realName,
       registerDto.phone,
+      registerDto.agreedToAgreement,
     );
     return {
       message: '注册成功，请等待管理员审核',
@@ -67,5 +68,21 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   async refreshToken(@Body() refreshTokenDto: RefreshTokenDto) {
     return this.authService.refreshToken(refreshTokenDto.refresh_token);
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  async changePassword(
+    @CurrentUser('userId') userId: string,
+    @Body() body: { oldPassword: string; newPassword: string },
+  ) {
+    if (!body.oldPassword || !body.newPassword) {
+      throw new BadRequestException('旧密码和新密码不能为空');
+    }
+    if (body.newPassword.length < 6) {
+      throw new BadRequestException('新密码至少6位');
+    }
+    return this.authService.changePassword(userId, body.oldPassword, body.newPassword);
   }
 }

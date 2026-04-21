@@ -17,6 +17,6 @@ echo.
 echo All services started!
 echo Backend: http://localhost:3000
 echo Frontend: http://localhost:5173
-echo Website: http://mufend.com
+echo Website: http://www.mufend.com
 echo.
 pause
