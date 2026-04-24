@@ -245,7 +245,6 @@ const Trade = () => {
         setSubmitting(false)
         return
       }
-      console.log('[DEBUG] 认购提交:', { drugId: selectedDrugId, drugIdType: typeof selectedDrugId, quantity })
       const response = await subscriptionApi.createSubscription({
         drugId: selectedDrugId,
         quantity,

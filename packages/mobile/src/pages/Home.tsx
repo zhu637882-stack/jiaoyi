@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { PullToRefresh } from 'antd-mobile'
 import { marketApi, drugApi } from '../services/api'
 import { wsService } from '../services/websocket'
+import VirtualList from '../components/VirtualList'
 import './Home.css'
 
 interface DrugItem {
@@ -368,60 +369,71 @@ const Home: React.FC = () => {
               ))}
             </div>
           ) : (
-            /* 行情列表项 */
-            filteredDrugs.map((drug, index) => {
-              const isUp = (drug.changePercent || 0) >= 0
-              return (
-                <div
-                  key={drug.id}
-                  className="market-row"
-                  onClick={() => navigate(`/m/trade/${drug.id}`)}
-                  style={{ animationDelay: `${index * 0.03}s` }}
-                >
-                  <div className="market-row-info">
-                    <span className="market-row-name">{drug.name}</span>
-                    <span className="market-row-code">{drug.code}</span>
-                    {(drug.operationFeeRate != null || drug.slowSellingDays != null || drug.batchNo) && (
-                      <span className="market-row-extra">
-                        {drug.operationFeeRate != null && `费率${Number(drug.operationFeeRate).toFixed(0)}%`}
-                        {drug.operationFeeRate != null && (drug.slowSellingDays != null || drug.batchNo) ? ' | ' : ''}
-                        {drug.slowSellingDays != null && `保障${drug.slowSellingDays}天`}
-                        {drug.slowSellingDays != null && drug.batchNo ? ' | ' : ''}
-                        {drug.batchNo && `批次${drug.batchNo}`}
+            /* 行情列表项 — 虚拟滚动 */
+            <VirtualList
+              items={filteredDrugs}
+              itemHeight={72}
+              overscan={6}
+              keyExtractor={(drug) => String(drug.id)}
+              className="market-virtual-list"
+              renderItem={(drug, index) => {
+                const isUp = (drug.changePercent || 0) >= 0
+                return (
+                  <div
+                    className="market-row"
+                    onClick={() => navigate(`/m/trade/${drug.id}`)}
+                    style={{ animationDelay: `${Math.min(index, 10) * 0.05}s` }}
+                  >
+                    <div className="market-row-info">
+                      <span className="market-row-name">{drug.name}</span>
+                      <span className="market-row-code">{drug.code}</span>
+                      {(drug.operationFeeRate != null || drug.slowSellingDays != null || drug.batchNo) && (
+                        <span className="market-row-extra">
+                          {drug.operationFeeRate != null && `费率${Number(drug.operationFeeRate).toFixed(0)}%`}
+                          {drug.operationFeeRate != null && (drug.slowSellingDays != null || drug.batchNo) ? ' | ' : ''}
+                          {drug.slowSellingDays != null && `保障${drug.slowSellingDays}天`}
+                          {drug.slowSellingDays != null && drug.batchNo ? ' | ' : ''}
+                          {drug.batchNo && `批次${drug.batchNo}`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="market-row-quantity-col">
+                      <span className="market-row-quantity">{formatVolume(drug.totalQuantity)}</span>
+                      <span className={`market-row-status ${getStatusConfig(drug.status).className}`}>
+                        {getStatusConfig(drug.status).label}
                       </span>
-                    )}
+                    </div>
+                    <div className="market-row-purchase-col">
+                      <span className="market-row-purchase">¥{drug.purchasePrice.toFixed(2)}</span>
+                    </div>
+                    <div className="market-row-price-col">
+                      <span className="market-row-price">
+                        <span className="market-price-flip">
+                          <span key={drug.sellingPrice} className="market-price-flip-enter">¥{drug.sellingPrice.toFixed(2)}</span>
+                        </span>
+                      </span>
+                      <span className={`market-row-change ${isUp ? 'up' : 'down'}`}>
+                        {isUp ? '+' : ''}{(drug.changePercent || 0).toFixed(2)}%
+                      </span>
+                    </div>
                   </div>
-                  <div className="market-row-quantity-col">
-                    <span className="market-row-quantity">{formatVolume(drug.totalQuantity)}</span>
-                    <span className={`market-row-status ${getStatusConfig(drug.status).className}`}>
-                      {getStatusConfig(drug.status).label}
-                    </span>
-                  </div>
-                  <div className="market-row-purchase-col">
-                    <span className="market-row-purchase">¥{drug.purchasePrice.toFixed(2)}</span>
-                  </div>
-                  <div className="market-row-price-col">
-                    <span className="market-row-price">¥{drug.sellingPrice.toFixed(2)}</span>
-                    <span className={`market-row-change ${isUp ? 'up' : 'down'}`}>
-                      {isUp ? '+' : ''}{(drug.changePercent || 0).toFixed(2)}%
-                    </span>
-                  </div>
-                </div>
-              )
-            })
+                )
+              }}
+            />
           )}
 
           {/* 空状态 */}
           {!loading && filteredDrugs.length === 0 && (
-            <div className="market-empty">
-              <svg width="56" height="56" viewBox="0 0 64 64" fill="none">
-                <circle cx="32" cy="32" r="26" stroke="var(--color-border-medium)" strokeWidth="1.5" fill="none" />
-                <path d="M22 28h20M22 36h14" stroke="var(--color-border-medium)" strokeWidth="1.5" strokeLinecap="round" />
-                <circle cx="44" cy="44" r="9" fill="var(--color-primary-bg)" />
-                <path d="M41 44h6M44 41v6" stroke="var(--color-primary)" strokeWidth="1.5" strokeLinecap="round" />
-              </svg>
-              <div className="empty-text">暂无行情数据</div>
-              <div className="empty-hint">下拉刷新试试</div>
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                  <circle cx="35" cy="35" r="18" stroke="#5E6673" strokeWidth="2"/>
+                  <line x1="48" y1="48" x2="62" y2="62" stroke="#5E6673" strokeWidth="3" strokeLinecap="round"/>
+                  <text x="35" y="40" textAnchor="middle" fill="#F0B90B" fontSize="18" fontWeight="bold">?</text>
+                </svg>
+              </div>
+              <p className="empty-state-text">{keyword.trim() ? '未找到相关药品' : '暂无行情数据'}</p>
+              <p className="empty-state-hint">{keyword.trim() ? '换个关键词试试' : '下拉刷新试试'}</p>
             </div>
           )}
 

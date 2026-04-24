@@ -389,7 +389,7 @@ const ProfileContent: React.FC = () => {
         </div>
         <div className="profile-account-main">
           <div className="profile-avatar">
-            <img src={avatarLogo} alt="零钱保" className="avatar-logo" />
+            <img src={avatarLogo} alt="零钱保" className="avatar-logo" loading="lazy" />
           </div>
           <div className="profile-user-info">
             <div className="profile-name-row">

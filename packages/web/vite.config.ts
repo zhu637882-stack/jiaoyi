@@ -16,6 +16,19 @@ export default defineConfig({
       '@types': path.resolve(__dirname, './src/types'),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom', 'react-router-dom'],
+          'vendor-antd': ['antd', '@ant-design/icons', '@ant-design/pro-components'],
+          'vendor-chart': ['echarts', 'echarts-for-react'],
+          'vendor-kline': ['klinecharts', 'lightweight-charts'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 600,
+  },
   server: {
     host: '127.0.0.1',
     port: 5173,

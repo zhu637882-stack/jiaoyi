@@ -57,7 +57,7 @@ export class SubscriptionModelRefactor1745000000000 implements MigrationInterfac
     await queryRunner.query(`ALTER TABLE "drugs" ALTER COLUMN "operationFeeRate" SET DEFAULT 0`);
 
     // 新增 slowSellingDays 字段
-    await queryRunner.query(`ALTER TABLE "drugs" ADD COLUMN "slowSellingDays" INTEGER NOT NULL DEFAULT 90`);
+    await queryRunner.query(`ALTER TABLE "drugs" ADD COLUMN "slowSellingDays" INTEGER NOT NULL DEFAULT 10`);
 
     // ========== 4. 修改 settlements 表 ==========
     // 删除 totalInterest 字段

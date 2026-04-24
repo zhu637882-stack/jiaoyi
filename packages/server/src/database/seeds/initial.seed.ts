@@ -79,7 +79,7 @@ export default class InitialSeed {
         batchNo: 'BATCH-2024-001',
         status: DrugStatus.FUNDING,
         operationFeeRate: 1.0,
-        slowSellingDays: 90,
+        slowSellingDays: 10
       },
       {
         name: '阿莫西林胶囊',
@@ -90,7 +90,7 @@ export default class InitialSeed {
         batchNo: 'BATCH-2024-002',
         status: DrugStatus.FUNDING,
         operationFeeRate: 1.0,
-        slowSellingDays: 90,
+        slowSellingDays: 10
       },
       {
         name: '板蓝根颗粒',
@@ -101,7 +101,7 @@ export default class InitialSeed {
         batchNo: 'BATCH-2024-003',
         status: DrugStatus.FUNDING,
         operationFeeRate: 0.8,
-        slowSellingDays: 90,
+        slowSellingDays: 10
       },
       {
         name: '布洛芬缓释胶囊',
@@ -112,7 +112,7 @@ export default class InitialSeed {
         batchNo: 'BATCH-2024-004',
         status: DrugStatus.FUNDING,
         operationFeeRate: 1.2,
-        slowSellingDays: 90,
+        slowSellingDays: 10
       },
       {
         name: '复方丹参滴丸',
@@ -123,7 +123,7 @@ export default class InitialSeed {
         batchNo: 'BATCH-2024-005',
         status: DrugStatus.FUNDING,
         operationFeeRate: 1.5,
-        slowSellingDays: 90,
+        slowSellingDays: 10
       },
       {
         name: '连花清瘟胶囊',
@@ -134,7 +134,7 @@ export default class InitialSeed {
         batchNo: 'BATCH-2024-006',
         status: DrugStatus.FUNDING,
         operationFeeRate: 1.0,
-        slowSellingDays: 90,
+        slowSellingDays: 10
       },
       {
         name: '蒙脱石散',
@@ -145,7 +145,7 @@ export default class InitialSeed {
         batchNo: 'BATCH-2024-007',
         status: DrugStatus.FUNDING,
         operationFeeRate: 0.5,
-        slowSellingDays: 90,
+        slowSellingDays: 10
       },
     ];
 

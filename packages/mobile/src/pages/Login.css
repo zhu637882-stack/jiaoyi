@@ -74,13 +74,6 @@
   margin-top: 20px;
 }
 
-.login-logo-img {
-  width: 120px;
-  height: auto;
-  object-fit: contain;
-  display: block;
-}
-
 /* 表单区域 */
 .login-form {
   display: flex;
@@ -105,13 +98,6 @@
 .login-optional {
   color: #5E6673;
   font-weight: 400;
-}
-
-/* 输入框容器 */
-.login-input-box {
-  position: relative;
-  display: flex;
-  align-items: center;
 }
 
 /* 输入框 */
@@ -218,31 +204,6 @@
   opacity: 0.8;
 }
 
-/* 提交按钮 */
-.login-submit-btn {
-  width: 100%;
-  height: 52px;
-  margin-top: 12px;
-  background: #F0B90B;
-  border: none;
-  border-radius: 8px;
-  color: #0B0E11;
-  font-size: 16px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.login-submit-btn:active:not(:disabled) {
-  transform: scale(0.98);
-  background: #D4A20A;
-}
-
-.login-submit-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
 /* 底部链接 */
 .login-footer-link {
   display: flex;
@@ -282,6 +243,184 @@
   }
 }
 
+/* ========== 1. 粒子浮动背景 ========== */
+.login-particles {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.particle {
+  position: absolute;
+  border-radius: 50%;
+  background: rgba(240, 185, 11, 0.15);
+  will-change: transform, opacity;
+  animation: particleFloat linear infinite;
+}
+
+.particle:nth-child(1) { width: 3px; height: 3px; left: 10%; bottom: -5%; animation-duration: 18s; animation-delay: 0s; }
+.particle:nth-child(2) { width: 5px; height: 5px; left: 25%; bottom: -5%; animation-duration: 22s; animation-delay: -3s; background: rgba(240, 185, 11, 0.1); }
+.particle:nth-child(3) { width: 2px; height: 2px; left: 40%; bottom: -5%; animation-duration: 16s; animation-delay: -6s; background: rgba(240, 185, 11, 0.25); }
+.particle:nth-child(4) { width: 6px; height: 6px; left: 55%; bottom: -5%; animation-duration: 25s; animation-delay: -2s; background: rgba(240, 185, 11, 0.08); }
+.particle:nth-child(5) { width: 4px; height: 4px; left: 70%; bottom: -5%; animation-duration: 20s; animation-delay: -8s; }
+.particle:nth-child(6) { width: 3px; height: 3px; left: 85%; bottom: -5%; animation-duration: 17s; animation-delay: -4s; background: rgba(240, 185, 11, 0.2); }
+.particle:nth-child(7) { width: 7px; height: 7px; left: 15%; bottom: -5%; animation-duration: 24s; animation-delay: -10s; background: rgba(240, 185, 11, 0.06); }
+.particle:nth-child(8) { width: 2px; height: 2px; left: 60%; bottom: -5%; animation-duration: 19s; animation-delay: -12s; background: rgba(240, 185, 11, 0.3); }
+
+@keyframes particleFloat {
+  0% {
+    transform: translateY(0) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  50% {
+    transform: translateY(-50vh) translateX(30px);
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-110vh) translateX(-20px);
+    opacity: 0;
+  }
+}
+
+/* ========== 2. Logo呼吸脉冲光晕 ========== */
+.login-logo-img {
+  width: 120px;
+  height: auto;
+  object-fit: contain;
+  display: block;
+  will-change: filter;
+  animation: logoGlow 3s ease-in-out infinite;
+}
+
+@keyframes logoGlow {
+  0%, 100% {
+    filter: drop-shadow(0 0 8px rgba(240, 185, 11, 0.3));
+  }
+  50% {
+    filter: drop-shadow(0 0 20px rgba(240, 185, 11, 0.6))
+           drop-shadow(0 0 40px rgba(240, 185, 11, 0.15));
+  }
+}
+
+/* ========== 3. 输入框focus波纹线条 ========== */
+.login-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.login-input-box::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #F0B90B, transparent);
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateX(-50%);
+  border-radius: 1px;
+  pointer-events: none;
+}
+
+.login-input-box:focus-within::after {
+  width: 100%;
+}
+
+/* ========== 4. 登录按钮动画状态 ========== */
+.login-submit-btn {
+  width: 100%;
+  height: 52px;
+  margin-top: 12px;
+  background: #F0B90B;
+  border: none;
+  border-radius: 8px;
+  color: #0B0E11;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.login-submit-btn:active:not(:disabled):not(.is-loading):not(.is-success) {
+  transform: scale(0.98);
+  background: #D4A20A;
+}
+
+.login-submit-btn:disabled:not(.is-loading):not(.is-success) {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.login-submit-btn .btn-text {
+  transition: opacity 0.2s ease;
+}
+
+.login-submit-btn.is-loading .btn-text,
+.login-submit-btn.is-success .btn-text {
+  opacity: 0;
+  position: absolute;
+}
+
+.login-submit-btn.is-loading {
+  width: 52px;
+  border-radius: 50%;
+  margin-left: auto;
+  margin-right: auto;
+  pointer-events: none;
+}
+
+.login-submit-btn.is-loading::before {
+  content: '';
+  width: 24px;
+  height: 24px;
+  border: 3px solid rgba(11, 14, 17, 0.3);
+  border-top-color: #0B0E11;
+  border-radius: 50%;
+  animation: btnSpin 0.6s linear infinite;
+}
+
+.login-submit-btn.is-success {
+  width: 52px;
+  border-radius: 50%;
+  margin-left: auto;
+  margin-right: auto;
+  background: #00D4AA;
+  pointer-events: none;
+}
+
+.login-submit-btn.is-success::before {
+  content: '';
+  width: 20px;
+  height: 10px;
+  border-left: 3px solid #0B0E11;
+  border-bottom: 3px solid #0B0E11;
+  transform: rotate(-45deg) translateY(-2px);
+  animation: checkPop 0.3s ease-out;
+}
+
+@keyframes btnSpin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes checkPop {
+  0% { transform: rotate(-45deg) translateY(-2px) scale(0); opacity: 0; }
+  60% { transform: rotate(-45deg) translateY(-2px) scale(1.2); }
+  100% { transform: rotate(-45deg) translateY(-2px) scale(1); opacity: 1; }
+}
+
 /* 动画效果 */
 @keyframes fadeIn {
   from {
@@ -296,6 +435,13 @@
 
 .login-form {
   animation: fadeIn 0.3s ease-out;
+}
+
+/* 确保内容在粒子之上 */
+.login-header,
+.login-content {
+  position: relative;
+  z-index: 1;
 }
 
 /* 响应式适配 */

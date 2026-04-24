@@ -23,7 +23,9 @@
   position: sticky;
   top: 0;
   z-index: 20;
-  background: var(--color-bg-primary);
+  background: rgba(11,14,17,0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   padding: calc(8px + env(safe-area-inset-top, 0)) 16px 8px;
 }
 
@@ -281,23 +283,26 @@
   border-bottom: 1px solid var(--color-border);
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: background 0.15s ease;
-  animation: rowEnter 0.35s ease-out both;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              background 0.15s ease;
+  animation: rowSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  will-change: transform, opacity;
 }
 
-@keyframes rowEnter {
+@keyframes rowSlideIn {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateX(-15px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateX(0);
   }
 }
 
 .market-row:active {
   background: var(--color-bg-hover);
+  transform: scale(0.98);
 }
 
 /* 左侧信息 */
@@ -420,14 +425,40 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
   font-family: var(--font-family-mono);
   letter-spacing: -0.3px;
+}
+
+/* 价格翻牌容器 */
+.market-price-flip {
+  display: inline-block;
+  overflow: hidden;
+  position: relative;
+}
+
+.market-price-flip-enter {
+  animation: marketPriceFlipIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  will-change: transform, opacity;
+  display: inline-block;
+}
+
+@keyframes marketPriceFlipIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 .market-row-change {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   letter-spacing: 0.2px;

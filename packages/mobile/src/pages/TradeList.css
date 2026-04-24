@@ -22,8 +22,62 @@
   font-size: 20px;
   font-weight: 600;
   color: #EAECEF;
-  margin: 0 0 12px 0;
+  margin: 0;
   padding: 0;
+}
+
+/* ---------- 标题行（标题 + 导出按钮） ---------- */
+.trade-list-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+/* ---------- 导出按钮 ---------- */
+.trade-export-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 12px;
+  background: rgba(240, 185, 11, 0.12);
+  border: 1px solid rgba(240, 185, 11, 0.3);
+  border-radius: 16px;
+  color: #F0B90B;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+  line-height: 1.4;
+}
+
+.trade-export-btn:active {
+  transform: scale(0.95);
+}
+
+.trade-export-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.trade-export-btn.loading {
+  background: rgba(240, 185, 11, 0.06);
+}
+
+.trade-export-icon {
+  flex-shrink: 0;
+}
+
+.trade-export-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 1.5px solid rgba(240, 185, 11, 0.25);
+  border-top-color: #F0B90B;
+  border-radius: 50%;
+  animation: tradeSpin 0.6s linear infinite;
+  flex-shrink: 0;
 }
 
 /* ---------- 搜索栏 ---------- */
@@ -104,15 +158,25 @@
   flex-direction: column;
   gap: 8px;
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.3s ease;
   border: 1px solid rgba(80,70,30,0.4);
-  animation: cardSlideIn 0.4s ease forwards;
-  opacity: 0;
-  transform: translateY(10px);
+  animation: tradeCardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
   transform-style: preserve-3d;
-  will-change: transform;
+  will-change: transform, opacity;
   position: relative;
   overflow: hidden;
+}
+
+@keyframes tradeCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* 实时更新徽章 */
@@ -129,10 +193,27 @@
   pointer-events: none;
 }
 
-@keyframes cardSlideIn {
+/* 价格翻牌效果 */
+.trade-price-flip {
+  display: inline-block;
+  overflow: hidden;
+  position: relative;
+}
+
+.trade-price-flip-enter {
+  animation: tradePriceFlipIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  will-change: transform, opacity;
+  display: inline-block;
+}
+
+@keyframes tradePriceFlipIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
   to {
-    opacity: 1;
     transform: translateY(0);
+    opacity: 1;
   }
 }
 
@@ -180,9 +261,9 @@
   }
 }
 
-/* 移动端触摸反馈 */
+/* 移动端触摸反馈 - 弹性按压 */
 .trade-card.touch-active {
-  transform: scale(0.98);
+  transform: scale(0.97);
   transition: transform 0.1s ease;
 }
 

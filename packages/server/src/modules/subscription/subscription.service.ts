@@ -538,6 +538,50 @@ export class SubscriptionService {
   }
 
   /**
+   * 导出当前用户的所有交易记录为 CSV
+   */
+  async exportMySubscriptionsCsv(userId: string): Promise<string> {
+    const orders = await this.subscriptionOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.drug', 'drug')
+      .where('order.userId = :userId', { userId })
+      .orderBy('order.createdAt', 'DESC')
+      .getMany();
+
+    const statusMap: Record<string, string> = {
+      confirmed: '已确认',
+      effective: '已生效',
+      return_pending: '退回审核中',
+      partial_returned: '部分退回',
+      returned: '已退回',
+      cancelled: '已取消',
+      slow_selling_refund: '滞销退款',
+      settled: '已结算',
+    };
+
+    // UTF-8 BOM 头，防止 Excel 中文乱码
+    const BOM = '\uFEFF';
+    const header = '交易时间,药品名称,交易类型,数量,单价,总金额,状态';
+
+    const rows = orders.map((order) => {
+      const time = order.createdAt
+        ? new Date(order.createdAt).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai' })
+        : '';
+      const drugName = (order.drug?.name || '').replace(/,/g, '，');
+      const type = '认购';
+      const quantity = order.quantity;
+      const unitPrice = order.quantity > 0
+        ? (Number(order.amount) / order.quantity).toFixed(2)
+        : '0.00';
+      const totalAmount = Number(order.amount).toFixed(2);
+      const status = statusMap[order.status] || order.status;
+      return `${time},${drugName},${type},${quantity},${unitPrice},${totalAmount},${status}`;
+    });
+
+    return BOM + [header, ...rows].join('\n');
+  }
+
+  /**
    * 获取认购详情
    */
   async getSubscriptionDetail(
@@ -691,6 +735,13 @@ export class SubscriptionService {
       queryBuilder.andWhere('order.auditStatus = :auditStatus', { auditStatus });
     }
 
+    // 认购审核查询时（有auditStatus但没指定status），排除退回相关状态的订单
+    if (auditStatus && !status) {
+      queryBuilder.andWhere('order.status NOT IN (:...excludeStatuses)', {
+        excludeStatuses: ['return_pending', 'returned', 'partial_returned'],
+      });
+    }
+
     const total = await queryBuilder.getCount();
 
     const orders = await queryBuilder
@@ -839,11 +890,20 @@ export class SubscriptionService {
       throw new NotFoundException('认购订单不存在');
     }
 
-    if (order.status !== SubscriptionOrderStatus.EFFECTIVE && order.status !== SubscriptionOrderStatus.PARTIAL_RETURNED) {
-      throw new BadRequestException('当前订单状态不可申请退回，仅认购中或部分退回的订单可申请');
+    // 允许：EFFECTIVE、PARTIAL_RETURNED、以及审核通过的CONFIRMED订单
+    const allowedStatuses = [
+      SubscriptionOrderStatus.EFFECTIVE,
+      SubscriptionOrderStatus.PARTIAL_RETURNED,
+    ];
+    const isApprovedConfirmed = order.status === SubscriptionOrderStatus.CONFIRMED && order.auditStatus === 'approved';
+
+    if (!allowedStatuses.includes(order.status) && !isApprovedConfirmed) {
+      throw new BadRequestException('当前订单状态不可申请退回，仅已生效、部分退回或已审核通过的订单可申请');
     }
 
     order.status = SubscriptionOrderStatus.RETURN_PENDING;
+    // 清除认购审核状态，避免退回订单出现在认购审核列表中
+    order.auditStatus = 'approved';
     order.returnRequestedAt = new Date();
 
     this.logger.log(`[requestReturn] 退回申请已提交: userId=${userId}, orderId=${orderId}, 状态变更为RETURN_PENDING`);
@@ -995,7 +1055,13 @@ export class SubscriptionService {
       throw new BadRequestException('该订单不在退回审核状态');
     }
 
-    order.status = SubscriptionOrderStatus.EFFECTIVE;
+    // 根据 effectiveAt 判断应恢复到哪个状态
+    const now = new Date();
+    if (order.effectiveAt && order.effectiveAt <= now) {
+      order.status = SubscriptionOrderStatus.EFFECTIVE;
+    } else {
+      order.status = SubscriptionOrderStatus.CONFIRMED;
+    }
     order.returnApprovedBy = adminUserId;
     order.returnRejectReason = reason;
 
@@ -1008,19 +1074,30 @@ export class SubscriptionService {
    * 审核认购订单
    */
   async auditSubscription(adminUserId: string, orderId: string, approved: boolean, remark?: string): Promise<SubscriptionOrder> {
+    this.logger.log(`[auditSubscription] 开始审核: orderId=${orderId}, approved=${approved}`);
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
 
     try {
+      // 锁定查询不加载关系（避免FOR UPDATE与LEFT JOIN外连接冲突）
       const order = await queryRunner.manager.findOne(SubscriptionOrder, {
         where: { id: orderId },
         lock: { mode: 'pessimistic_write' },
-        relations: ['drug'],
       });
 
       if (!order) {
         throw new NotFoundException('认购订单不存在');
+      }
+
+      // 单独加载drug关联（不使用锁，避免FOR UPDATE冲突）
+      if (order.drugId) {
+        const drug = await queryRunner.manager.findOne(Drug, {
+          where: { id: order.drugId },
+        });
+        if (drug) {
+          order.drug = drug;
+        }
       }
 
       // 安全检查：已滞销退款的订单不可审核
@@ -1045,6 +1122,7 @@ export class SubscriptionService {
         // 审核通过
         order.auditStatus = 'approved';
         await queryRunner.manager.save(order);
+        this.logger.log(`[auditSubscription] 审核通过: orderId=${orderId}`);
       } else {
         // 审核拒绝
         order.auditStatus = 'rejected';
@@ -1094,6 +1172,21 @@ export class SubscriptionService {
       }
 
       await queryRunner.commitTransaction();
+      this.logger.log(`[auditSubscription] 事务已提交: orderId=${orderId}`);
+
+      // 安全地重新查询完整订单数据
+      try {
+        const result = await this.subscriptionOrderRepository.findOne({
+          where: { id: order.id },
+          relations: ['drug', 'user'],
+        });
+        if (result) {
+          return result;
+        }
+      } catch (e) {
+        this.logger.warn(`[auditSubscription] 重新查询订单异常: ${e.message}`);
+      }
+      // 如果重新查询失败，返回内存中的order对象
       return order;
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -1320,14 +1413,24 @@ export class SubscriptionService {
       const results = [];
 
       for (const orderId of orderIds) {
+        // 锁定查询不加载关系（避免FOR UPDATE与LEFT JOIN外连接冲突）
         const order = await queryRunner.manager.findOne(SubscriptionOrder, {
           where: { id: orderId },
           lock: { mode: 'pessimistic_write' },
-          relations: ['drug'],
         });
 
         if (!order || order.status !== SubscriptionOrderStatus.EFFECTIVE) {
           continue;
+        }
+
+        // 单独加载drug关联
+        if (order.drugId) {
+          const drugEntity = await queryRunner.manager.findOne(Drug, {
+            where: { id: order.drugId },
+          });
+          if (drugEntity) {
+            order.drug = drugEntity;
+          }
         }
 
         const drug = order.drug;
@@ -1539,10 +1642,18 @@ export class SubscriptionService {
 
       await queryRunner.commitTransaction();
 
-      return this.subscriptionOrderRepository.findOne({
-        where: { id: order.id },
-        relations: ['drug', 'user'],
-      });
+      try {
+        const result = await this.subscriptionOrderRepository.findOne({
+          where: { id: order.id },
+          relations: ['drug', 'user'],
+        });
+        if (result) {
+          return result;
+        }
+      } catch (e) {
+        this.logger.warn(`[settleOrder] 重新查询订单异常: ${e.message}`);
+      }
+      return order;
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;

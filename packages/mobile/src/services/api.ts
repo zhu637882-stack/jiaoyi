@@ -228,6 +228,16 @@ export const subscriptionApi = {
   // 客户申请退回认购
   requestReturn: (id: string) =>
     http.post(`/subscriptions/${id}/return`),
+
+  // 导出交易记录 CSV（返回 Blob）
+  exportCsv: async (): Promise<Blob> => {
+    const token = localStorage.getItem('access_token')
+    const res = await fetch('/api/subscriptions/export?format=csv', {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!res.ok) throw new Error('导出失败')
+    return res.blob()
+  },
 }
 
 // ========== 账户相关 API ==========

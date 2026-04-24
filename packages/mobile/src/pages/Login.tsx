@@ -42,6 +42,7 @@ const Login: React.FC = () => {
     return searchParams.get('tab') === 'register' ? 'register' : 'login'
   })
   const [loading, setLoading] = useState(false)
+  const [btnState, setBtnState] = useState<'idle' | 'loading' | 'success'>('idle')
   // 协议同意状态：从URL参数或localStorage检查
   const [agreed, setAgreed] = useState(() => {
     return searchParams.get('agreed') === 'true' || localStorage.getItem('agreed_to_agreement') === 'true'
@@ -78,6 +79,7 @@ const Login: React.FC = () => {
       return
     }
     setLoading(true)
+    setBtnState('loading')
     try {
       const res = await authApi.login(loginUsername, loginPassword) as any
       const data = res?.data || res
@@ -86,6 +88,7 @@ const Login: React.FC = () => {
       if (data?.status === 'pending') {
         Toast.show({ content: '账号审核中，请耐心等待', icon: 'fail' })
         setLoading(false)
+        setBtnState('idle')
         return
       }
       if (data?.status === 'rejected') {
@@ -94,6 +97,7 @@ const Login: React.FC = () => {
           confirmText: '知道了',
         })
         setLoading(false)
+        setBtnState('idle')
         return
       }
       
@@ -105,14 +109,19 @@ const Login: React.FC = () => {
         if (data.user) {
           localStorage.setItem('user', JSON.stringify(data.user))
         }
+        setBtnState('success')
         Toast.show({ content: '登录成功', icon: 'success' })
-        navigate('/m')
+        setTimeout(() => {
+          navigate('/m')
+        }, 800)
       } else if (data?.message) {
         Toast.show({ content: data.message, icon: 'fail' })
+        setBtnState('idle')
       }
     } catch (e: any) {
       const msg = e?.response?.data?.message || '登录失败'
       Toast.show({ content: msg, icon: 'fail' })
+      setBtnState('idle')
     } finally {
       setLoading(false)
     }
@@ -182,6 +191,18 @@ const Login: React.FC = () => {
 
   return (
     <div className="mobile-login">
+      {/* 粒子浮动背景 */}
+      <div className="login-particles">
+        <div className="particle" />
+        <div className="particle" />
+        <div className="particle" />
+        <div className="particle" />
+        <div className="particle" />
+        <div className="particle" />
+        <div className="particle" />
+        <div className="particle" />
+      </div>
+      
       {/* 顶部导航 - 仅在注册页显示 */}
       {activeTab === 'register' && (
         <div className="login-header">
@@ -200,7 +221,7 @@ const Login: React.FC = () => {
       <div className="login-content">
         {/* Logo区域 */}
         <div className="login-logo-section">
-          <img src={logoImg} alt="零钱保" className="login-logo-img" />
+          <img src={logoImg} alt="零钱保" className="login-logo-img" loading="lazy" />
         </div>
 
         {/* 登录表单 */}
@@ -245,11 +266,11 @@ const Login: React.FC = () => {
 
             {/* 登录按钮 */}
             <button 
-              className="login-submit-btn"
+              className={`login-submit-btn ${btnState === 'loading' ? 'is-loading' : ''} ${btnState === 'success' ? 'is-success' : ''}`}
               onClick={handleLogin}
               disabled={loading}
             >
-              {loading ? '登录中...' : '登录'}
+              <span className="btn-text">{loading ? '登录中...' : '登录'}</span>
             </button>
             
             {/* 底部链接 */}

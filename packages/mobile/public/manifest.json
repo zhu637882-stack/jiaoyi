@@ -1,17 +1,28 @@
 {
   "name": "零钱保",
   "short_name": "零钱保",
-  "description": "药品垫资认购平台",
-  "start_url": "/m/",
+  "description": "多客控股旗下药品交易平台",
+  "start_url": "/",
   "display": "standalone",
-  "background_color": "#181A20",
+  "background_color": "#1A1A2E",
   "theme_color": "#F0B90B",
   "orientation": "portrait",
   "icons": [
     {
-      "src": "/m/logo.png",
+      "src": "logo-192x192.png",
       "sizes": "192x192",
       "type": "image/png"
+    },
+    {
+      "src": "logo-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "logo-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

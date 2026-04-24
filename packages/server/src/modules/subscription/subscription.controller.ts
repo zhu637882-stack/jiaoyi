@@ -7,11 +7,13 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { Response } from 'express';
 import { SubscriptionService } from './subscription.service';
 import { JwtAuthGuard } from '../../common/guards/jwt-auth.guard';
 import { RolesGuard, Roles } from '../../common/guards/roles.guard';
@@ -40,7 +42,6 @@ export class SubscriptionController {
     @CurrentUser('userId') userId: string,
     @Body() createDto: CreateSubscriptionDto,
   ) {
-    console.log('[DEBUG] createSubscription body:', JSON.stringify(createDto));
     const order = await this.subscriptionService.createSubscription(
       userId,
       createDto,
@@ -89,6 +90,26 @@ export class SubscriptionController {
       data: order,
       message: '退回申请已提交，等待管理员核准',
     };
+  }
+
+  /**
+   * 导出交易记录 CSV
+   * GET /api/subscriptions/export?format=csv
+   */
+  @Get('export')
+  @UseGuards(JwtAuthGuard)
+  async exportSubscriptions(
+    @CurrentUser('userId') userId: string,
+    @Res() res: Response,
+  ) {
+    const csv = await this.subscriptionService.exportMySubscriptionsCsv(userId);
+    const now = new Date();
+    const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    const filename = encodeURIComponent(`零钱保_交易记录_${dateStr}.csv`);
+
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`);
+    res.send(csv);
   }
 
   /**
@@ -269,6 +290,15 @@ export class SubscriptionController {
       body.approved,
       body.remark,
     );
+
+    if (!order) {
+      return {
+        success: true,
+        data: null,
+        message: body.approved ? '审核已处理，请刷新查看结果' : '审核已拒绝',
+      };
+    }
+
     return {
       success: true,
       data: order,

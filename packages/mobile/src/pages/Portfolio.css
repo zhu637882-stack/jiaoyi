@@ -24,10 +24,12 @@
 }
 
 .overview-main-card {
-  background: linear-gradient(135deg, rgba(240, 185, 11, 0.15) 0%, rgba(240, 185, 11, 0.05) 100%);
+  background: linear-gradient(135deg, rgba(240,185,11,0.15) 0%, rgba(212,162,10,0.08) 50%, rgba(30,35,41,0.95) 100%);
   border-radius: var(--radius-xl);
   padding: 14px 16px;
-  border: 1px solid rgba(240, 185, 11, 0.2);
+  border: 1px solid rgba(240,185,11,0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
   animation: fadeInUp 0.5s ease-out;
 }
 
@@ -93,6 +95,7 @@
   font-weight: 700;
   color: #EAECEF;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
   margin-bottom: 14px;
 }
 
@@ -120,6 +123,7 @@
   font-weight: 600;
   color: #EAECEF;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
 .sub-stat-value.profit {
@@ -167,7 +171,24 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation: statCardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+.portfolio-overview-card:nth-child(1) { animation-delay: 0.1s; }
+.portfolio-overview-card:nth-child(2) { animation-delay: 0.2s; }
+.portfolio-overview-card:nth-child(3) { animation-delay: 0.3s; }
+.portfolio-overview-card:nth-child(4) { animation-delay: 0.4s; }
+
+@keyframes statCardEnter {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .overview-card-title {
@@ -179,6 +200,7 @@
   font-size: 18px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
 /* 收益图表卡片 */
@@ -300,13 +322,67 @@
   border-color: var(--color-primary);
 }
 
-/* 认购卡片 */
+/* 认购卡片 - 左滑容器 */
+.portfolio-swipe-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
+}
+
+.portfolio-swipe-content {
+  position: relative;
+  z-index: 1;
+  transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  will-change: transform;
+}
+
+.portfolio-swipe-content.swiping {
+  transition: none;
+}
+
+.portfolio-swipe-actions {
+  position: absolute;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  display: flex;
+  align-items: stretch;
+  z-index: 0;
+}
+
+.swipe-action-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 72px;
+  border: none;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.swipe-action-btn:active {
+  opacity: 0.8;
+}
+
+.swipe-action-btn.detail {
+  background: #1890FF;
+}
+
+.swipe-action-btn.sell {
+  background: #ef4444;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+}
+
 .portfolio-subscription-card {
   background: var(--color-bg-secondary);
   border-radius: var(--radius-lg);
   padding: 16px;
   border: 1px solid var(--color-border);
-  animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
   transition: all 0.3s ease;
 }
 
@@ -617,6 +693,44 @@
   height: 64px;
   margin-bottom: 16px;
   opacity: 0.5;
+}
+
+/* 统一空状态插画 */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 20px;
+  animation: fadeIn 0.5s ease both;
+}
+.empty-state-icon {
+  margin-bottom: 16px;
+  opacity: 0.8;
+}
+.empty-state-text {
+  font-size: 16px;
+  color: var(--color-text-secondary);
+  margin: 0 0 8px 0;
+}
+.empty-state-hint {
+  font-size: 13px;
+  color: var(--color-text-tertiary);
+  margin: 0;
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* 统一骨架屏列表 */
+.skeleton-list {
+  padding: 12px 16px;
+}
+.skeleton-row {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--color-border);
+  animation: fadeIn 0.3s ease both;
 }
 
 @keyframes fadeInUp {

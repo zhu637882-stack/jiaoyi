@@ -100,6 +100,37 @@ const transactionTypeMap: Record<string, { label: string; color: string }> = {
   sell: { label: '卖出', color: '#F6465D' },
 }
 
+// 内联CountUp动画组件（纯requestAnimationFrame，不依赖外部库）
+function AnimatedNumber({ value, duration = 1200, prefix = '¥' }: { value: number; duration?: number; prefix?: string }) {
+  const [display, setDisplay] = useState(0)
+  const ref = useRef<number>(0)
+  
+  useEffect(() => {
+    const start = ref.current
+    const end = value
+    const startTime = Date.now()
+    
+    const animate = () => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min(elapsed / duration, 1)
+      // easeOutExpo 缓动
+      const eased = progress === 1 ? 1 : 1 - Math.pow(2, -10 * progress)
+      const current = start + (end - start) * eased
+      setDisplay(current)
+      
+      if (progress < 1) {
+        requestAnimationFrame(animate)
+      } else {
+        ref.current = end
+      }
+    }
+    
+    requestAnimationFrame(animate)
+  }, [value, duration])
+  
+  return <span>{prefix}{display.toFixed(2)}</span>
+}
+
 // CountUp数字展示组件
 const CountUpValue = ({ target, prefix = '¥', className = '' }: { target: number; prefix?: string; className?: string }) => {
   // 防御性处理：确保 target 是有效数字
@@ -328,6 +359,129 @@ const StatCard = ({
   )
 }
 
+// 左滑卡片组件
+const SwipeCard: React.FC<{
+  children: React.ReactNode
+  onDetail: () => void
+  onSell: () => void
+  swipeOpenId: string | null
+  cardId: string
+  onSwipeOpen: (id: string | null) => void
+}> = ({ children, onDetail, onSell, swipeOpenId, cardId, onSwipeOpen }) => {
+  const contentRef = useRef<HTMLDivElement>(null)
+  const startXRef = useRef(0)
+  const startYRef = useRef(0)
+  const currentXRef = useRef(0)
+  const isSwipingRef = useRef(false)
+  const directionLockedRef = useRef(false)
+  const isHorizontalRef = useRef(false)
+  const ACTION_WIDTH = 144 // 2 buttons * 72px
+  const THRESHOLD = 80
+
+  const isOpen = swipeOpenId === cardId
+
+  // 当其他卡片打开时，收回当前卡片
+  useEffect(() => {
+    if (!isOpen && contentRef.current) {
+      contentRef.current.style.transform = 'translateX(0)'
+      contentRef.current.classList.remove('swiping')
+      currentXRef.current = 0
+    }
+  }, [isOpen])
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    startXRef.current = touch.clientX
+    startYRef.current = touch.clientY
+    directionLockedRef.current = false
+    isHorizontalRef.current = false
+    isSwipingRef.current = false
+    if (contentRef.current) {
+      contentRef.current.classList.add('swiping')
+    }
+  }, [])
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0]
+    const deltaX = touch.clientX - startXRef.current
+    const deltaY = touch.clientY - startYRef.current
+
+    // 方向锁定：判断水平 vs 垂直
+    if (!directionLockedRef.current) {
+      if (Math.abs(deltaX) > 5 || Math.abs(deltaY) > 5) {
+        directionLockedRef.current = true
+        isHorizontalRef.current = Math.abs(deltaX) > Math.abs(deltaY)
+      }
+      return
+    }
+
+    // 非水平方向，不处理
+    if (!isHorizontalRef.current) return
+
+    e.preventDefault()
+    isSwipingRef.current = true
+
+    // 计算偏移量
+    const baseOffset = isOpen ? -ACTION_WIDTH : 0
+    let offset = baseOffset + deltaX
+
+    // 限制范围
+    offset = Math.max(-ACTION_WIDTH, Math.min(0, offset))
+
+    requestAnimationFrame(() => {
+      if (contentRef.current) {
+        contentRef.current.style.transform = `translateX(${offset}px)`
+      }
+    })
+
+    currentXRef.current = offset
+  }, [isOpen])
+
+  const handleTouchEnd = useCallback(() => {
+    if (contentRef.current) {
+      contentRef.current.classList.remove('swiping')
+    }
+
+    if (!isSwipingRef.current) return
+
+    const finalOffset = currentXRef.current
+    const shouldOpen = isOpen
+      ? finalOffset < -(ACTION_WIDTH - THRESHOLD)
+      : finalOffset < -THRESHOLD
+
+    requestAnimationFrame(() => {
+      if (contentRef.current) {
+        contentRef.current.style.transform = shouldOpen
+          ? `translateX(-${ACTION_WIDTH}px)`
+          : 'translateX(0)'
+      }
+    })
+
+    onSwipeOpen(shouldOpen ? cardId : null)
+    currentXRef.current = shouldOpen ? -ACTION_WIDTH : 0
+    isSwipingRef.current = false
+  }, [isOpen, cardId, onSwipeOpen])
+
+  return (
+    <div className="portfolio-swipe-wrapper">
+      <div className="portfolio-swipe-actions">
+        <button className="swipe-action-btn detail" onClick={onDetail}>详情</button>
+        <button className="swipe-action-btn sell" onClick={onSell}>卖出</button>
+      </div>
+      <div
+        ref={contentRef}
+        className="portfolio-swipe-content"
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        style={{ transform: isOpen ? `translateX(-${ACTION_WIDTH}px)` : 'translateX(0)' }}
+      >
+        {children}
+      </div>
+    </div>
+  )
+}
+
 // 错误边界组件
 class PortfolioErrorBoundary extends React.Component<
   { children: React.ReactNode },
@@ -424,6 +578,9 @@ const PortfolioContent: React.FC = () => {
   const [rechargeAmount, setRechargeAmount] = useState('')
   const [payChannel, setPayChannel] = useState<'wechat'>('wechat')
   const [payLoading, setPayLoading] = useState(false)
+
+  // 左滑状态
+  const [swipeOpenId, setSwipeOpenId] = useState<string | null>(null)
 
   // 退回确认弹窗
   const [showReturnConfirm, setShowReturnConfirm] = useState(false)
@@ -917,9 +1074,25 @@ const PortfolioContent: React.FC = () => {
       </div>
 
       {subscriptionLoading ? (
-        <div className="portfolio-loading">
-          <div className="loading-spinner"></div>
-          <span>加载中...</span>
+        <div className="skeleton-list">
+          {[1,2,3].map(i => (
+            <div key={i} className="skeleton-row" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div className="loading-skeleton" style={{ width: '40%', height: 16 }} />
+                <div className="loading-skeleton" style={{ width: 60, height: 22, borderRadius: 11 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 12 }}>
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <>
@@ -927,10 +1100,28 @@ const PortfolioContent: React.FC = () => {
             const st = getSubscriptionStatusDisplay(sub)
             const countdownDays = getCountdownDays(sub.slowSellingDeadline)
             return (
+              <SwipeCard
+                key={sub.id}
+                cardId={sub.id}
+                swipeOpenId={swipeOpenId}
+                onSwipeOpen={setSwipeOpenId}
+                onDetail={() => {
+                  setSwipeOpenId(null)
+                  Toast.show({ content: `查看 ${sub.drugName} 详情`, icon: 'success' })
+                }}
+                onSell={() => {
+                  setSwipeOpenId(null)
+                  if (sub.status === 'effective' || sub.status === 'partial_returned') {
+                    openReturnConfirm(sub)
+                  } else {
+                    Toast.show({ content: '当前状态不可卖出', icon: 'fail' })
+                  }
+                }}
+              >
               <div 
                 className="portfolio-subscription-card" 
-                key={sub.id}
                 style={{ animationDelay: `${index * 60}ms` }}
+                onClick={() => swipeOpenId === sub.id ? setSwipeOpenId(null) : undefined}
               >
                 <div className="sub-card-header">
                   <span className="sub-drug-name">{sub.drugName}</span>
@@ -993,17 +1184,20 @@ const PortfolioContent: React.FC = () => {
                   </button>
                 )}
               </div>
+              </SwipeCard>
             )
           })}
           {subscriptions.length === 0 && (
-            <div className="portfolio-empty">
-              <svg className="empty-icon" viewBox="0 0 64 64" fill="none">
-                <rect x="12" y="8" width="40" height="48" rx="4" stroke="#848E9C" strokeWidth="2"/>
-                <line x1="20" y1="20" x2="44" y2="20" stroke="#848E9C" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="20" y1="28" x2="44" y2="28" stroke="#848E9C" strokeWidth="2" strokeLinecap="round"/>
-                <line x1="20" y1="36" x2="36" y2="36" stroke="#848E9C" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-              <span>暂无认购记录</span>
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                  <rect x="15" y="20" width="50" height="40" rx="4" stroke="#5E6673" strokeWidth="2"/>
+                  <path d="M15 30h50" stroke="#5E6673" strokeWidth="2"/>
+                  <circle cx="40" cy="45" r="8" stroke="#F0B90B" strokeWidth="2" strokeDasharray="4 2"/>
+                </svg>
+              </div>
+              <p className="empty-state-text">暂无持仓记录</p>
+              <p className="empty-state-hint">认购药品后将在这里显示</p>
             </div>
           )}
         </>
@@ -1065,9 +1259,22 @@ const PortfolioContent: React.FC = () => {
   const renderTransactions = () => (
     <div className="portfolio-list-content">
       {transactionLoading ? (
-        <div className="portfolio-loading">
-          <div className="loading-spinner"></div>
-          <span>加载中...</span>
+        <div className="skeleton-list">
+          {[1,2,3,4].map(i => (
+            <div key={i} className="skeleton-row" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div className="loading-skeleton" style={{ width: 56, height: 22, borderRadius: 11 }} />
+                <div style={{ flex: 1 }}>
+                  <div className="loading-skeleton" style={{ width: '70%', height: 14, marginBottom: 6 }} />
+                  <div className="loading-skeleton" style={{ width: '40%', height: 12 }} />
+                </div>
+                <div style={{ textAlign: 'right' }}>
+                  <div className="loading-skeleton" style={{ width: 72, height: 16, marginBottom: 4 }} />
+                  <div className="loading-skeleton" style={{ width: 56, height: 12 }} />
+                </div>
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <>
@@ -1097,19 +1304,25 @@ const PortfolioContent: React.FC = () => {
             )
           })}
           {transactions.length === 0 && (
-            <div className="portfolio-empty">
-              <svg className="empty-icon" viewBox="0 0 64 64" fill="none">
-                <rect x="8" y="16" width="48" height="40" rx="4" stroke="#848E9C" strokeWidth="2"/>
-                <path d="M8 24L32 38L56 24" stroke="#848E9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="32" cy="28" r="6" stroke="#848E9C" strokeWidth="2"/>
-              </svg>
-              <span>暂无交易记录</span>
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                  <rect x="20" y="10" width="40" height="55" rx="3" stroke="#5E6673" strokeWidth="2"/>
+                  <line x1="28" y1="25" x2="52" y2="25" stroke="#5E6673" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="28" y1="33" x2="46" y2="33" stroke="#5E6673" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="28" y1="41" x2="50" y2="41" stroke="#5E6673" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="50" cy="52" r="12" fill="#1E2329" stroke="#F0B90B" strokeWidth="2"/>
+                  <path d="M46 52h8M50 48v8" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <p className="empty-state-text">暂无交易记录</p>
+              <p className="empty-state-hint">交易完成后将在这里显示</p>
             </div>
           )}
           {/* 查看完整明细跳转 */}
           <div
             className="portfolio-view-all-link"
-            onClick={() => navigate('/transactions')}
+            onClick={() => navigate('/m/transactions')}
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -1135,9 +1348,19 @@ const PortfolioContent: React.FC = () => {
   const renderWithdrawOrders = () => (
     <div className="portfolio-list-content">
       {withdrawOrdersLoading ? (
-        <div className="portfolio-loading">
-          <div className="loading-spinner"></div>
-          <span>加载中...</span>
+        <div className="skeleton-list">
+          {[1,2,3].map(i => (
+            <div key={i} className="skeleton-row" style={{ animationDelay: `${i * 0.1}s` }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
+                <div className="loading-skeleton" style={{ width: '35%', height: 16 }} />
+                <div className="loading-skeleton" style={{ width: 56, height: 22, borderRadius: 11 }} />
+              </div>
+              <div style={{ display: 'flex', gap: 16 }}>
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+                <div className="loading-skeleton" style={{ flex: 1, height: 14 }} />
+              </div>
+            </div>
+          ))}
         </div>
       ) : (
         <>
@@ -1185,13 +1408,19 @@ const PortfolioContent: React.FC = () => {
             )
           })}
           {withdrawOrders.length === 0 && (
-            <div className="portfolio-empty">
-              <svg className="empty-icon" viewBox="0 0 64 64" fill="none">
-                <rect x="8" y="16" width="48" height="40" rx="4" stroke="#848E9C" strokeWidth="2"/>
-                <path d="M8 24L32 38L56 24" stroke="#848E9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="32" cy="28" r="6" stroke="#848E9C" strokeWidth="2"/>
-              </svg>
-              <span>暂无出金记录</span>
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                  <rect x="20" y="10" width="40" height="55" rx="3" stroke="#5E6673" strokeWidth="2"/>
+                  <line x1="28" y1="25" x2="52" y2="25" stroke="#5E6673" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="28" y1="33" x2="46" y2="33" stroke="#5E6673" strokeWidth="2" strokeLinecap="round"/>
+                  <line x1="28" y1="41" x2="50" y2="41" stroke="#5E6673" strokeWidth="2" strokeLinecap="round"/>
+                  <circle cx="50" cy="52" r="12" fill="#1E2329" stroke="#F0B90B" strokeWidth="2"/>
+                  <path d="M46 52h8M50 48v8" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <p className="empty-state-text">暂无出金记录</p>
+              <p className="empty-state-hint">提现申请后将在这里显示</p>
             </div>
           )}
         </>
@@ -1235,7 +1464,7 @@ const PortfolioContent: React.FC = () => {
         if (activeTab === 'withdrawOrders') await loadWithdrawOrders()
         if (activeTab === 'yieldCurve') await loadAssetData()
       }}>
-        <div className="mobile-portfolio-content">
+        <div className="mobile-portfolio-content" onClick={() => swipeOpenId && setSwipeOpenId(null)}>
           {activeTab === 'overview' && renderSubscriptionOverview()}
           {activeTab === 'subscriptions' && renderSubscriptionList()}
           {activeTab === 'yieldCurve' && renderYieldCurve()}

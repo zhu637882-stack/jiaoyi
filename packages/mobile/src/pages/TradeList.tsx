@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PullToRefresh, SearchBar } from 'antd-mobile'
-import { marketApi, drugApi } from '../services/api'
+import { PullToRefresh, SearchBar, Toast } from 'antd-mobile'
+import { marketApi, drugApi, subscriptionApi } from '../services/api'
 import { wsService } from '../services/websocket'
+import VirtualList from '../components/VirtualList'
 import './TradeList.css'
 
 interface DrugItem {
@@ -49,6 +50,7 @@ const TradeList: React.FC = () => {
   const [total, setTotal] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
+  const [exporting, setExporting] = useState(false)
   const loadingMoreRef = useRef(false)
   const listBottomRef = useRef<HTMLDivElement>(null)
 
@@ -271,6 +273,30 @@ const TradeList: React.FC = () => {
     card.classList.remove('touch-active')
   }
 
+  /* ---------- 导出交易记录 ---------- */
+  const handleExport = useCallback(async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const blob = await subscriptionApi.exportCsv()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      const now = new Date()
+      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
+      a.href = url
+      a.download = `零钱保_交易记录_${dateStr}.csv`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      console.error('Export error:', e)
+      Toast.show({ content: '导出失败，请稍后重试', icon: 'fail' })
+    } finally {
+      setExporting(false)
+    }
+  }, [exporting])
+
   /* ---------- 渲染卡片 ---------- */
   const renderDrugCard = (drug: DrugItem, index: number) => {
     const isUp = (drug.changePercent || 0) >= 0
@@ -285,7 +311,7 @@ const TradeList: React.FC = () => {
         onMouseLeave={handleMouseLeave}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
-        style={{ animationDelay: `${index * 0.05}s` }}
+        style={{ animationDelay: `${index * 0.06}s` }}
       >
         {/* 第一行：品种名称 */}
         <div className="trade-card-row1">
@@ -297,7 +323,11 @@ const TradeList: React.FC = () => {
           <span className="trade-card-code">{drug.code}</span>
           <div className="trade-card-row2-right">
             <span className="trade-card-badge">实时更新</span>
-            <span className="trade-card-price">¥{formatPrice(drug.sellingPrice)}</span>
+            <span className="trade-card-price">
+              <span className="trade-price-flip">
+                <span key={drug.sellingPrice} className="trade-price-flip-enter">¥{formatPrice(drug.sellingPrice)}</span>
+              </span>
+            </span>
             <span className={`trade-card-change ${isUp ? 'up' : 'down'}`}>
               {isUp ? '+' : ''}{changePercent.toFixed(2)}%
             </span>
@@ -325,7 +355,23 @@ const TradeList: React.FC = () => {
     <div className="trade-list-page">
       {/* ===== 顶部标题栏 + 搜索 ===== */}
       <div className="trade-list-header">
-        <h1 className="trade-list-title">交易</h1>
+        <div className="trade-list-title-row">
+          <h1 className="trade-list-title">交易</h1>
+          <button
+            className={`trade-export-btn ${exporting ? 'loading' : ''}`}
+            onClick={handleExport}
+            disabled={exporting}
+          >
+            {exporting ? (
+              <span className="trade-export-spinner" />
+            ) : (
+              <svg className="trade-export-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M7 1v8M7 9L4 6M7 9l3-3M2 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+              </svg>
+            )}
+            <span>{exporting ? '导出中' : '导出'}</span>
+          </button>
+        </div>
         <div className="trade-search-wrapper">
           <SearchBar
             placeholder="搜索产品名称/代码"
@@ -372,21 +418,29 @@ const TradeList: React.FC = () => {
               ))}
             </div>
           ) : (
-            /* 产品卡片 */
-            filteredDrugs.map((drug, index) => renderDrugCard(drug, index))
+            /* 产品卡片 — 虚拟滚动 */
+            <VirtualList
+              items={filteredDrugs}
+              itemHeight={148}
+              overscan={4}
+              keyExtractor={(drug) => String(drug.id)}
+              className="trade-virtual-list"
+              renderItem={(drug, index) => renderDrugCard(drug, index)}
+            />
           )}
 
           {/* 空状态 */}
           {!loading && filteredDrugs.length === 0 && (
-            <div className="trade-empty">
-              <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-                <rect x="12" y="16" width="40" height="32" rx="4" stroke="#848E9C" strokeWidth="2" fill="none" />
-                <path d="M20 28h24M20 36h16" stroke="#848E9C" strokeWidth="2" strokeLinecap="round" />
-                <circle cx="48" cy="48" r="10" fill="#1E2329" stroke="#F0B90B" strokeWidth="2" />
-                <path d="M44 48h8M48 44v8" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" />
-              </svg>
-              <div className="trade-empty-text">暂无产品</div>
-              <div className="trade-empty-hint">下拉刷新试试</div>
+            <div className="empty-state">
+              <div className="empty-state-icon">
+                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
+                  <circle cx="35" cy="35" r="18" stroke="#5E6673" strokeWidth="2"/>
+                  <line x1="48" y1="48" x2="62" y2="62" stroke="#5E6673" strokeWidth="3" strokeLinecap="round"/>
+                  <text x="35" y="40" textAnchor="middle" fill="#F0B90B" fontSize="18" fontWeight="bold">?</text>
+                </svg>
+              </div>
+              <p className="empty-state-text">{keyword.trim() ? '未找到相关产品' : '暂无产品'}</p>
+              <p className="empty-state-hint">{keyword.trim() ? '换个关键词试试' : '下拉刷新试试'}</p>
             </div>
           )}
 

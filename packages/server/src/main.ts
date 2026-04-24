@@ -47,13 +47,15 @@ async function bootstrap() {
     req.on('error', () => { req.body = ''; next(); });
   });
 
-  // DEBUG: 打印所有请求体（用于排查DTO校验问题）
-  app.use((req: any, _res: any, next: any) => {
-    if (req.body && (typeof req.body === 'string' || Object.keys(req.body).length > 0)) {
-      console.log('[DEBUG] Request:', req.method, req.url, typeof req.body === 'string' ? req.body.substring(0, 200) : JSON.stringify(req.body).substring(0, 200));
-    }
-    next();
-  });
+  // 请求体调试日志（仅开发环境）
+  if (process.env.NODE_ENV === 'development') {
+    app.use((req: any, _res: any, next: any) => {
+      if (req.body && (typeof req.body === 'string' || Object.keys(req.body).length > 0)) {
+        console.log('[DEBUG] Request:', req.method, req.url, typeof req.body === 'string' ? req.body.substring(0, 200) : JSON.stringify(req.body).substring(0, 200));
+      }
+      next();
+    });
+  }
 
   // 启用全局验证管道
   app.useGlobalPipes(new ValidationPipe({
@@ -64,8 +66,18 @@ async function bootstrap() {
   
   // 启用CORS
   app.enableCors({
-    origin: true,
+    origin: process.env.CORS_ORIGIN?.split(',') || [
+      'http://103.43.188.127',
+      'http://www.mufend.com',
+      'https://www.mufend.com',
+      'http://mufend.com',
+      'https://mufend.com',
+      'http://localhost:5173',
+      'http://localhost:5174',
+    ],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
   
   await app.listen(port, '0.0.0.0');

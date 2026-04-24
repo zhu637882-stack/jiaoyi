@@ -60,7 +60,7 @@ export class Drug {
   @Column('decimal', { precision: 10, scale: 2, default: 0, comment: '运营费用比例（百分比数值，如1.00表示1%）' })
   operationFeeRate: number;
 
-  @Column('int', { default: 90, comment: '滞销天数' })
+  @Column('int', { default: 10, comment: '滞销天数' })
   slowSellingDays: number;
 
   @Column({ type: 'boolean', default: false, comment: '是否冷链药品（冷链快递费20元，普通3元）' })

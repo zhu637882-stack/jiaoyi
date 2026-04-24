@@ -1,14 +1,14 @@
 -- 插入测试药品数据
 INSERT INTO drugs (id, name, code, "purchasePrice", "sellingPrice", "actualSellingPrice", "totalQuantity", "subscribedQuantity", "batchNo", status, "operationFeeRate", "slowSellingDays", "createdAt", "updatedAt")
 VALUES 
-    (gen_random_uuid(), '阿莫西林胶囊', 'DRUG-001', 8.00, 15.00, 18.50, 10000, 6500, 'BATCH-001', 'selling', 0.05, 90, NOW(), NOW()),
-    (gen_random_uuid(), '板蓝根颗粒', 'DRUG-002', 5.00, 12.00, 14.80, 8000, 4200, 'BATCH-002', 'selling', 0.05, 90, NOW(), NOW()),
-    (gen_random_uuid(), '布洛芬缓释胶囊', 'DRUG-003', 10.00, 25.00, 28.50, 12000, 8900, 'BATCH-003', 'selling', 0.05, 90, NOW(), NOW()),
-    (gen_random_uuid(), '连花清瘟胶囊', 'DRUG-004', 12.00, 28.00, 32.00, 15000, 11200, 'BATCH-004', 'selling', 0.05, 90, NOW(), NOW()),
-    (gen_random_uuid(), '复方丹参滴丸', 'DRUG-005', 20.00, 45.00, 52.00, 6000, 3800, 'BATCH-005', 'selling', 0.05, 90, NOW(), NOW()),
-    (gen_random_uuid(), '三九感冒灵', 'DRUG-006', 6.00, 18.00, 21.50, 20000, 15600, 'BATCH-006', 'selling', 0.05, 90, NOW(), NOW()),
-    (gen_random_uuid(), '蒙脱石散', 'DRUG-007', 4.00, 10.00, 12.80, 9000, 5200, 'BATCH-007', 'selling', 0.05, 90, NOW(), NOW()),
-    (gen_random_uuid(), '头孢克肟片', 'DRUG-008', 15.00, 35.00, 42.00, 7000, 4800, 'BATCH-008', 'selling', 0.05, 90, NOW(), NOW())
+    (gen_random_uuid(), '阿莫西林胶囊', 'DRUG-001', 8.00, 15.00, 18.50, 10000, 6500, 'BATCH-001', 'funding', 0.05, 10, NOW(), NOW()),
+    (gen_random_uuid(), '板蓝根颗粒', 'DRUG-002', 5.00, 12.00, 14.80, 8000, 4200, 'BATCH-002', 'funding', 0.05, 10, NOW(), NOW()),
+    (gen_random_uuid(), '布洛芬缓释胶囊', 'DRUG-003', 10.00, 25.00, 28.50, 12000, 8900, 'BATCH-003', 'funding', 0.05, 10, NOW(), NOW()),
+    (gen_random_uuid(), '连花清瘟胶囊', 'DRUG-004', 12.00, 28.00, 32.00, 15000, 11200, 'BATCH-004', 'funding', 0.05, 10, NOW(), NOW()),
+    (gen_random_uuid(), '复方丹参滴丸', 'DRUG-005', 20.00, 45.00, 52.00, 6000, 3800, 'BATCH-005', 'funding', 0.05, 10, NOW(), NOW()),
+    (gen_random_uuid(), '三九感冒灵', 'DRUG-006', 6.00, 18.00, 21.50, 20000, 15600, 'BATCH-006', 'funding', 0.05, 10, NOW(), NOW()),
+    (gen_random_uuid(), '蒙脱石散', 'DRUG-007', 4.00, 10.00, 12.80, 9000, 5200, 'BATCH-007', 'funding', 0.05, 10, NOW(), NOW()),
+    (gen_random_uuid(), '头孢克肟片', 'DRUG-008', 15.00, 35.00, 42.00, 7000, 4800, 'BATCH-008', 'funding', 0.05, 10, NOW(), NOW())
 ON CONFLICT (code) DO NOTHING;
 
 -- 为每个药品生成30天K线数据
@@ -37,7 +37,7 @@ BEGIN
     FOR drug_record IN 
         SELECT id, "purchasePrice", "sellingPrice", "totalQuantity", "subscribedQuantity" 
         FROM drugs 
-        WHERE status = 'selling'
+        WHERE status = 'funding'
     LOOP
         base_purchase_price := drug_record."purchasePrice";
         base_selling_price := drug_record."sellingPrice";

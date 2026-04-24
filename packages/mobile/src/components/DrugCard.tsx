@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react'
+import ReactDOM from 'react-dom'
 import './DrugCard.css'
 
 // ============================================
@@ -25,6 +26,8 @@ interface DrugCardProps {
   drug: DrugItem
   index?: number
   onClick: (id: string | number) => void
+  onSubscribe?: (id: string | number) => void
+  onShare?: (drug: DrugItem) => void
   showVolume?: boolean
 }
 
@@ -135,6 +138,71 @@ const usePriceFlash = (): UsePriceFlashReturn => {
 }
 
 // ============================================
+// 长按浮动菜单组件
+// ============================================
+
+interface ContextMenuProps {
+  x: number
+  y: number
+  onClose: () => void
+  onDetail: () => void
+  onSubscribe: () => void
+  onShare: () => void
+}
+
+const ContextMenu: React.FC<ContextMenuProps> = ({ x, y, onClose, onDetail, onSubscribe, onShare }) => {
+  // 调整菜单位置，确保不超出屏幕
+  const menuRef = useRef<HTMLDivElement>(null)
+  const [pos, setPos] = useState({ x, y })
+
+  useEffect(() => {
+    if (menuRef.current) {
+      const rect = menuRef.current.getBoundingClientRect()
+      const vw = window.innerWidth
+      const vh = window.innerHeight
+      let adjustedX = x
+      let adjustedY = y
+      if (x + rect.width > vw - 8) adjustedX = vw - rect.width - 8
+      if (y + rect.height > vh - 8) adjustedY = y - rect.height
+      if (adjustedX < 8) adjustedX = 8
+      if (adjustedY < 8) adjustedY = 8
+      setPos({ x: adjustedX, y: adjustedY })
+    }
+  }, [x, y])
+
+  return ReactDOM.createPortal(
+    <>
+      <div className="drug-context-menu-overlay" onClick={onClose} onTouchEnd={onClose} />
+      <div
+        ref={menuRef}
+        className="drug-context-menu"
+        style={{ left: pos.x, top: pos.y }}
+      >
+        <button className="context-menu-item" onClick={onDetail}>
+          <span className="menu-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" stroke="currentColor" strokeWidth="2"/><path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" stroke="currentColor" strokeWidth="2"/></svg>
+          </span>
+          查看详情
+        </button>
+        <button className="context-menu-item primary" onClick={onSubscribe}>
+          <span className="menu-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 4v16m8-8H4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+          </span>
+          立即认购
+        </button>
+        <button className="context-menu-item" onClick={onShare}>
+          <span className="menu-icon">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 12v8a2 2 0 002 2h12a2 2 0 002-2v-8M16 6l-4-4-4 4M12 2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+          </span>
+          分享
+        </button>
+      </div>
+    </>,
+    document.body
+  )
+}
+
+// ============================================
 // DrugCard 组件
 // ============================================
 
@@ -142,11 +210,66 @@ const DrugCard: React.FC<DrugCardProps> = ({
   drug, 
   index = 0, 
   onClick,
+  onSubscribe,
+  onShare,
   showVolume = false 
 }) => {
   const isUp = (drug.changePercent || 0) >= 0
   const { flashClass, triggerFlash } = usePriceFlash()
   const prevPriceRef = useRef(drug.sellingPrice)
+
+  // 长按菜单状态
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null)
+  const longPressTriggeredRef = useRef(false)
+  const touchMoveRef = useRef(false)
+
+  const handleLongPressStart = useCallback((e: React.TouchEvent) => {
+    touchMoveRef.current = false
+    longPressTriggeredRef.current = false
+    const touch = e.touches[0]
+    const tx = touch.clientX
+    const ty = touch.clientY
+
+    longPressTimerRef.current = setTimeout(() => {
+      longPressTriggeredRef.current = true
+      if (!touchMoveRef.current) {
+        setContextMenu({ x: tx, y: ty })
+      }
+    }, 500)
+  }, [])
+
+  const handleLongPressMove = useCallback(() => {
+    touchMoveRef.current = true
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
+
+  const handleLongPressEnd = useCallback(() => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current)
+      longPressTimerRef.current = null
+    }
+  }, [])
+
+  const handleCardClick = useCallback(() => {
+    // 长按触发后不触发点击
+    if (longPressTriggeredRef.current) {
+      longPressTriggeredRef.current = false
+      return
+    }
+    onClick(drug.id)
+  }, [drug.id, onClick])
+
+  useEffect(() => {
+    return () => {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current)
+      }
+    }
+  }, [])
 
   // 监听价格变化，触发闪烁动画
   useEffect(() => {
@@ -170,10 +293,15 @@ const DrugCard: React.FC<DrugCardProps> = ({
     : 0
 
   return (
+    <>
     <div
       className={`drug-card card-press ${flashClass}`}
-      onClick={() => onClick(drug.id)}
-      style={{ animationDelay: `${index * 0.05}s` }}
+      onClick={handleCardClick}
+      onTouchStart={handleLongPressStart}
+      onTouchMove={handleLongPressMove}
+      onTouchEnd={handleLongPressEnd}
+      onTouchCancel={handleLongPressEnd}
+      style={{ animationDelay: `${index * 0.06}s` }}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -218,7 +346,9 @@ const DrugCard: React.FC<DrugCardProps> = ({
       <div className="drug-card-center">
         <div className={`drug-card-price ${isUp ? 'up' : 'down'}`}>
           <span className="price-symbol">¥</span>
-          <span className="price-value">{formatPrice(drug.sellingPrice)}</span>
+          <span className="price-flip">
+            <span key={drug.sellingPrice} className="price-value price-flip-enter">{formatPrice(drug.sellingPrice)}</span>
+          </span>
         </div>
         <div className="drug-card-info">
           <span className="info-label">进</span>
@@ -238,6 +368,28 @@ const DrugCard: React.FC<DrugCardProps> = ({
         </div>
       </div>
     </div>
+
+    {/* 长按浮动菜单 */}
+    {contextMenu && (
+      <ContextMenu
+        x={contextMenu.x}
+        y={contextMenu.y}
+        onClose={() => setContextMenu(null)}
+        onDetail={() => {
+          setContextMenu(null)
+          onClick(drug.id)
+        }}
+        onSubscribe={() => {
+          setContextMenu(null)
+          onSubscribe ? onSubscribe(drug.id) : onClick(drug.id)
+        }}
+        onShare={() => {
+          setContextMenu(null)
+          onShare ? onShare(drug) : undefined
+        }}
+      />
+    )}
+    </>
   )
 }
 

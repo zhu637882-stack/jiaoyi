@@ -5,7 +5,7 @@
 .trade-page {
   min-height: 100vh;
   background: var(--color-bg-primary);
-  padding: 0 12px 80px;
+  padding: 0 12px 16px;
 }
 
 .trade-page > .info-card:first-of-type {
@@ -117,6 +117,7 @@
    Price Card
    ============================================ */
 .trade-price-card {
+  animation: priceCardReveal 0.6s cubic-bezier(0.4, 0, 0.2, 1) both;
   animation-delay: 0.05s;
 }
 
@@ -131,6 +132,7 @@
   font-size: 28px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
   letter-spacing: -0.5px;
   transition: color 0.3s ease;
 }
@@ -195,6 +197,7 @@
   color: var(--color-text-primary);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
   font-family: var(--font-family-mono);
 }
 
@@ -245,6 +248,8 @@
   border-radius: var(--radius-md, 8px);
   overflow: hidden;
   position: relative;
+  animation: chartReveal 0.8s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: 0.2s;
 }
 
 .trade-chart {
@@ -343,8 +348,7 @@
   margin-bottom: 8px;
 }
 
-.subscribe-quantity-control,
-.popup-qty-control {
+.subscribe-quantity-control {
   display: flex;
   align-items: center;
   gap: 0;
@@ -649,147 +653,6 @@
 }
 
 /* ============================================
-   Bottom Fixed Bar
-   ============================================ */
-.trade-bottom-bar {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  padding: 12px 16px;
-  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0));
-  background: rgba(11, 14, 17, 0.95);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-top: 1px solid var(--color-border);
-  z-index: 30;
-}
-
-.btn-trade-subscribe {
-  width: 100%;
-  height: 48px;
-  background: var(--color-primary);
-  color: #181A20;
-  font-size: 16px;
-  font-weight: 700;
-  border: none;
-  border-radius: var(--radius-md, 8px);
-  cursor: pointer;
-  transition: all 0.2s ease;
-  -webkit-tap-highlight-color: transparent;
-  box-shadow: 0 4px 14px rgba(240, 185, 11, 0.25);
-}
-
-.btn-trade-subscribe:active {
-  background: var(--color-primary-dark);
-  transform: scale(0.98);
-}
-
-/* ============================================
-   Popup Subscribe Sheet
-   ============================================ */
-.trade-popup {
-  padding: 20px 16px;
-  padding-bottom: calc(20px + env(safe-area-inset-bottom, 0));
-}
-
-.trade-popup-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 16px;
-}
-
-.trade-popup-title {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-}
-
-.trade-popup-close {
-  color: var(--color-text-secondary);
-  cursor: pointer;
-  padding: 4px;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.trade-popup-info {
-  background: var(--color-bg-primary);
-  border-radius: var(--radius-md, 8px);
-  padding: 14px;
-  margin-bottom: 16px;
-}
-
-.popup-info-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 4px 0;
-  color: var(--color-text-secondary);
-  font-size: 14px;
-}
-
-.popup-info-row strong {
-  color: var(--color-text-primary);
-  font-family: var(--font-family-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.trade-popup-quantity {
-  margin-bottom: 12px;
-}
-
-.popup-qty-label {
-  display: block;
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  margin-bottom: 8px;
-}
-
-.trade-popup-total {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 10px 0;
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  margin-bottom: 8px;
-}
-
-.popup-total-value {
-  color: var(--color-primary) !important;
-  font-size: 20px !important;
-  font-family: var(--font-family-mono);
-  font-variant-numeric: tabular-nums;
-}
-
-.trade-popup-channels {
-  display: flex;
-  gap: 8px;
-}
-
-.popup-channel {
-  flex: 1;
-  padding: 10px;
-  border-radius: var(--radius-md, 8px);
-  background: var(--color-bg-primary);
-  text-align: center;
-  color: var(--color-text-secondary);
-  font-size: 13px;
-  font-weight: 500;
-  border: 2px solid transparent;
-  cursor: pointer;
-  transition: all 0.25s ease;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.popup-channel.active {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: rgba(240, 185, 11, 0.06);
-}
-
-/* ============================================
    Shutter Animation for Product Cards - Enhanced
    ============================================ */
 
@@ -895,6 +758,41 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+/* 进度条从0%动画填充到实际值 */
+.progress-bar-fill {
+  animation: progressGrow 1s cubic-bezier(0.4, 0, 0.2, 1) both;
+  animation-delay: 0.3s;
+}
+
+@keyframes progressGrow {
+  from { width: 0%; }
+  /* to 的 width 由 inline style 控制 */
+}
+
+/* K线图区域渐入 + 轻微上移 */
+@keyframes chartReveal {
+  from {
+    opacity: 0;
+    transform: translateY(15px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* 价格卡片入场 */
+@keyframes priceCardReveal {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
   }
 }
 

@@ -8,13 +8,13 @@
   left: 0;
   right: 0;
   height: 60px;
-  background: rgba(11, 14, 17, 0.98);
+  background: rgba(11,14,17,0.85);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
   display: flex;
   align-items: center;
   justify-content: space-around;
-  border-top: 1px solid var(--color-border);
+  border-top: 1px solid rgba(43,49,57,0.6);
   z-index: 1000;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
@@ -156,6 +156,6 @@
 /* 深色模式优化 */
 @media (prefers-color-scheme: dark) {
   .mobile-tabbar {
-    background: rgba(11, 14, 17, 0.98);
+    background: rgba(11,14,17,0.85);
   }
 }

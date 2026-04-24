@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Popup, Toast, Dialog } from 'antd-mobile'
+import { Toast, Dialog } from 'antd-mobile'
 import { marketApi, drugApi, subscriptionApi, paymentApi, accountApi } from '../services/api'
 import { isWechatBrowser, isMobile } from '../utils/browser'
 import { ensureWechatOpenId, getStoredOpenId, redirectToWechatAuth } from '../utils/wechat-auth'
@@ -87,7 +87,6 @@ const TradeContent: React.FC = () => {
   const [klineData, setKlineData] = useState<any[]>([])
   const [klineDataLoaded, setKlineDataLoaded] = useState(false)
   const [period, setPeriod] = useState('1d')
-  const [showSubscribe, setShowSubscribe] = useState(false)
   const [quantity, setQuantity] = useState('')
   const [subscribeLoading, setSubscribeLoading] = useState(false)
   const [payChannel, setPayChannel] = useState<'balance' | 'wechat'>('balance')
@@ -401,7 +400,6 @@ const TradeContent: React.FC = () => {
         }
         await subscriptionApi.createSubscription({ drugId: String(drugId), quantity: Number(quantity) })
         Toast.show({ content: '认购成功', icon: 'success' })
-        setShowSubscribe(false)
         setQuantity('')
         loadDrugData()
         loadDrugSubscriptions()
@@ -442,7 +440,6 @@ const TradeContent: React.FC = () => {
                       content: '支付已完成，认购订单已即时生效！可前往「持仓」页面查看您的认购记录和收益情况。',
                       confirmText: '我知道了',
                     })
-                    setShowSubscribe(false)
                     setQuantity('')
                     loadDrugData()
                     loadDrugSubscriptions()
@@ -457,7 +454,6 @@ const TradeContent: React.FC = () => {
               // 兜底：二维码
               window.open(payData.codeUrl, '_blank')
             }
-            setShowSubscribe(false)
             setQuantity('')
           } else {
             // 非微信浏览器 → 保持原有逻辑（NATIVE二维码）
@@ -475,7 +471,6 @@ const TradeContent: React.FC = () => {
             } else {
               Toast.show({ content: '订单已创建', icon: 'success' })
             }
-            setShowSubscribe(false)
             setQuantity('')
           }
         }
@@ -697,75 +692,6 @@ const TradeContent: React.FC = () => {
         )}
       </div>
 
-      {/* 底部固定栏 */}
-      <div className="trade-bottom-bar">
-        <button className="btn-trade-subscribe" onClick={() => setShowSubscribe(true)}>
-          立即认购
-        </button>
-      </div>
-
-      {/* 认购弹窗 */}
-      <Popup
-        visible={showSubscribe}
-        onMaskClick={() => setShowSubscribe(false)}
-        position="bottom"
-        bodyStyle={{ borderTopLeftRadius: 16, borderTopRightRadius: 16, minHeight: '40vh', background: 'var(--color-bg-secondary)' }}
-      >
-        <div className="trade-popup">
-          <div className="trade-popup-header">
-            <span className="trade-popup-title">认购 {drug.name}</span>
-            <span className="trade-popup-close" onClick={() => setShowSubscribe(false)}>✕</span>
-          </div>
-          <div className="trade-popup-info">
-            <div className="popup-info-row">
-              <span>单价</span>
-              <strong>¥{Number(drug.sellingPrice || 0).toFixed(2)}</strong>
-            </div>
-            <div className="popup-info-row">
-              <span>可用余额</span>
-              <strong>¥{Number(availableBalance || 0).toFixed(2)}</strong>
-            </div>
-            <div className="popup-info-row">
-              <span>可购数量</span>
-              <strong>{drug.remainingQuantity || 0}</strong>
-            </div>
-          </div>
-          <div className="trade-popup-quantity">
-            <span className="popup-qty-label">认购数量</span>
-            <div className="popup-qty-control">
-              <button className="qty-btn" onClick={() => setQuantity(String(Math.max(1, Number(quantity || 0) - 1)))}>−</button>
-              <input
-                type="number"
-                className="qty-input"
-                value={quantity}
-                onChange={e => setQuantity(e.target.value.replace(/[^0-9]/g, ''))}
-                placeholder="0"
-                min="1"
-                max={drug?.remainingQuantity || 999999}
-              />
-              <button className="qty-btn" onClick={() => setQuantity(String(Math.min(drug?.remainingQuantity || 0, Number(quantity || 0) + 1)))}>+</button>
-            </div>
-          </div>
-          {quantity && Number(quantity) > 0 && (
-            <div className="trade-popup-total">
-              <span>合计</span>
-              <span className="popup-total-value">¥{Number(totalAmount || 0).toFixed(2)}</span>
-            </div>
-          )}
-          <div className="trade-popup-channels">
-            <div className={`popup-channel ${payChannel === 'balance' ? 'active' : ''}`} onClick={() => setPayChannel('balance')}>余额支付</div>
-            <div className={`popup-channel ${payChannel === 'wechat' ? 'active' : ''}`} onClick={() => setPayChannel('wechat')}>微信支付</div>
-          </div>
-          <button
-            className="btn-subscribe-confirm"
-            disabled={subscribeLoading || !quantity || Number(quantity) <= 0}
-            onClick={handleSubscribe}
-            style={{ marginTop: 16 }}
-          >
-            {subscribeLoading ? '认购中...' : '确认认购'}
-          </button>
-        </div>
-      </Popup>
     </div>
   )
 }

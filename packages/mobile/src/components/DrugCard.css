@@ -14,21 +14,24 @@
   margin-bottom: var(--spacing-md);
   -webkit-tap-highlight-color: transparent;
   user-select: none;
-  animation: cardEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards;
-  transition: all var(--transition-fast);
+  animation: cardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
+              box-shadow 0.2s ease,
+              border-color 0.2s ease;
   position: relative;
   overflow: hidden;
+  will-change: transform, opacity;
 }
 
-/* 卡片入场动画 */
+/* 卡片入场动画 - 带微弹效果 */
 @keyframes cardEnter {
   from {
     opacity: 0;
-    transform: translateY(12px);
+    transform: translateY(20px) scale(0.97);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: translateY(0) scale(1);
   }
 }
 
@@ -38,23 +41,43 @@
   box-shadow: var(--shadow-elevated);
 }
 
-/* 卡片按压反馈 */
+/* 卡片按压反馈 - 弹性回弹 */
 .drug-card.card-press:active {
-  transform: scale(0.98);
-  opacity: 0.9;
-  background: var(--color-bg-hover);
+  transform: scale(0.97);
+  transition: transform 0.1s ease;
+}
+
+/* 价格翻牌效果 */
+.price-flip {
+  display: inline-block;
+  overflow: hidden;
+  position: relative;
+}
+
+.price-flip-enter {
+  animation: priceFlipIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  will-change: transform, opacity;
+}
+
+@keyframes priceFlipIn {
+  from {
+    transform: translateY(-100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
 }
 
 /* 价格闪烁效果 - 涨 */
 .drug-card.flash-up {
-  animation: cardEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards,
-             flashUpBg 0.5s ease-out;
+  animation: flashUpBg 0.5s ease-out;
 }
 
 /* 价格闪烁效果 - 跌 */
 .drug-card.flash-down {
-  animation: cardEnter 0.4s cubic-bezier(0.4, 0, 0.2, 1) backwards,
-             flashDownBg 0.5s ease-out;
+  animation: flashDownBg 0.5s ease-out;
 }
 
 @keyframes flashUpBg {
@@ -202,6 +225,8 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
 }
 
 /* 当前价格 */
@@ -259,6 +284,7 @@
   padding: var(--spacing-sm) var(--spacing-md);
   border-radius: var(--radius-md);
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -276,6 +302,8 @@
 .drug-card-change-percent {
   font-size: var(--font-size-base);
   font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
   display: flex;
   align-items: center;
   justify-content: center;
@@ -346,4 +374,77 @@
 .drug-card.selected {
   border-color: var(--color-primary);
   box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.2), var(--shadow-elevated);
+}
+
+/* ============================================
+   长按浮动菜单
+   ============================================ */
+
+.drug-context-menu-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.drug-context-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 140px;
+  background: var(--color-bg-elevated, #252a33);
+  border: 1px solid var(--color-border-strong, rgba(255,255,255,0.12));
+  border-radius: var(--radius-lg, 12px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+  overflow: hidden;
+  transform-origin: top left;
+  animation: contextMenuIn 0.2s cubic-bezier(0.32, 0.72, 0, 1) both;
+}
+
+@keyframes contextMenuIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 13px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary, #EAECEF);
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.context-menu-item:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.context-menu-item + .context-menu-item {
+  border-top: 1px solid var(--color-border, rgba(255,255,255,0.06));
+}
+
+.context-menu-item .menu-icon {
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.context-menu-item.primary {
+  color: var(--color-primary, #F0B90B);
 }

@@ -658,7 +658,6 @@ const Dashboard = () => {
   // WebSocket 认购通知监听
   useEffect(() => {
     const handleConfirmed = (data: any) => {
-      console.log('认购确认通知:', data)
       addNotification('confirmed', data)
       if (bottomTab === 'subscriptions') {
         fetchSubscriptions()
@@ -666,7 +665,6 @@ const Dashboard = () => {
     }
 
     const handleEffective = (data: any) => {
-      console.log('认购生效通知:', data)
       addNotification('effective', data)
       if (bottomTab === 'subscriptions') {
         fetchSubscriptions()
@@ -674,7 +672,6 @@ const Dashboard = () => {
     }
 
     const handleReturned = (data: any) => {
-      console.log('份额退回通知:', data)
       addNotification('returned', data)
       if (bottomTab === 'subscriptions' || bottomTab === 'completed') {
         fetchSubscriptions()
@@ -683,7 +680,6 @@ const Dashboard = () => {
     }
 
     const handleSlowSellRefund = (data: any) => {
-      console.log('滞销退款通知:', data)
       addNotification('slow-sell-refund', data)
       if (bottomTab === 'completed') {
         fetchCompletedSubscriptions()
