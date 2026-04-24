@@ -22,4 +22,8 @@ export class RegisterDto {
   @IsBoolean()
   @IsOptional()
   agreedToAgreement?: boolean;
+
+  @IsString()
+  @IsOptional()
+  invitationCode?: string;
 }

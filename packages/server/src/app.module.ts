@@ -15,6 +15,8 @@ import { PaymentModule } from './modules/payment/payment.module';
 import { SystemMessageModule } from './modules/system-message/system-message.module';
 import { YieldModule } from './modules/yield/yield.module';
 import { WechatOauthModule } from './modules/wechat-oauth/wechat-oauth.module';
+import { InvitationModule } from './modules/invitation/invitation.module';
+import { TrialBonusModule } from './modules/trial-bonus/trial-bonus.module';
 import { DatabaseModule } from './database/database.module';
 import { EventsModule } from './common/events/events.module';
 import { AuditModule } from './common/services/audit.module';
@@ -73,6 +75,8 @@ import { IdempotencyGuard } from './common/guards/idempotency.guard';
     SystemMessageModule,
     YieldModule,
     WechatOauthModule,
+    InvitationModule,
+    TrialBonusModule,
   ],
   providers: [
     { provide: APP_GUARD, useClass: IdempotencyGuard },

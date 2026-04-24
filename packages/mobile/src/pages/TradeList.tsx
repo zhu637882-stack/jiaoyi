@@ -307,10 +307,10 @@ const TradeList: React.FC = () => {
         {/* 第三行：运营费率/滞销天数/批次号 */}
         <div className="trade-card-row3">
           {drug.operationFeeRate != null && (
-            <span>运营费率: {(drug.operationFeeRate * 100).toFixed(0)}%</span>
+            <span>运营费率: {Number(drug.operationFeeRate).toFixed(0)}%</span>
           )}
           {drug.slowSellingDays != null && (
-            <span>滞销天数: {drug.slowSellingDays}天</span>
+            <span>滞销保障期: {drug.slowSellingDays}天</span>
           )}
           {drug.batchNo && (
             <span>批次: {drug.batchNo}</span>

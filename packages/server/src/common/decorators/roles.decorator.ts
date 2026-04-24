@@ -1,5 +1,2 @@
-import { SetMetadata } from '@nestjs/common';
-
-export const ROLES_KEY = 'roles';
-
-export const Roles = (...roles: string[]) => SetMetadata(ROLES_KEY, roles);
+// 统一从 auth/guards 导出
+export { Roles, ROLES_KEY } from '../../modules/auth/guards/roles.guard';

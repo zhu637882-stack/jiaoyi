@@ -13,6 +13,7 @@ const Profile = React.lazy(() => import('./pages/Profile'))
 const Settlement = React.lazy(() => import('./pages/Settlement'))
 const Transactions = React.lazy(() => import('./pages/Transactions'))
 const ServiceAgreement = React.lazy(() => import('./pages/ServiceAgreement'))
+const Invitation = React.lazy(() => import('./pages/Invitation'))
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('access_token')
@@ -43,6 +44,7 @@ function App() {
         <Routes>
           <Route path="/m/login" element={<Login />} />
           <Route path="/m/agreement" element={<ServiceAgreement />} />
+          <Route path="/m/invitation" element={<PrivateRoute><Invitation /></PrivateRoute>} />
           <Route path="/m/trade/:drugId" element={<PrivateRoute><Trade /></PrivateRoute>} />
           <Route
             path="/m"

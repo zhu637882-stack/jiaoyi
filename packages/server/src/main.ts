@@ -4,6 +4,32 @@ import { ConfigService } from '@nestjs/config';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  // 环境变量启动校验
+  const requiredEnvVars = [
+    'JWT_SECRET',
+    'DB_HOST',
+    'DB_PORT',
+    'DB_USERNAME',
+    'DB_PASSWORD',
+    'DB_DATABASE',
+  ];
+
+  const optionalPaymentVars = [
+    'ALIPAY_APP_ID',
+    'WECHAT_APP_ID',
+  ];
+
+  const missing = requiredEnvVars.filter(v => !process.env[v]);
+  if (missing.length > 0) {
+    console.error(`❌ 缺少必需环境变量: ${missing.join(', ')}`);
+    process.exit(1);
+  }
+
+  const missingPayment = optionalPaymentVars.filter(v => !process.env[v]);
+  if (missingPayment.length > 0) {
+    console.warn(`⚠️ 支付相关环境变量未配置（支付功能将不可用）: ${missingPayment.join(', ')}`);
+  }
+
   const app = await NestFactory.create(AppModule);
 
   const configService = app.get(ConfigService);

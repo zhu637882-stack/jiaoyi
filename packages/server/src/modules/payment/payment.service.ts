@@ -7,9 +7,11 @@ import { PaymentOrder, PaymentChannel, PaymentStatus } from '../../database/enti
 import { Drug, DrugStatus } from '../../database/entities/drug.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction, TransactionType } from '../../database/entities/account-transaction.entity';
+import { User, UserStatus } from '../../database/entities/user.entity';
 import { AlipayService } from './alipay.service';
 import { WechatPayService } from './wechat-pay.service';
 import { SubscriptionService } from '../subscription/subscription.service';
+import { TrialBonusService } from '../trial-bonus/trial-bonus.service';
 import { REDIS_CLIENT } from '../../database/database.module';
 
 @Injectable()
@@ -21,15 +23,28 @@ export class PaymentService {
     private paymentOrderRepository: Repository<PaymentOrder>,
     @InjectRepository(Drug)
     private drugRepository: Repository<Drug>,
+    @InjectRepository(User)
+    private userRepository: Repository<User>,
     @Inject(REDIS_CLIENT)
     private readonly redis: Redis,
     private alipayService: AlipayService,
     private wechatPayService: WechatPayService,
     @Inject(forwardRef(() => SubscriptionService))
     private subscriptionService: SubscriptionService,
+    private trialBonusService: TrialBonusService,
     @InjectDataSource()
     private dataSource: DataSource,
   ) {}
+
+  /**
+   * 校验用户审核状态（仅APPROVED用户可操作）
+   */
+  private async validateUserApproved(userId: string): Promise<void> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || user.status !== UserStatus.APPROVED) {
+      throw new BadRequestException('您的账户尚未通过审核，暂时无法进行此操作');
+    }
+  }
 
   /**
    * 生成唯一订单号
@@ -57,6 +72,9 @@ export class PaymentService {
     codeUrl?: string;
     mockMode?: boolean;
   }> {
+    // 0. 校验用户审核状态
+    await this.validateUserApproved(userId);
+
     // 1. 校验药品
     const drug = await this.drugRepository.findOne({ where: { id: drugId } });
     if (!drug) {
@@ -76,6 +94,8 @@ export class PaymentService {
     // 3. 创建支付订单
     const outTradeNo = this.generateOutTradeNo();
     const subscriptionInfo = { drugId, quantity, amount };
+
+    this.logger.log(`[createSubscriptionPayment] 创建认购支付: userId=${userId}, drugId=${drugId}, quantity=${quantity}, amount=${amount}, channel=${channel}, outTradeNo=${outTradeNo}`);
 
     if (channel === 'alipay') {
       const result = await this.alipayService.createOrder(
@@ -168,6 +188,15 @@ export class PaymentService {
       // 原有充值余额逻辑
       this.logger.log(`[processPaymentSuccess] 充值余额流程: 查找 AccountBalance, userId=${order.userId}`);
 
+      // 幂等性保护：检查是否已有该订单的充值记录，防止并发或绕过状态检查的重复入账
+      const existingTx = await queryRunner.manager.findOne(AccountTransaction, {
+        where: { relatedOrderId: order.id, type: TransactionType.RECHARGE },
+      });
+      if (existingTx) {
+        this.logger.warn(`[processPaymentSuccess] 重复充值已拦截: ${order.outTradeNo}, 交易ID: ${existingTx.id}`);
+        return;
+      }
+
       let balance = await queryRunner.manager.findOne(AccountBalance, {
         where: { userId: order.userId },
         lock: { mode: 'pessimistic_write' },
@@ -210,6 +239,13 @@ export class PaymentService {
       await queryRunner.manager.save(AccountTransaction, transaction);
       this.logger.log(`[processPaymentSuccess] AccountTransaction 保存成功: id=${transaction.id}`);
 
+      // 充值成功后，尝试激活体验金（失败不影响充值）
+      try {
+        await this.trialBonusService.activateTrialBonus(order.userId, queryRunner);
+      } catch (e) {
+        this.logger.error(`[processPaymentSuccess] 体验金激活失败: ${e.message}`);
+      }
+
       this.logger.log(`充值成功: ${order.outTradeNo}, 金额: ${order.amount}`);
     }
   }
@@ -222,7 +258,12 @@ export class PaymentService {
     qrCode: string;
     mockMode?: boolean;
   }> {
+    // 校验用户审核状态
+    await this.validateUserApproved(userId);
+
     const outTradeNo = this.generateOutTradeNo();
+
+    this.logger.log(`[createAlipayOrder] 创建支付宝充值订单: userId=${userId}, amount=${amount}, outTradeNo=${outTradeNo}`);
 
     // 调用支付宝创建订单
     const result = await this.alipayService.createOrder(
@@ -277,7 +318,12 @@ export class PaymentService {
     codeUrl: string;
     mockMode?: boolean;
   }> {
+    // 校验用户审核状态
+    await this.validateUserApproved(userId);
+
     const outTradeNo = this.generateOutTradeNo();
+
+    this.logger.log(`[createWechatOrder] 创建微信充值订单: userId=${userId}, amount=${amount}, outTradeNo=${outTradeNo}`);
 
     // 调用微信支付创建订单
     const result = await this.wechatPayService.createOrder(
@@ -732,6 +778,8 @@ export class PaymentService {
       throw new BadRequestException('订单不存在');
     }
 
+    this.logger.log(`[queryAlipayOrder] 查询支付宝订单: outTradeNo=${outTradeNo}, 当前状态=${paymentOrder.status}`);
+
     // 如果已经是支付成功状态，直接返回
     if (paymentOrder.status === PaymentStatus.PAID) {
       return {
@@ -819,6 +867,8 @@ export class PaymentService {
       throw new BadRequestException('订单不存在');
     }
 
+    this.logger.log(`[queryWechatOrder] 查询微信订单: outTradeNo=${outTradeNo}, 当前状态=${paymentOrder.status}`);
+
     // 如果已经是支付成功状态，直接返回
     if (paymentOrder.status === PaymentStatus.PAID) {
       return {
@@ -904,6 +954,9 @@ export class PaymentService {
     mwebUrl: string;
     mockMode?: boolean;
   }> {
+    // 校验用户审核状态
+    await this.validateUserApproved(userId);
+
     const outTradeNo = this.generateOutTradeNo();
 
     let result: { mwebUrl: string; mockMode?: boolean };
@@ -969,6 +1022,9 @@ export class PaymentService {
     paySign: string;
     mockMode?: boolean;
   }> {
+    // 校验用户审核状态
+    await this.validateUserApproved(userId);
+
     // 如果 openId 为空，降级为 H5 支付
     if (!openId || openId.trim() === '') {
       this.logger.log(`[JSAPI] openId为空，降级为H5支付`);
@@ -1055,6 +1111,9 @@ export class PaymentService {
     mwebUrl: string;
     mockMode?: boolean;
   }> {
+    // 0. 校验用户审核状态
+    await this.validateUserApproved(userId);
+
     // 1. 校验药品
     const drug = await this.drugRepository.findOne({ where: { id: drugId } });
     if (!drug) {
@@ -1127,6 +1186,9 @@ export class PaymentService {
     paySign: string;
     mockMode?: boolean;
   }> {
+    // 0. 校验用户审核状态
+    await this.validateUserApproved(userId);
+
     // 如果 openId 为空，降级为 H5 支付
     if (!openId || openId.trim() === '') {
       this.logger.log(`[JSAPI认购] openId为空，降级为H5支付`);

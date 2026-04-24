@@ -125,6 +125,7 @@ interface MarketOverviewItem {
   snapshotDate: string
   totalQuantity?: number
   subscribedQuantity?: number
+  isColdChain?: boolean
 }
 
 interface MarketStats {
@@ -943,6 +944,7 @@ const Dashboard = () => {
                 purchasePrice={selectedDrug?.purchasePrice}
                 sellingPrice={selectedDrug?.sellingPrice}
                 actualSellingPrice={selectedDrug?.actualSellingPrice}
+                isColdChain={selectedDrug?.isColdChain}
                 totalQuantity={selectedDrug?.totalQuantity}
                 subscribedQuantity={selectedDrug?.subscribedQuantity}
                 loading={loadingOverview}

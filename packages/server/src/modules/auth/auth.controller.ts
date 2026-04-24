@@ -43,6 +43,7 @@ export class AuthController {
       registerDto.realName,
       registerDto.phone,
       registerDto.agreedToAgreement,
+      registerDto.invitationCode,
     );
     return {
       message: '注册成功，请等待管理员审核',

@@ -6,6 +6,7 @@ interface SubscriptionOverviewProps {
   purchasePrice?: number
   sellingPrice?: number
   actualSellingPrice?: number
+  isColdChain?: boolean
   totalQuantity?: number
   subscribedQuantity?: number
   userSubscription?: {
@@ -19,15 +20,47 @@ interface SubscriptionOverviewProps {
 // 计算客户收益率
 const calculateCustomerReturn = (
   purchasePrice: number,
-  actualSellingPrice: number
+  retailPrice: number,
+  isColdChain: boolean = false
 ): number => {
-  if (!purchasePrice || !actualSellingPrice) return 0
-  // 合伙收益 = (实际成交价 - 进价) / 进价 * 30%
-  const partnershipReturn = ((actualSellingPrice - purchasePrice) / purchasePrice) * 0.3
+  if (!purchasePrice || !retailPrice) return 0
+  // 运营费 = 平台佣金(零售价×6%) + 处方费(0.45) + 快递费(普通3元，冷链20元)
+  const platformCommission = retailPrice * 0.06
+  const prescriptionFee = 0.45
+  const shippingFee = isColdChain ? 20 : 3
+  const operationFee = platformCommission + prescriptionFee + shippingFee
+  // 合伙人收益 = (零售价 - 进价 - 运营费) / 10
+  const partnershipReturnPerBox = (retailPrice - purchasePrice - operationFee) / 10
+  // 合伙人收益率 = 合伙人收益 / 进价
+  const partnershipReturnRate = purchasePrice > 0 ? partnershipReturnPerBox / purchasePrice : 0
   // 固定补贴 5% 年化，简化按日显示为 5%/365
   const dailySubsidy = 0.05 / 365
   // 总收益率（日）
-  return partnershipReturn + dailySubsidy
+  return partnershipReturnRate + dailySubsidy
+}
+
+// 计算用户预估收益
+const calculateUserProfit = (
+  amount: number,
+  purchasePrice: number,
+  retailPrice: number,
+  isColdChain: boolean = false
+): number => {
+  if (!amount || !purchasePrice || !retailPrice) return 0
+  // 运营费 = 平台佣金(零售价×6%) + 处方费(0.45) + 快递费(普通3元，冷链20元)
+  const platformCommission = retailPrice * 0.06
+  const prescriptionFee = 0.45
+  const shippingFee = isColdChain ? 20 : 3
+  const operationFee = platformCommission + prescriptionFee + shippingFee
+  // 合伙人收益(每盒) = (零售价 - 进价 - 运营费) / 10
+  const partnershipReturnPerBox = (retailPrice - purchasePrice - operationFee) / 10
+  // 认购盒数 = 认购金额 / 进价
+  const boxes = purchasePrice > 0 ? amount / purchasePrice : 0
+  // 合伙收益 = 认购盒数 × 合伙人收益(每盒)
+  const partnershipProfit = boxes * partnershipReturnPerBox
+  // 固定补贴（简化计算）
+  const subsidy = amount * 0.05 / 365
+  return partnershipProfit + subsidy
 }
 
 // 格式化百分比
@@ -49,6 +82,7 @@ const SubscriptionOverview = ({
   purchasePrice = 0,
   sellingPrice = 0,
   actualSellingPrice = 0,
+  isColdChain = false,
   totalQuantity = 0,
   subscribedQuantity = 0,
   userSubscription,
@@ -59,8 +93,8 @@ const SubscriptionOverview = ({
   
   // 计算客户收益率
   const customerReturn = useMemo(() => {
-    return calculateCustomerReturn(purchasePrice, effectivePrice)
-  }, [purchasePrice, effectivePrice])
+    return calculateCustomerReturn(purchasePrice, effectivePrice, isColdChain)
+  }, [purchasePrice, effectivePrice, isColdChain])
 
   // 计算认购进度
   const subscriptionProgress = useMemo(() => {
@@ -71,12 +105,8 @@ const SubscriptionOverview = ({
   // 计算用户收益（如果用户有认购）
   const userEstimatedProfit = useMemo(() => {
     if (!userSubscription || !purchasePrice || !effectivePrice) return 0
-    // 合伙收益 = 认购金额 * (实际成交价 - 进价) / 进价 * 30%
-    const partnershipProfit = userSubscription.amount * ((effectivePrice - purchasePrice) / purchasePrice) * 0.3
-    // 固定补贴（简化计算）
-    const subsidy = userSubscription.amount * 0.05 / 365
-    return partnershipProfit + subsidy
-  }, [userSubscription, purchasePrice, effectivePrice])
+    return calculateUserProfit(userSubscription.amount, purchasePrice, effectivePrice, isColdChain)
+  }, [userSubscription, purchasePrice, effectivePrice, isColdChain])
 
   if (loading) {
     return (
@@ -172,7 +202,7 @@ const SubscriptionOverview = ({
         </div>
         <div className="return-info-item">
           <span className="dot partnership" />
-          <span>合伙收益：净利润 30%</span>
+          <span>合伙收益：(零售价-进价-运营费)/10</span>
         </div>
       </div>
     </div>

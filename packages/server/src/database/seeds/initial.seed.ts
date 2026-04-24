@@ -49,7 +49,7 @@ export default class InitialSeed {
         const investor = userRepository.create({
           username: investorData.username,
           password: hashedPassword,
-          role: UserRole.INVESTOR,
+          role: UserRole.USER,
           realName: investorData.realName,
           phone: investorData.phone,
         });

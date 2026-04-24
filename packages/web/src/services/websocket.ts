@@ -11,13 +11,21 @@ class WebSocketService {
   // 连接 WebSocket
   connect(url?: string): void {
     // 如果没有提供 URL，自动根据当前环境生成
-    if (!url && typeof window !== 'undefined') {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const host = window.location.host
-      url = `${protocol}//${host}`
+    if (!url) {
+      if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const host = window.location.host
+        url = `${protocol}//${host}`
+      } else if (import.meta.env?.VITE_API_URL) {
+        const apiUrl = import.meta.env.VITE_API_URL as string
+        url = apiUrl.replace(/^http/, 'ws')
+      }
     }
-    // 确保有默认 URL
-    url = url || 'ws://localhost:3000'
+    // 确保有默认 URL（不应回退到localhost）
+    if (!url) {
+      console.warn('WebSocket: 无法确定连接地址，请检查环境配置')
+      return
+    }
     if (this.socket?.connected) {
       console.log('WebSocket already connected')
       return

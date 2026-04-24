@@ -383,9 +383,9 @@ const Home: React.FC = () => {
                     <span className="market-row-code">{drug.code}</span>
                     {(drug.operationFeeRate != null || drug.slowSellingDays != null || drug.batchNo) && (
                       <span className="market-row-extra">
-                        {drug.operationFeeRate != null && `费率${(drug.operationFeeRate * 100).toFixed(0)}%`}
+                        {drug.operationFeeRate != null && `费率${Number(drug.operationFeeRate).toFixed(0)}%`}
                         {drug.operationFeeRate != null && (drug.slowSellingDays != null || drug.batchNo) ? ' | ' : ''}
-                        {drug.slowSellingDays != null && `滞销${drug.slowSellingDays}天`}
+                        {drug.slowSellingDays != null && `保障${drug.slowSellingDays}天`}
                         {drug.slowSellingDays != null && drug.batchNo ? ' | ' : ''}
                         {drug.batchNo && `批次${drug.batchNo}`}
                       </span>

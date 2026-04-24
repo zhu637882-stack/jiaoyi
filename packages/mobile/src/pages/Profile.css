@@ -46,13 +46,19 @@
 .profile-avatar {
   width: 48px;
   height: 48px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #F0B90B 0%, #D4A20A 100%);
+  border-radius: 12px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.3);
   flex-shrink: 0;
+  overflow: hidden;
+}
+
+.avatar-logo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 12px;
 }
 
 .avatar-text {
@@ -172,12 +178,58 @@
   color: #FAAD14;
 }
 
+.stat-sublabel {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
 .stat-value.profit {
   color: var(--color-rise);
 }
 
 .stat-value.loss {
   color: var(--color-fall);
+}
+
+/* 体验金状态徽章 */
+.trial-bonus-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.trial-bonus-amount {
+  font-size: 15px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.trial-bonus-badge {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 1px 6px;
+  border-radius: 8px;
+  line-height: 1.6;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.trial-bonus-badge.pending {
+  color: #FAAD14;
+  background: rgba(250, 173, 20, 0.12);
+}
+
+.trial-bonus-badge.activated {
+  color: #0ECB81;
+  background: rgba(14, 203, 129, 0.1);
+}
+
+.trial-bonus-badge.expired,
+.trial-bonus-badge.used {
+  color: #848E9C;
+  background: rgba(132, 142, 156, 0.12);
 }
 
 /* 快捷操作 */

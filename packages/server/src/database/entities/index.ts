@@ -11,3 +11,6 @@ export { AuditLog } from './audit-log.entity';
 export { SystemMessage, MessageType, MessageStatus } from './system-message.entity';
 export { WithdrawOrder, WithdrawStatus } from './withdraw-order.entity';
 export { DailyYield } from './daily-yield.entity';
+export { TrialBonus, TrialBonusStatus } from './trial-bonus.entity';
+export { InvitationCode } from './invitation-code.entity';
+export { InvitationRecord, InvitationRecordStatus } from './invitation-record.entity';

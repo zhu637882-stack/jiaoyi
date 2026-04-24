@@ -1,8 +1,8 @@
 import { useEffect, useState, useCallback } from 'react'
 import './Admin.css'
 import { Card, Tabs, Typography, Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, message, Popconfirm, Statistic, Row, Col, Divider, Alert, Steps } from 'antd'
-import { UserOutlined, MedicineBoxOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, WalletOutlined, FileTextOutlined, NotificationOutlined, SendOutlined, SwapOutlined, AuditOutlined, ReloadOutlined } from '@ant-design/icons'
-import { drugApi, salesApi, settlementApi, adminApi, subscriptionApi, accountApi, systemMessageApi, yieldApi } from '../services/api'
+import { UserOutlined, MedicineBoxOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, SendOutlined, SwapOutlined, AuditOutlined, ReloadOutlined } from '@ant-design/icons'
+import { drugApi, salesApi, settlementApi, adminApi, subscriptionApi, accountApi, systemMessageApi, yieldApi, trialBonusAdminApi, invitationAdminApi } from '../services/api'
 import logoPng from '../assets/logo.png'
 import type { ColumnsType } from 'antd/es/table'
 import dayjs from 'dayjs'
@@ -29,7 +29,7 @@ enum UserStatus {
 interface User {
   id: string
   username: string
-  role: 'admin' | 'investor'
+  role: 'user' | 'viewer' | 'manager' | 'admin'
   status: UserStatus
   realName?: string
   phone?: string
@@ -151,6 +151,7 @@ interface AccountOverview {
 interface AuditLog {
   id: string
   userId: string
+  username?: string
   action: string
   targetType: string
   targetId: string
@@ -175,12 +176,138 @@ interface SystemMessage {
 // 审计日志动作类型映射
 const auditActionMap: Record<string, { label: string; color: string }> = {
   LOGIN: { label: '登录', color: '#1890FF' },
+  LOGOUT: { label: '登出', color: '#8B949E' },
   PRICE_UPDATE: { label: '调价', color: '#FAAD14' },
+  ADMIN_ADJUST_BALANCE: { label: '余额调整', color: '#F0B90B' },
   FORCE_CANCEL: { label: '撤单', color: '#00b96b' },
   SETTLEMENT: { label: '清算', color: '#52C41A' },
   RECHARGE: { label: '充值', color: '#cf1322' },
   WITHDRAW: { label: '提现', color: '#00b96b' },
+  WITHDRAW_APPLY: { label: '提现申请', color: '#00b96b' },
+  WITHDRAW_APPROVE: { label: '提现审批', color: '#52C41A' },
+  WITHDRAW_REJECT: { label: '提现驳回', color: '#cf1322' },
   SELL: { label: '卖出', color: '#722ED1' },
+  CHANGE_PASSWORD: { label: '修改密码', color: '#8B949E' },
+  CREATE_DRUG: { label: '新增药品', color: '#52C41A' },
+  UPDATE_DRUG: { label: '编辑药品', color: '#1890FF' },
+  DELETE_DRUG: { label: '删除药品', color: '#cf1322' },
+  APPROVE_SUBSCRIPTION: { label: '审核通过', color: '#52C41A' },
+  REJECT_SUBSCRIPTION: { label: '审核拒绝', color: '#cf1322' },
+  CREATE_USER: { label: '创建用户', color: '#1890FF' },
+  UPDATE_USER: { label: '编辑用户', color: '#FAAD14' },
+  ROLE_CHANGE: { label: '角色变更', color: '#722ED1' },
+}
+
+// 目标类型中文映射
+const targetTypeMap: Record<string, string> = {
+  user: '用户',
+  drug: '药品',
+  account: '账户',
+  subscription: '认购单',
+  payment: '支付',
+  invitation: '邀请',
+  pending_order: '挂单',
+  withdraw_order: '提现单',
+  system: '系统',
+}
+
+// 审计日志详情格式化 - JSON转通俗中文描述
+const formatAuditDetail = (data: any, action: string): string => {
+  if (!data) return '-'
+  try {
+    // 登录操作
+    if (action === 'LOGIN') {
+      return `${data.username || '用户'} 登录系统`
+    }
+
+    // 登出操作
+    if (action === 'LOGOUT') {
+      return `${data.username || '用户'} 退出系统`
+    }
+
+    // 调价操作
+    if (action === 'PRICE_UPDATE') {
+      const before = data.before || {}
+      const after = data.after || {}
+      return `进价: ¥${before.purchasePrice ?? '-'} → ¥${after.purchasePrice ?? '-'}, 售价: ¥${before.sellingPrice ?? '-'} → ¥${after.sellingPrice ?? '-'}`
+    }
+
+    // 余额调整
+    if (action === 'ADMIN_ADJUST_BALANCE') {
+      const amt = data.adjustAmount ?? data.amount
+      const sign = amt > 0 ? '+' : ''
+      return `余额调整 ${sign}¥${amt}${data.reason ? `, 原因: ${data.reason}` : ''}`
+    }
+
+    // 充值
+    if (action === 'RECHARGE') {
+      return `充值 ¥${data.amount ?? '-'}`
+    }
+
+    // 提现申请
+    if (action === 'WITHDRAW_APPLY') {
+      return `申请提现 ¥${data.amount ?? '-'}${data.description ? `, ${data.description}` : ''}`
+    }
+
+    // 提现审批
+    if (action === 'WITHDRAW_APPROVE') {
+      return `审批通过提现单 ¥${data.amount ?? '-'}`
+    }
+
+    // 提现驳回
+    if (action === 'WITHDRAW_REJECT') {
+      return `驳回提现单 ¥${data.amount ?? '-'}${data.reason ? `, 原因: ${data.reason}` : ''}`
+    }
+
+    // 撤单
+    if (action === 'FORCE_CANCEL') {
+      return `强制撤单${data.orderId ? `, 订单: ${data.orderId.substring(0, 8)}...` : ''}`
+    }
+
+    // 清算
+    if (action === 'SETTLEMENT') {
+      return `清算金额 ¥${data.amount ?? '-'}`
+    }
+
+    // 卖出
+    if (action === 'SELL') {
+      return `卖出 ¥${data.amount ?? '-'}`
+    }
+
+    // 修改密码
+    if (action === 'CHANGE_PASSWORD') {
+      return data.message || '密码修改成功'
+    }
+
+    // 通用：将 key 翻译为中文
+    const keyMap: Record<string, string> = {
+      username: '用户名',
+      role: '角色',
+      amount: '金额',
+      targetUserId: '目标用户',
+      adjustAmount: '调整金额',
+      previousBalance: '原余额',
+      newBalance: '新余额',
+      reason: '原因',
+      orderNo: '订单号',
+      description: '描述',
+      message: '信息',
+      before: '变更前',
+      after: '变更后',
+      purchasePrice: '进价',
+      sellingPrice: '售价',
+      name: '名称',
+    }
+    return Object.entries(data)
+      .map(([k, v]) => {
+        const label = keyMap[k] || k
+        const val = typeof v === 'object' ? JSON.stringify(v) : String(v)
+        return `${label}: ${val}`
+      })
+      .join(', ')
+  } catch {
+    return String(data)
+  }
 }
 
 // 系统消息类型映射
@@ -198,7 +325,7 @@ const messageStatusMap: Record<string, { label: string; color: string }> = {
 }
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = useState('users')
+  const [activeTab, setActiveTab] = useState('customers')
   const [drugs, setDrugs] = useState<Drug[]>([])
   const [drugsLoading, setDrugsLoading] = useState(false)
   const [isDrugModalOpen, setIsDrugModalOpen] = useState(false)
@@ -323,6 +450,52 @@ const Admin = () => {
   const [auditForm] = Form.useForm()
   const [auditLoading, setAuditLoading] = useState(false)
 
+  // 体验金管理状态
+  const [trialBonusList, setTrialBonusList] = useState<any[]>([])
+  const [trialBonusLoading, setTrialBonusLoading] = useState(false)
+  const [trialBonusPage, setTrialBonusPage] = useState(1)
+  const [trialBonusTotal, setTrialBonusTotal] = useState(0)
+
+  // 邀请管理状态
+  const [invitationList, setInvitationList] = useState<any[]>([])
+  const [invitationLoading, setInvitationLoading] = useState(false)
+  const [invitationPage, setInvitationPage] = useState(1)
+  const [invitationTotal, setInvitationTotal] = useState(0)
+
+  // 系统管理状态
+  const [adminList, setAdminList] = useState<User[]>([])
+  const [adminListLoading, setAdminListLoading] = useState(false)
+  const [isAdminModalOpen, setIsAdminModalOpen] = useState(false)
+  const [adminForm] = Form.useForm()
+  const [adminSubmitLoading, setAdminSubmitLoading] = useState(false)
+
+  // 获取当前用户角色
+  const getCurrentUserRole = useCallback((): string => {
+    const userStr = localStorage.getItem('user')
+    if (userStr) {
+      try {
+        const user = JSON.parse(userStr)
+        return user.role || 'user'
+      } catch { /* ignore */ }
+    }
+    return 'user'
+  }, [])
+
+  const isSuperAdmin = getCurrentUserRole() === 'admin'
+
+  // 获取管理员列表
+  const fetchAdminList = useCallback(async () => {
+    setAdminListLoading(true)
+    try {
+      const res: any = await adminApi.getAdmins()
+      setAdminList(Array.isArray(res) ? res : (res?.data || []))
+    } catch (error) {
+      console.error('获取管理员列表失败:', error)
+    } finally {
+      setAdminListLoading(false)
+    }
+  }, [])
+
   // 获取药品列表
   const fetchDrugs = useCallback(async () => {
     setDrugsLoading(true)
@@ -340,31 +513,29 @@ const Admin = () => {
   }, [])
 
   useEffect(() => {
-    if (activeTab === 'users') {
+    if (activeTab === 'customers') {
       fetchUsers()
     } else if (activeTab === 'drugs') {
       fetchDrugs()
-    } else if (activeTab === 'sales') {
-      fetchSales()
-    } else if (activeTab === 'settlements') {
-      fetchSettlements()
-      fetchSettlementSummary()
-    } else if (activeTab === 'pendingOrders') {
+    } else if (activeTab === 'subscriptions') {
       fetchPendingOrders()
       fetchPendingOrderStats()
-    } else if (activeTab === 'fundMonitor') {
+      fetchReturnReviewList()
+      fetchWithdrawOrders()
+    } else if (activeTab === 'operations') {
+      fetchSales()
+      fetchSettlements()
+      fetchSettlementSummary()
+    } else if (activeTab === 'riskControl') {
       fetchUserBalances()
       fetchAccountOverview()
-    } else if (activeTab === 'auditLogs') {
       fetchAuditLogs()
-    } else if (activeTab === 'systemMessages') {
       fetchSystemMessages()
-    } else if (activeTab === 'withdrawOrders') {
-      fetchWithdrawOrders()
-    } else if (activeTab === 'returnReview') {
-      fetchReturnReviewList()
-    } else if (activeTab === 'subsidy') {
-      fetchPendingSubsidy()
+    } else if (activeTab === 'marketing') {
+      fetchTrialBonusList()
+      fetchInvitationList()
+    } else if (activeTab === 'system') {
+      fetchAdminList()
     }
   }, [activeTab, fetchDrugs])
 
@@ -476,7 +647,7 @@ const Admin = () => {
       actualSellingPrice: record.actualSellingPrice,
       totalQuantity: record.totalQuantity,
       batchNo: record.batchNo,
-      operationFeeRate: record.operationFeeRate != null ? +(record.operationFeeRate * 100).toFixed(4) : 0,
+      operationFeeRate: record.operationFeeRate != null ? +Number(record.operationFeeRate).toFixed(2) : 0,
       slowSellingDays: record.slowSellingDays,
     })
     setIsDrugModalOpen(true)
@@ -496,7 +667,7 @@ const Admin = () => {
         sellingPrice: values.sellingPrice,
         totalQuantity: values.totalQuantity,
         batchNo: values.batchNo,
-        operationFeeRate: values.operationFeeRate != null ? values.operationFeeRate / 100 : 0,
+        operationFeeRate: values.operationFeeRate != null ? values.operationFeeRate : 0,
         slowSellingDays: values.slowSellingDays,
       }
       
@@ -748,7 +919,7 @@ const Admin = () => {
 
   // 认购审核 tab 切换或筛选条件变化时自动刷新
   useEffect(() => {
-    if (activeTab === 'subscriptionAudit') {
+    if (activeTab === 'subscriptions') {
       fetchAuditOrders()
     }
   }, [activeTab, auditStatusFilter, auditPage, auditPageSize, fetchAuditOrders])
@@ -902,7 +1073,7 @@ const Admin = () => {
 
   // 日期变更时自动重新加载
   useEffect(() => {
-    if (activeTab === 'subsidy') {
+    if (activeTab === 'subscriptions') {
       fetchPendingSubsidy()
     }
   }, [subsidyYieldDate, activeTab, fetchPendingSubsidy])
@@ -1007,6 +1178,36 @@ const Admin = () => {
       setSystemMessagesLoading(false)
     }
   }, [systemMessageFilterStatus, systemMessagePage, systemMessagePageSize])
+
+  const fetchTrialBonusList = useCallback(async () => {
+    setTrialBonusLoading(true)
+    try {
+      const res: any = await trialBonusAdminApi.list(trialBonusPage, 20)
+      if (res.success) {
+        setTrialBonusList(res.data?.list || [])
+        setTrialBonusTotal(res.data?.pagination?.total || 0)
+      }
+    } catch (error) {
+      console.error('获取体验金列表失败:', error)
+    } finally {
+      setTrialBonusLoading(false)
+    }
+  }, [trialBonusPage])
+
+  const fetchInvitationList = useCallback(async () => {
+    setInvitationLoading(true)
+    try {
+      const res: any = await invitationAdminApi.list(invitationPage, 20)
+      if (res.success) {
+        setInvitationList(res.data?.list || [])
+        setInvitationTotal(res.data?.pagination?.total || 0)
+      }
+    } catch (error) {
+      console.error('获取邀请记录失败:', error)
+    } finally {
+      setInvitationLoading(false)
+    }
+  }, [invitationPage])
 
   // 打开新增消息弹窗
   const handleAddMessage = () => {
@@ -1170,11 +1371,17 @@ const Admin = () => {
       title: '角色',
       dataIndex: 'role',
       key: 'role',
-      render: (role: string) => (
-        <Tag className={`status-tag ${role === 'admin' ? 'status-tag-funding' : 'status-tag-selling'}`}>
-          {role === 'admin' ? '管理员' : '投资者'}
-        </Tag>
-      ),
+      render: (role: string) => {
+        const roleMap: Record<string, { label: string; className: string }> = {
+          'admin': { label: '超级管理员', className: 'status-tag-funding' },
+          'manager': { label: '管理员', className: 'status-tag-selling' },
+          'viewer': { label: '只读管理员', className: 'status-tag-pending' },
+          'user': { label: '客户', className: 'status-tag-selling' },
+          'investor': { label: '客户', className: 'status-tag-selling' },
+        }
+        const config = roleMap[role] || { label: role, className: 'status-tag-selling' }
+        return <Tag className={`status-tag ${config.className}`}>{config.label}</Tag>
+      },
     },
     {
       title: '姓名',
@@ -1192,7 +1399,7 @@ const Admin = () => {
       title: '协议状态',
       dataIndex: 'agreedToAgreement',
       key: 'agreedToAgreement',
-      render: (agreed: boolean, record: User) => (
+      render: (agreed: boolean, _record: User) => (
         agreed
           ? <Tag color="green">已同意</Tag>
           : <Tag color="default">未同意</Tag>
@@ -1313,11 +1520,11 @@ const Admin = () => {
       key: 'operationFeeRate',
       align: 'right',
       render: (rate: number) => (
-        <span className="table-cell-mono table-cell-primary-color table-cell-bold">{rate != null ? `${(rate * 100).toFixed(2)}%` : '0%'}</span>
+        <span className="table-cell-mono table-cell-primary-color table-cell-bold">{rate != null ? `${Number(rate).toFixed(2)}%` : '0%'}</span>
       ),
     },
     {
-      title: '滞销天数',
+      title: '滞销保障期（天）',
       dataIndex: 'slowSellingDays',
       key: 'slowSellingDays',
       align: 'right',
@@ -1915,10 +2122,14 @@ const Admin = () => {
       title: '操作人',
       dataIndex: 'userId',
       key: 'userId',
-      width: 220,
-      render: (text: string) => (
-        <span className="table-cell-code">{text || '-'}</span>
-      ),
+      width: 120,
+      render: (_: string, record: AuditLog) => {
+        if (record.username) {
+          return <span style={{ color: '#E6EDF3', fontWeight: 500 }}>{record.username}</span>
+        }
+        if (!record.userId) return <span className="table-cell-tertiary">系统</span>
+        return <span className="table-cell-tertiary">{record.userId.substring(0, 8)}...</span>
+      },
     },
     {
       title: '操作类型',
@@ -1938,32 +2149,28 @@ const Admin = () => {
       title: '目标类型',
       dataIndex: 'targetType',
       key: 'targetType',
-      width: 120,
-      render: (text: string) => <span className="table-cell-tertiary">{text || '-'}</span>,
+      width: 100,
+      render: (text: string) => <span className="table-cell-tertiary">{targetTypeMap[text] || text || '-'}</span>,
     },
     {
       title: '目标ID',
       dataIndex: 'targetId',
       key: 'targetId',
-      width: 220,
+      width: 140,
       render: (text: string) => (
-        <span className="table-cell-code">{text || '-'}</span>
+        <span className="table-cell-code">{text ? `${text.substring(0, 8)}...` : '-'}</span>
       ),
     },
     {
       title: '详情',
       dataIndex: 'detail',
       key: 'detail',
-      render: (text: string) => {
+      render: (text: string, record: AuditLog) => {
         if (!text) return <span className="table-cell-tertiary">-</span>
         try {
           const detail = JSON.parse(text)
-          return (
-            <span className="table-cell-code" style={{ fontSize: 12 }}>
-              {JSON.stringify(detail, null, 2).substring(0, 100)}
-              {JSON.stringify(detail).length > 100 ? '...' : ''}
-            </span>
-          )
+          const desc = formatAuditDetail(detail, record.action)
+          return <span style={{ color: '#C9D1D9', fontSize: 12, lineHeight: 1.6 }}>{desc}</span>
         } catch {
           return <span className="table-cell-tertiary">{text}</span>
         }
@@ -2094,11 +2301,11 @@ const Admin = () => {
 
   const tabItems = [
     {
-      key: 'users',
+      key: 'customers',
       label: (
         <span>
           <UserOutlined style={{ marginRight: 8 }} />
-          用户管理
+          客户管理
         </span>
       ),
       children: (
@@ -2127,9 +2334,7 @@ const Admin = () => {
           <Table
             columns={userColumns}
             dataSource={users.filter(u => {
-              // 状态筛选
               if (userStatusFilter !== 'all' && u.status !== userStatusFilter) return false
-              // 搜索筛选
               if (!userSearchText) return true
               const keyword = userSearchText.toLowerCase()
               return (
@@ -2170,8 +2375,8 @@ const Admin = () => {
               新增药品
             </Button>
           </div>
-          <Table 
-            columns={drugColumns} 
+          <Table
+            columns={drugColumns}
             dataSource={drugs}
             rowKey="id"
             loading={drugsLoading}
@@ -2183,140 +2388,7 @@ const Admin = () => {
       ),
     },
     {
-      key: 'sales',
-      label: (
-        <span>
-          <ShoppingCartOutlined style={{ marginRight: 8 }} />
-          销售管理
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card">
-          <div className="admin-action-bar">
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleAddSales}
-              style={{
-                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
-                border: 'none',
-              }}
-            >
-              录入销售
-            </Button>
-            <Select
-              placeholder="筛选药品"
-              allowClear
-              style={{ width: 200 }}
-              onChange={(value) => setSalesFilterDrug(value)}
-              value={salesFilterDrug || undefined}
-            >
-              {drugs.map((drug) => (
-                <Option key={drug.id} value={drug.id}>{drug.name}</Option>
-              ))}
-            </Select>
-          </div>
-          <Table 
-            columns={salesColumns} 
-            dataSource={salesRecords}
-            rowKey="id"
-            loading={salesLoading}
-            pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 条` }}
-            scroll={{ x: 'max-content' }}
-            rowClassName={() => 'admin-table-row'}
-          />
-        </Card>
-      ),
-    },
-    {
-      key: 'settlements',
-      label: (
-        <span>
-          <CalculatorOutlined style={{ marginRight: 8 }} />
-          日清日结
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card">
-          {/* 统计卡片 */}
-          {settlementSummary && (
-            <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="总清算次数"
-                    value={settlementSummary.totalSettlementCount}
-                    valueStyle={{ color: 'var(--color-text-primary)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="总销售额"
-                    value={settlementSummary.totalSalesRevenue}
-                    precision={2}
-                    prefix="¥"
-                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="认购方总分润"
-                    value={settlementSummary.totalInvestorProfit}
-                    precision={2}
-                    prefix="¥"
-                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="认购方总亏损"
-                    value={settlementSummary.totalInvestorLoss}
-                    precision={2}
-                    prefix="¥"
-                    valueStyle={{ color: 'var(--color-error)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-            </Row>
-          )}
-
-          <div className="admin-action-bar">
-            <Button
-              type="primary"
-              icon={<CalculatorOutlined />}
-              onClick={() => {
-                setSettlementPreview(null)
-                settlementForm.resetFields()
-                setIsSettlementModalOpen(true)
-              }}
-              style={{
-                background: 'linear-gradient(135deg, var(--color-warning) 0%, #FF7A45 100%)',
-                border: 'none',
-              }}
-            >
-              执行清算
-            </Button>
-          </div>
-          <Table 
-            columns={settlementColumns} 
-            dataSource={settlements}
-            rowKey="id"
-            loading={settlementsLoading}
-            pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 条` }}
-            scroll={{ x: 'max-content' }}
-            rowClassName={() => 'admin-table-row'}
-          />
-        </Card>
-      ),
-    },
-    {
-      key: 'pendingOrders',
+      key: 'subscriptions',
       label: (
         <span>
           <OrderedListOutlined style={{ marginRight: 8 }} />
@@ -2325,7 +2397,10 @@ const Admin = () => {
       ),
       children: (
         <Card className="admin-content-card">
-          {/* 统计卡片 */}
+          {/* 委托列表 */}
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>委托列表</Text>
+          </div>
           {pendingOrderStats && (
             <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
               <Col xs={24} sm={8}>
@@ -2359,7 +2434,6 @@ const Admin = () => {
               </Col>
             </Row>
           )}
-
           <div className="admin-action-bar">
             <Select
               placeholder="筛选状态"
@@ -2396,166 +2470,43 @@ const Admin = () => {
             scroll={{ x: 'max-content' }}
             rowClassName={() => 'admin-table-row'}
           />
-        </Card>
-      ),
-    },
-    {
-      key: 'fundMonitor',
-      label: (
-        <span>
-          <WalletOutlined style={{ marginRight: 8 }} />
-          资金监控
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card">
-          {/* 统计卡片 */}
-          {accountOverview && (
-            <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="总充值金额"
-                    value={accountOverview.totalRecharge}
-                    precision={2}
-                    prefix="¥"
-                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="总提现金额"
-                    value={accountOverview.totalWithdraw}
-                    precision={2}
-                    prefix="¥"
-                    valueStyle={{ color: 'var(--color-error)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="总冻结金额"
-                    value={accountOverview.totalFrozen}
-                    precision={2}
-                    prefix="¥"
-                    valueStyle={{ color: 'var(--color-warning)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="总可用余额"
-                    value={accountOverview.totalAvailable}
-                    precision={2}
-                    prefix="¥"
-                    valueStyle={{ color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-              <Col xs={24} sm={12} lg={6}>
-                <Card className="admin-stat-card">
-                  <Statistic
-                    title="活跃用户数"
-                    value={accountOverview.activeUserCount}
-                    valueStyle={{ color: 'var(--color-text-primary)', fontFamily: "'JetBrains Mono', monospace" }}
-                  />
-                </Card>
-              </Col>
-            </Row>
-          )}
 
-          <div className="admin-action-bar">
-            <Input.Search
-              placeholder="搜索用户名/姓名"
-              allowClear
-              style={{ width: 240 }}
-              value={balanceSearchText}
-              onChange={(e) => setBalanceSearchText(e.target.value)}
-            />
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+
+          {/* 认购审核 */}
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>认购审核</Text>
           </div>
-
-          <Table
-            columns={userBalanceColumns}
-            dataSource={userBalances.filter(u => {
-              if (!balanceSearchText) return true
-              const keyword = balanceSearchText.toLowerCase()
-              return (
-                u.username?.toLowerCase().includes(keyword) ||
-                u.realName?.toLowerCase().includes(keyword)
-              )
-            })}
-            rowKey="userId"
-            loading={userBalancesLoading}
-            pagination={{
-              current: balancePage,
-              pageSize: balancePageSize,
-              total: balanceTotal,
-              onChange: (page, pageSize) => {
-                setBalancePage(page)
-                setBalancePageSize(pageSize || 10)
-              },
-              showSizeChanger: true,
-              showTotal: (total) => `共 ${total} 条`,
-            }}
-            scroll={{ x: 'max-content' }}
-            rowClassName={() => 'admin-table-row'}
-          />
-        </Card>
-      ),
-    },
-    {
-      key: 'systemMessages',
-      label: (
-        <span>
-          <NotificationOutlined style={{ marginRight: 8 }} />
-          系统消息
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card">
           <div className="admin-action-bar">
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleAddMessage}
-              style={{
-                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
-                border: 'none',
-              }}
-            >
-              发布新消息
-            </Button>
+            <Text style={{ color: '#8B949E' }}>认购订单审核</Text>
             <Select
-              placeholder="筛选状态"
+              placeholder="筛选审核状态"
               allowClear
               style={{ width: 160 }}
               onChange={(value) => {
-                setSystemMessageFilterStatus(value)
-                setSystemMessagePage(1)
+                setAuditStatusFilter(value || 'all')
+                setAuditPage(1)
               }}
-              value={systemMessageFilterStatus || undefined}
+              value={auditStatusFilter || undefined}
             >
-              <Option value="draft">草稿</Option>
-              <Option value="published">已发布</Option>
-              <Option value="archived">已归档</Option>
+              <Option value="all">全部</Option>
+              <Option value="pending">待审核</Option>
+              <Option value="approved">已通过</Option>
+              <Option value="rejected">已拒绝</Option>
             </Select>
           </div>
           <Table
-            columns={systemMessageColumns}
-            dataSource={systemMessages}
+            columns={subscriptionAuditColumns}
+            dataSource={auditOrders}
             rowKey="id"
-            loading={systemMessagesLoading}
+            loading={auditOrdersLoading}
             pagination={{
-              current: systemMessagePage,
-              pageSize: systemMessagePageSize,
-              total: systemMessageTotal,
+              current: auditPage,
+              pageSize: auditPageSize,
+              total: auditTotal,
               onChange: (page, pageSize) => {
-                setSystemMessagePage(page)
-                setSystemMessagePageSize(pageSize || 10)
+                setAuditPage(page)
+                setAuditPageSize(pageSize || 10)
               },
               showSizeChanger: true,
               showTotal: (total) => `共 ${total} 条`,
@@ -2563,71 +2514,12 @@ const Admin = () => {
             scroll={{ x: 'max-content' }}
             rowClassName={() => 'admin-table-row'}
           />
-        </Card>
-      ),
-    },
-    {
-      key: 'auditLogs',
-      label: (
-        <span>
-          <FileTextOutlined style={{ marginRight: 8 }} />
-          操作日志
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card">
-          <div className="admin-action-bar">
-            <Select
-              placeholder="筛选操作类型"
-              allowClear
-              style={{ width: 180 }}
-              onChange={(value) => {
-                setAuditLogFilterAction(value)
-                setAuditLogPage(1)
-              }}
-              value={auditLogFilterAction || undefined}
-            >
-              <Option value="LOGIN">登录</Option>
-              <Option value="PRICE_UPDATE">调价</Option>
-              <Option value="FORCE_CANCEL">撤单</Option>
-              <Option value="RECHARGE">充值</Option>
-              <Option value="WITHDRAW">提现</Option>
-            </Select>
-          </div>
-          <Table
-            columns={auditLogColumns}
-            dataSource={auditLogs}
-            rowKey="id"
-            loading={auditLogsLoading}
-            pagination={{
-              current: auditLogPage,
-              pageSize: auditLogPageSize,
-              total: auditLogTotal,
-              onChange: (page, pageSize) => {
-                setAuditLogPage(page)
-                setAuditLogPageSize(pageSize || 20)
-              },
-              showSizeChanger: true,
-              showTotal: (total) => `共 ${total} 条`,
-            }}
-            scroll={{ x: 'max-content' }}
-            rowClassName={() => 'admin-table-row'}
-          />
-        </Card>
-      ),
-    },
-    {
-      key: 'returnReview',
-      label: (
-        <span>
-          <AuditOutlined style={{ marginRight: 8 }} />
-          退回审核
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card">
+
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+
+          {/* 退回审核 */}
           <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 500 }}>退回申请审核</Text>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>退回审核</Text>
             <Button
               type="primary"
               icon={<ReloadOutlined />}
@@ -2677,7 +2569,6 @@ const Admin = () => {
                         const res: any = await subscriptionApi.approveReturn(record.id)
                         if (res.success) {
                           message.success('退回已核准，本金和收益已退还客户')
-                          // 刷新列表
                           const refreshRes: any = await subscriptionApi.getAdminSubscriptions({ status: 'return_pending', page: 1, limit: 50 })
                           setReturnReviewList(refreshRes?.data?.list || [])
                         }
@@ -2713,40 +2604,31 @@ const Admin = () => {
               )}
             />
           </Table>
-        </Card>
-      ),
-    },
-    {
-      key: 'withdrawOrders',
-      label: (
-        <span>
-          <DollarOutlined style={{ marginRight: 8 }} />
-          出金管理
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card" title={
-          <span style={{ color: '#E6EDF3' }}>
-            <DollarOutlined style={{ color: '#1890FF', marginRight: 8 }} />
-            出金申请管理（T+1）
-          </span>
-        } extra={
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <Text style={{ color: '#8B949E', fontSize: 12, whiteSpace: 'nowrap' }}>状态筛选：</Text>
-            <Select
-              value={withdrawFilterStatus || undefined}
-              placeholder="全部状态"
-              allowClear
-              style={{ width: 120 }}
-              onChange={(v) => { setWithdrawFilterStatus(v || ''); setWithdrawPage(1) }}
-              styles={{ popup: { root: { background: '#161B22', border: '1px solid #30363D' } } }}
-            >
-              <Option value="pending">出金中</Option>
-              <Option value="approved">已确认</Option>
-              <Option value="rejected">已驳回</Option>
-            </Select>
+
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+
+          {/* 出金管理 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>
+              <DollarOutlined style={{ color: '#1890FF', marginRight: 8 }} />
+              出金管理（T+1）
+            </Text>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <Text style={{ color: '#8B949E', fontSize: 12, whiteSpace: 'nowrap' }}>状态筛选：</Text>
+              <Select
+                value={withdrawFilterStatus || undefined}
+                placeholder="全部状态"
+                allowClear
+                style={{ width: 120 }}
+                onChange={(v) => { setWithdrawFilterStatus(v || ''); setWithdrawPage(1) }}
+                styles={{ popup: { root: { background: '#161B22', border: '1px solid #30363D' } } }}
+              >
+                <Option value="pending">出金中</Option>
+                <Option value="approved">已确认</Option>
+                <Option value="rejected">已驳回</Option>
+              </Select>
+            </div>
           </div>
-        }>
           <Table
             dataSource={withdrawOrders}
             loading={withdrawOrdersLoading}
@@ -2784,87 +2666,28 @@ const Admin = () => {
               </Space>
             ) : '-'} />
           </Table>
-        </Card>
-      ),
-    },
-    {
-      key: 'subscriptionAudit',
-      label: (
-        <span>
-          <AuditOutlined style={{ marginRight: 8 }} />
-          认购审核
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card">
-          <div className="admin-action-bar">
-            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 500 }}>认购订单审核</Text>
-            <Select
-              placeholder="筛选审核状态"
-              allowClear
-              style={{ width: 160 }}
-              onChange={(value) => {
-                setAuditStatusFilter(value || 'all')
-                setAuditPage(1)
-              }}
-              value={auditStatusFilter || undefined}
-            >
-              <Option value="all">全部</Option>
-              <Option value="pending">待审核</Option>
-              <Option value="approved">已通过</Option>
-              <Option value="rejected">已拒绝</Option>
-            </Select>
+
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+
+          {/* 补贴金管理 */}
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>
+              <DollarOutlined style={{ color: '#F0B90B', marginRight: 8 }} />
+              每日补贴金填写
+            </Text>
+            <Space>
+              <Text style={{ color: '#8B949E' }}>收益日期：</Text>
+              <Input
+                type="date"
+                value={subsidyYieldDate}
+                onChange={(e) => {
+                  const newDate = e.target.value
+                  setSubsidyYieldDate(newDate)
+                }}
+                style={{ width: 150, background: '#0D1117', borderColor: '#30363D', color: '#E6EDF3' }}
+              />
+            </Space>
           </div>
-          <Table
-            columns={subscriptionAuditColumns}
-            dataSource={auditOrders}
-            rowKey="id"
-            loading={auditOrdersLoading}
-            pagination={{
-              current: auditPage,
-              pageSize: auditPageSize,
-              total: auditTotal,
-              onChange: (page, pageSize) => {
-                setAuditPage(page)
-                setAuditPageSize(pageSize || 10)
-              },
-              showSizeChanger: true,
-              showTotal: (total) => `共 ${total} 条`,
-            }}
-            scroll={{ x: 'max-content' }}
-            rowClassName={() => 'admin-table-row'}
-          />
-        </Card>
-      ),
-    },
-    {
-      key: 'subsidy',
-      label: (
-        <span>
-          <DollarOutlined style={{ marginRight: 8 }} />
-          补贴金管理
-        </span>
-      ),
-      children: (
-        <Card className="admin-content-card" title={
-          <span style={{ color: '#E6EDF3' }}>
-            <DollarOutlined style={{ color: '#F0B90B', marginRight: 8 }} />
-            每日补贴金填写（在持客户列表）
-          </span>
-        } extra={
-          <Space>
-            <Text style={{ color: '#8B949E' }}>收益日期：</Text>
-            <Input
-              type="date"
-              value={subsidyYieldDate}
-              onChange={(e) => {
-                const newDate = e.target.value
-                setSubsidyYieldDate(newDate)
-              }}
-              style={{ width: 150, background: '#0D1117', borderColor: '#30363D', color: '#E6EDF3' }}
-            />
-          </Space>
-        }>
           <div className="admin-action-bar" style={{ marginBottom: 8 }}>
             {pendingSubsidyList.length > 0 && (
               <Text style={{ color: '#8B949E', marginLeft: 'auto' }}>
@@ -2874,7 +2697,6 @@ const Admin = () => {
               </Text>
             )}
           </div>
-
           {pendingSubsidyList.length > 0 ? (
             <Table
               dataSource={pendingSubsidyList}
@@ -2938,7 +2760,558 @@ const Admin = () => {
         </Card>
       ),
     },
+    {
+      key: 'operations',
+      label: (
+        <span>
+          <ShoppingCartOutlined style={{ marginRight: 8 }} />
+          运营管理
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          <div style={{ marginBottom: 16 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>销售数据</Text>
+          </div>
+          <div className="admin-action-bar">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleAddSales}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
+                border: 'none',
+              }}
+            >
+              录入销售
+            </Button>
+            <Select
+              placeholder="筛选药品"
+              allowClear
+              style={{ width: 200 }}
+              onChange={(value) => setSalesFilterDrug(value)}
+              value={salesFilterDrug || undefined}
+            >
+              {drugs.map((drug) => (
+                <Option key={drug.id} value={drug.id}>{drug.name}</Option>
+              ))}
+            </Select>
+          </div>
+          <Table
+            columns={salesColumns}
+            dataSource={salesRecords}
+            rowKey="id"
+            loading={salesLoading}
+            pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 条` }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+          <div style={{ marginBottom: 16 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>清算管理</Text>
+          </div>
+          {settlementSummary && (
+            <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总清算次数"
+                    value={settlementSummary.totalSettlementCount}
+                    valueStyle={{ color: 'var(--color-text-primary)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总销售额"
+                    value={settlementSummary.totalSalesRevenue}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="认购方总分润"
+                    value={settlementSummary.totalInvestorProfit}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="认购方总亏损"
+                    value={settlementSummary.totalInvestorLoss}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-error)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          )}
+          <div className="admin-action-bar">
+            <Button
+              type="primary"
+              icon={<CalculatorOutlined />}
+              onClick={() => {
+                setSettlementPreview(null)
+                settlementForm.resetFields()
+                setIsSettlementModalOpen(true)
+              }}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-warning) 0%, #FF7A45 100%)',
+                border: 'none',
+              }}
+            >
+              执行清算
+            </Button>
+          </div>
+          <Table
+            columns={settlementColumns}
+            dataSource={settlements}
+            rowKey="id"
+            loading={settlementsLoading}
+            pagination={{ pageSize: 10, showTotal: (total) => `共 ${total} 条` }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+        </Card>
+      ),
+    },
+    {
+      key: 'marketing',
+      label: (
+        <span>
+          <BarChartOutlined style={{ marginRight: 8 }} />
+          营销管理
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          {/* 体验金管理 */}
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>体验金管理</Text>
+          </div>
+          <Table
+            dataSource={trialBonusList}
+            loading={trialBonusLoading}
+            rowKey="id"
+            pagination={{
+              current: trialBonusPage,
+              total: trialBonusTotal,
+              pageSize: 20,
+              onChange: (page) => setTrialBonusPage(page),
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+            locale={{ emptyText: <Text style={{ color: '#8B949E' }}>暂无体验金记录</Text> }}
+          >
+            <Table.Column title="用户ID" dataIndex="userId" key="userId" width={100} render={(v: string) => <span style={{ color: '#8B949E', fontFamily: 'monospace', fontSize: 12 }}>{v}</span>} />
+            <Table.Column title="用户名" dataIndex="username" key="username" width={120} render={(v: string) => <span style={{ color: '#E6EDF3' }}>{v || '-'}</span>} />
+            <Table.Column title="真实姓名" dataIndex="realName" key="realName" width={100} render={(v: string) => <span style={{ color: '#E6EDF3' }}>{v || '-'}</span>} />
+            <Table.Column title="手机号" dataIndex="phone" key="phone" width={130} render={(v: string) => <span style={{ color: '#8B949E' }}>{v || '-'}</span>} />
+            <Table.Column title="体验金金额" dataIndex="amount" key="amount" width={120} align="right" render={(v: number) => <span style={{ color: '#00b96b', fontWeight: 600 }}>¥{Number(v || 0).toFixed(2)}</span>} />
+            <Table.Column title="状态" dataIndex="status" key="status" width={100} render={(v: string) => {
+              const map: Record<string, { label: string; color: string }> = {
+                PENDING: { label: '待激活', color: '#FAAD14' },
+                ACTIVATED: { label: '已激活', color: '#1890FF' },
+                USED: { label: '已使用', color: '#52C41A' },
+                EXPIRED: { label: '已过期', color: '#8B949E' },
+              }
+              const s = map[v] || { label: v, color: '#8B949E' }
+              return <Tag color={s.color} style={{ fontSize: 12 }}>{s.label}</Tag>
+            }} />
+            <Table.Column title="激活时间" dataIndex="activatedAt" key="activatedAt" width={160} render={(v: string) => v ? new Date(v).toLocaleString('zh-CN') : '-'} />
+            <Table.Column title="过期时间" dataIndex="expiredAt" key="expiredAt" width={160} render={(v: string) => v ? new Date(v).toLocaleString('zh-CN') : '-'} />
+            <Table.Column title="创建时间" dataIndex="createdAt" key="createdAt" width={160} render={(v: string) => v ? new Date(v).toLocaleString('zh-CN') : '-'} />
+          </Table>
 
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+
+          {/* 邀请返利 */}
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>邀请返利</Text>
+          </div>
+          <Table
+            dataSource={invitationList}
+            loading={invitationLoading}
+            rowKey="id"
+            pagination={{
+              current: invitationPage,
+              total: invitationTotal,
+              pageSize: 20,
+              onChange: (page) => setInvitationPage(page),
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+            locale={{ emptyText: <Text style={{ color: '#8B949E' }}>暂无邀请记录</Text> }}
+          >
+            <Table.Column title="邀请人" key="inviter" width={120} render={(_: any, r: any) => <span style={{ color: '#E6EDF3' }}>{r.inviterRealName || r.inviterUsername || '-'}</span>} />
+            <Table.Column title="被邀请人" key="invitee" width={120} render={(_: any, r: any) => <span style={{ color: '#E6EDF3' }}>{r.inviteeRealName || r.inviteeUsername || '-'}</span>} />
+            <Table.Column title="邀请码" dataIndex="inviteCode" key="inviteCode" width={100} render={(v: string) => <span style={{ fontFamily: 'monospace', color: '#58A6FF' }}>{v || '-'}</span>} />
+            <Table.Column title="状态" dataIndex="status" key="status" width={100} render={(v: string) => {
+              const map: Record<string, { label: string; color: string }> = {
+                REGISTERED: { label: '已注册', color: '#1890FF' },
+                SUBSCRIBED: { label: '已认购', color: '#FAAD14' },
+                REWARDED: { label: '已返利', color: '#52C41A' },
+              }
+              const s = map[v] || { label: v, color: '#8B949E' }
+              return <Tag color={s.color} style={{ fontSize: 12 }}>{s.label}</Tag>
+            }} />
+            <Table.Column title="邀请人返利" dataIndex="inviterReward" key="inviterReward" width={110} align="right" render={(v: number) => <span style={{ color: '#00b96b', fontWeight: 600 }}>¥{Number(v || 0).toFixed(2)}</span>} />
+            <Table.Column title="被邀请人返利" dataIndex="inviteeReward" key="inviteeReward" width={120} align="right" render={(v: number) => <span style={{ color: '#00b96b', fontWeight: 600 }}>¥{Number(v || 0).toFixed(2)}</span>} />
+            <Table.Column title="返利时间" dataIndex="rewardedAt" key="rewardedAt" width={160} render={(v: string) => v ? new Date(v).toLocaleString('zh-CN') : '-'} />
+            <Table.Column title="创建时间" dataIndex="createdAt" key="createdAt" width={160} render={(v: string) => v ? new Date(v).toLocaleString('zh-CN') : '-'} />
+          </Table>
+        </Card>
+      ),
+    },
+    {
+      key: 'riskControl',
+      label: (
+        <span>
+          <AuditOutlined style={{ marginRight: 8 }} />
+          风控审计
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          {/* 资金监控 */}
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>资金监控</Text>
+          </div>
+          {accountOverview && (
+            <Row gutter={[8, 8]} style={{ marginBottom: 12 }}>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总充值金额"
+                    value={accountOverview.totalRecharge}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-success)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总提现金额"
+                    value={accountOverview.totalWithdraw}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-error)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总冻结金额"
+                    value={accountOverview.totalFrozen}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-warning)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="总可用余额"
+                    value={accountOverview.totalAvailable}
+                    precision={2}
+                    prefix="¥"
+                    valueStyle={{ color: 'var(--color-primary)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+              <Col xs={24} sm={12} lg={6}>
+                <Card className="admin-stat-card">
+                  <Statistic
+                    title="活跃用户数"
+                    value={accountOverview.activeUserCount}
+                    valueStyle={{ color: 'var(--color-text-primary)', fontFamily: "'JetBrains Mono', monospace" }}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          )}
+          <div className="admin-action-bar">
+            <Input.Search
+              placeholder="搜索用户名/姓名"
+              allowClear
+              style={{ width: 240 }}
+              value={balanceSearchText}
+              onChange={(e) => setBalanceSearchText(e.target.value)}
+            />
+          </div>
+          <Table
+            columns={userBalanceColumns}
+            dataSource={userBalances.filter(u => {
+              if (!balanceSearchText) return true
+              const keyword = balanceSearchText.toLowerCase()
+              return (
+                u.username?.toLowerCase().includes(keyword) ||
+                u.realName?.toLowerCase().includes(keyword)
+              )
+            })}
+            rowKey="userId"
+            loading={userBalancesLoading}
+            pagination={{
+              current: balancePage,
+              pageSize: balancePageSize,
+              total: balanceTotal,
+              onChange: (page, pageSize) => {
+                setBalancePage(page)
+                setBalancePageSize(pageSize || 10)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+
+          {/* 系统消息 */}
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>系统消息</Text>
+          </div>
+          <div className="admin-action-bar">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={handleAddMessage}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
+                border: 'none',
+              }}
+            >
+              发布新消息
+            </Button>
+            <Select
+              placeholder="筛选状态"
+              allowClear
+              style={{ width: 160 }}
+              onChange={(value) => {
+                setSystemMessageFilterStatus(value)
+                setSystemMessagePage(1)
+              }}
+              value={systemMessageFilterStatus || undefined}
+            >
+              <Option value="draft">草稿</Option>
+              <Option value="published">已发布</Option>
+              <Option value="archived">已归档</Option>
+            </Select>
+          </div>
+          <Table
+            columns={systemMessageColumns}
+            dataSource={systemMessages}
+            rowKey="id"
+            loading={systemMessagesLoading}
+            pagination={{
+              current: systemMessagePage,
+              pageSize: systemMessagePageSize,
+              total: systemMessageTotal,
+              onChange: (page, pageSize) => {
+                setSystemMessagePage(page)
+                setSystemMessagePageSize(pageSize || 10)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+
+          <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
+
+          {/* 审计日志 */}
+          <div style={{ marginBottom: 12 }}>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>审计日志</Text>
+          </div>
+          <div className="admin-action-bar">
+            <Select
+              placeholder="筛选操作类型"
+              allowClear
+              style={{ width: 180 }}
+              onChange={(value) => {
+                setAuditLogFilterAction(value)
+                setAuditLogPage(1)
+              }}
+              value={auditLogFilterAction || undefined}
+            >
+              <Option value="LOGIN">登录</Option>
+              <Option value="PRICE_UPDATE">调价</Option>
+              <Option value="ADMIN_ADJUST_BALANCE">余额调整</Option>
+              <Option value="FORCE_CANCEL">撤单</Option>
+              <Option value="RECHARGE">充值</Option>
+              <Option value="WITHDRAW_APPLY">提现申请</Option>
+              <Option value="WITHDRAW_APPROVE">提现审批</Option>
+              <Option value="WITHDRAW_REJECT">提现驳回</Option>
+              <Option value="CHANGE_PASSWORD">修改密码</Option>
+            </Select>
+          </div>
+          <Table
+            columns={auditLogColumns}
+            dataSource={auditLogs}
+            rowKey="id"
+            loading={auditLogsLoading}
+            pagination={{
+              current: auditLogPage,
+              pageSize: auditLogPageSize,
+              total: auditLogTotal,
+              onChange: (page, pageSize) => {
+                setAuditLogPage(page)
+                setAuditLogPageSize(pageSize || 20)
+              },
+              showSizeChanger: true,
+              showTotal: (total) => `共 ${total} 条`,
+            }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          />
+        </Card>
+      ),
+    },
+    // 系统管理Tab - 仅admin角色可见
+    ...(isSuperAdmin ? [{
+      key: 'system',
+      label: (
+        <span>
+          <AuditOutlined style={{ marginRight: 8 }} />
+          系统管理
+        </span>
+      ),
+      children: (
+        <Card className="admin-content-card">
+          <div className="admin-action-bar">
+            <Button
+              type="primary"
+              icon={<PlusOutlined />}
+              onClick={() => {
+                adminForm.resetFields()
+                setIsAdminModalOpen(true)
+              }}
+              style={{
+                background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
+                border: 'none',
+              }}
+            >
+              添加管理员
+            </Button>
+          </div>
+          <Table
+            dataSource={adminList}
+            loading={adminListLoading}
+            rowKey="id"
+            pagination={{ pageSize: 10, showTotal: (total: number) => `共 ${total} 条` }}
+            scroll={{ x: 'max-content' }}
+            rowClassName={() => 'admin-table-row'}
+          >
+            <Table.Column title="用户名" dataIndex="username" key="username" width={120} render={(v: string) => <Text style={{ color: '#E6EDF3', fontWeight: 500 }}>{v}</Text>} />
+            <Table.Column title="姓名" dataIndex="realName" key="realName" width={100} render={(v: string) => <Text style={{ color: '#8B949E' }}>{v || '-'}</Text>} />
+            <Table.Column title="角色" dataIndex="role" key="role" width={120} render={(role: string) => {
+              const map: Record<string, { label: string; color: string }> = {
+                admin: { label: '超级管理员', color: '#F0B90B' },
+                manager: { label: '管理员', color: '#1890FF' },
+                viewer: { label: '只读管理员', color: '#8B949E' },
+              }
+              const s = map[role] || { label: role, color: '#8B949E' }
+              return <Tag color={s.color} style={{ fontWeight: 500 }}>{s.label}</Tag>
+            }} />
+            <Table.Column title="状态" dataIndex="status" key="status" width={100} render={(status: string) => {
+              const isActive = status === 'approved'
+              return <Tag color={isActive ? 'green' : 'red'}>{isActive ? '启用' : '禁用'}</Tag>
+            }} />
+            <Table.Column title="创建时间" dataIndex="createdAt" key="createdAt" width={160} render={(v: string) => <Text style={{ color: '#8B949E', fontSize: 12 }}>{v ? new Date(v).toLocaleString('zh-CN') : '-'}</Text>} />
+            <Table.Column
+              title="操作"
+              key="action"
+              width={240}
+              fixed="right"
+              render={(_: any, record: any) => {
+                if (record.username === 'admin') {
+                  return <Text style={{ color: '#8B949E', fontSize: 12 }}>系统保留</Text>
+                }
+                const isActive = record.status === 'approved'
+                return (
+                  <Space>
+                    <Select
+                      value={record.role}
+                      size="small"
+                      style={{ width: 120 }}
+                      onChange={async (value: string) => {
+                        try {
+                          await adminApi.updateAdmin(record.id, { role: value })
+                          message.success('角色更新成功')
+                          fetchAdminList()
+                        } catch (error: any) {
+                          const errMsg = error.response?.data?.message
+                          message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '更新失败'))
+                        }
+                      }}
+                      options={[
+                        { label: '只读管理员', value: 'viewer' },
+                        { label: '管理员', value: 'manager' },
+                        { label: '超级管理员', value: 'admin' },
+                      ]}
+                    />
+                    <Popconfirm
+                      title={isActive ? '确定禁用该管理员？' : '确定启用该管理员？'}
+                      onConfirm={async () => {
+                        try {
+                          await adminApi.updateAdmin(record.id, { adminStatus: isActive ? 'disabled' : 'active' })
+                          message.success(isActive ? '已禁用' : '已启用')
+                          fetchAdminList()
+                        } catch (error: any) {
+                          const errMsg = error.response?.data?.message
+                          message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '操作失败'))
+                        }
+                      }}
+                      okText="确定"
+                      cancelText="取消"
+                    >
+                      <Button size="small" danger={isActive} type={isActive ? 'default' : 'primary'}>
+                        {isActive ? '禁用' : '启用'}
+                      </Button>
+                    </Popconfirm>
+                    <Popconfirm
+                      title="确定移除该管理员权限？将降级为普通用户"
+                      onConfirm={async () => {
+                        try {
+                          await adminApi.deleteAdmin(record.id)
+                          message.success('已移除管理员权限')
+                          fetchAdminList()
+                        } catch (error: any) {
+                          const errMsg = error.response?.data?.message
+                          message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '操作失败'))
+                        }
+                      }}
+                      okText="确定"
+                      cancelText="取消"
+                    >
+                      <Button size="small" type="text" danger icon={<DeleteOutlined />} />
+                    </Popconfirm>
+                  </Space>
+                )
+              }}
+            />
+          </Table>
+        </Card>
+      ),
+    }] : []),
   ]
 
   return (
@@ -3216,7 +3589,7 @@ const Admin = () => {
             </Form.Item>
             <Form.Item
               name="slowSellingDays"
-              label="滞销天数"
+              label="滞销保障期（天）"
               initialValue={90}
             >
               <InputNumber
@@ -3891,6 +4264,89 @@ const Admin = () => {
             rules={[{ required: true, message: '请填写调整原因' }]}
           >
             <Input.TextArea rows={3} placeholder="请填写调整原因，将记录到审计日志" maxLength={500} showCount />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 添加管理员弹窗 */}
+      <Modal
+        title="添加管理员"
+        open={isAdminModalOpen}
+        onOk={() => adminForm.submit()}
+        onCancel={() => setIsAdminModalOpen(false)}
+        confirmLoading={adminSubmitLoading}
+        okText="创建"
+        width={480}
+        className="admin-modal"
+        okButtonProps={{
+          style: {
+            background: 'linear-gradient(135deg, var(--color-primary) 0%, var(--color-success) 100%)',
+            border: 'none',
+          }
+        }}
+        cancelButtonProps={{
+          className: 'admin-modal-cancel-btn'
+        }}
+      >
+        <Form
+          form={adminForm}
+          layout="vertical"
+          onFinish={async (values: any) => {
+            setAdminSubmitLoading(true)
+            try {
+              await adminApi.createAdmin(values)
+              message.success('管理员创建成功')
+              setIsAdminModalOpen(false)
+              adminForm.resetFields()
+              fetchAdminList()
+            } catch (error: any) {
+              const errMsg = error.response?.data?.message
+              message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '创建失败'))
+            } finally {
+              setAdminSubmitLoading(false)
+            }
+          }}
+        >
+          <Form.Item
+            name="username"
+            label="用户名"
+            rules={[
+              { required: true, message: '请输入用户名' },
+              { min: 3, message: '用户名至少3个字符' },
+              { max: 30, message: '用户名最多30个字符' },
+            ]}
+          >
+            <Input placeholder="请输入用户名" style={{ background: '#0D1117', borderColor: '#30363D', color: '#E6EDF3' }} />
+          </Form.Item>
+          <Form.Item
+            name="password"
+            label="密码"
+            rules={[
+              { required: true, message: '请输入密码' },
+              { min: 6, message: '密码至少6位' },
+            ]}
+          >
+            <Input.Password placeholder="请输入密码" style={{ background: '#0D1117', borderColor: '#30363D', color: '#E6EDF3' }} />
+          </Form.Item>
+          <Form.Item
+            name="role"
+            label="角色"
+            rules={[{ required: true, message: '请选择角色' }]}
+            initialValue="viewer"
+          >
+            <Select
+              options={[
+                { label: '只读管理员', value: 'viewer' },
+                { label: '管理员', value: 'manager' },
+                { label: '超级管理员', value: 'admin' },
+              ]}
+            />
+          </Form.Item>
+          <Form.Item name="realName" label="姓名">
+            <Input placeholder="请输入姓名（可选）" style={{ background: '#0D1117', borderColor: '#30363D', color: '#E6EDF3' }} />
+          </Form.Item>
+          <Form.Item name="phone" label="手机号">
+            <Input placeholder="请输入手机号（可选）" style={{ background: '#0D1117', borderColor: '#30363D', color: '#E6EDF3' }} />
           </Form.Item>
         </Form>
       </Modal>

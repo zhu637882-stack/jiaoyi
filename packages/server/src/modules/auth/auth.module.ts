@@ -10,6 +10,8 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { User } from '../../database/entities/user.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
+import { InvitationModule } from '../invitation/invitation.module';
+import { TrialBonusModule } from '../trial-bonus/trial-bonus.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { AccountBalance } from '../../database/entities/account-balance.entity';
       inject: [ConfigService],
     }),
     TypeOrmModule.forFeature([User, AccountBalance]),
+    InvitationModule,
+    TrialBonusModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, JwtStrategy, JwtAuthGuard, RolesGuard],

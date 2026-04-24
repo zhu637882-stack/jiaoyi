@@ -8,7 +8,10 @@ import { Drug } from '../../database/entities/drug.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction } from '../../database/entities/account-transaction.entity';
 import { User } from '../../database/entities/user.entity';
+import { DailyYield } from '../../database/entities/daily-yield.entity';
 import { EventsModule } from '../../common/events/events.module';
+import { InvitationModule } from '../invitation/invitation.module';
+import { TrialBonusModule } from '../trial-bonus/trial-bonus.module';
 
 @Module({
   imports: [
@@ -18,8 +21,11 @@ import { EventsModule } from '../../common/events/events.module';
       AccountBalance,
       AccountTransaction,
       User,
+      DailyYield,
     ]),
     EventsModule,
+    InvitationModule,
+    TrialBonusModule,
   ],
   controllers: [SubscriptionController],
   providers: [SubscriptionService, SubscriptionCronService],

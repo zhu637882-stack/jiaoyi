@@ -557,7 +557,7 @@ const Trade = () => {
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <Text style={{ color: '#8B949E', fontSize: 12 }}>运营费率</Text>
           <Text style={{ color: '#E6EDF3', fontFamily: "'JetBrains Mono', 'DIN', monospace", fontWeight: 500 }}>
-            {Number((drugInfo.operationFeeRate || 0) * 100).toFixed(2)}%
+            {Number(drugInfo.operationFeeRate || 0).toFixed(2)}%
           </Text>
         </div>
         <Tag
@@ -653,7 +653,7 @@ const Trade = () => {
                         fontFamily: "'JetBrains Mono', 'DIN', monospace",
                       }}
                     >
-                      {Number((drugInfo.operationFeeRate || 0) * 100).toFixed(2)}%
+                      {Number(drugInfo.operationFeeRate || 0).toFixed(2)}%
                     </div>
                   </div>
                 </div>
@@ -750,7 +750,7 @@ const Trade = () => {
                   </div>
                   <div style={{ textAlign: 'center' }}>
                     <Text style={{ color: '#8B949E', fontSize: 12, display: 'block' }}>
-                      滞销保障
+                      滞销保障期
                     </Text>
                     <Text
                       style={{

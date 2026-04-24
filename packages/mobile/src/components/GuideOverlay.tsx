@@ -125,13 +125,17 @@ const GuideOverlay: React.FC = () => {
 
   // ---- 检查是否需要显示引导 ----
   useEffect(() => {
-    const completed = localStorage.getItem('guide_completed_v3')
-    if (completed !== 'true') {
-      // 延迟显示，等页面完全渲染后再定位 Tab 元素
-      const timer = setTimeout(() => {
-        setVisible(true)
-      }, 600)
-      return () => clearTimeout(timer)
+    try {
+      const completed = localStorage.getItem('guide_completed_v3')
+      if (completed !== 'true') {
+        // 延迟显示，等页面完全渲染后再定位 Tab 元素
+        const timer = setTimeout(() => {
+          setVisible(true)
+        }, 600)
+        return () => clearTimeout(timer)
+      }
+    } catch {
+      // localStorage 不可用（如隐私模式），不显示引导
     }
   }, [])
 
@@ -179,10 +183,14 @@ const GuideOverlay: React.FC = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep((prev) => prev + 1)
     } else {
-      // 最后一步：先播放退出动画，再卸载
+      // 最后一步：先保存标记，再播放退出动画
+      try {
+        localStorage.setItem('guide_completed_v3', 'true')
+      } catch {
+        // localStorage 不可用，忽略
+      }
       setExiting(true)
       setTimeout(() => {
-        localStorage.setItem('guide_completed_v3', 'true')
         setVisible(false)
       }, 350)
     }
@@ -190,9 +198,14 @@ const GuideOverlay: React.FC = () => {
 
   // ---- 处理跳过 ----
   const handleSkip = useCallback(() => {
+    // 立即保存标记，再播放退出动画
+    try {
+      localStorage.setItem('guide_completed_v3', 'true')
+    } catch {
+      // localStorage 不可用，忽略
+    }
     setExiting(true)
     setTimeout(() => {
-      localStorage.setItem('guide_completed_v3', 'true')
       setVisible(false)
     }, 350)
   }, [])

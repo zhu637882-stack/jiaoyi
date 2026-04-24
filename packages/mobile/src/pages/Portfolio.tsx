@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PullToRefresh, Tabs, Popup, Toast, Modal } from 'antd-mobile'
+import { PullToRefresh, Tabs, Popup, Toast, Modal, Dialog } from 'antd-mobile'
 import { subscriptionApi, accountApi, yieldApi, paymentApi } from '../services/api'
 import { isWechatBrowser } from '../utils/browser'
 import { ensureWechatOpenId, getStoredOpenId, redirectToWechatAuth } from '../utils/wechat-auth'
@@ -20,6 +20,7 @@ interface SubItem {
   unsettledAmount: number
   settledQuantity: number
   status: string
+  auditStatus?: string
   totalProfit: number
   totalLoss: number
   confirmedAt: string
@@ -62,6 +63,15 @@ const subscriptionStatusMap: Record<string, { label: string; color: string }> = 
   returned: { label: '已退回', color: '#848E9C' },
   cancelled: { label: '已取消', color: '#0ECB81' },
   slow_selling_refund: { label: '滞销退款', color: '#722ED1' },
+  settled: { label: '已结算', color: '#52C41A' },
+}
+
+// 获取认购状态显示（优先判断审核状态）
+const getSubscriptionStatusDisplay = (sub: SubItem) => {
+  if (sub.auditStatus === 'pending') {
+    return { label: '待审核', color: '#FAAD14' }
+  }
+  return subscriptionStatusMap[sub.status] || { label: sub.status, color: '#848E9C' }
 }
 
 // 出金状态映射
@@ -440,11 +450,15 @@ const PortfolioContent: React.FC = () => {
   const loadSubscriptions = async () => {
     setSubscriptionLoading(true)
     try {
-      const res = await subscriptionApi.getMySubscriptions({ 
-        status: subscriptionStatus,
-        page: 1, 
-        limit: 50 
-      }) as any
+      const params: any = { page: 1, limit: 50 }
+      if (subscriptionStatus) {
+        if (subscriptionStatus.startsWith('audit:')) {
+          params.auditStatus = subscriptionStatus.replace('audit:', '')
+        } else {
+          params.status = subscriptionStatus
+        }
+      }
+      const res = await subscriptionApi.getMySubscriptions(params) as any
       const listData = res?.data?.list || res?.list || res?.data || []
       setSubscriptions(Array.isArray(listData) ? listData : [])
     } catch (e) {
@@ -678,7 +692,11 @@ const PortfolioContent: React.FC = () => {
                 paySign: payData.paySign,
               }, (res: any) => {
                 if (res.err_msg === 'get_brand_wcpay_request:ok') {
-                  Toast.show({ content: '支付成功', icon: 'success' })
+                  Dialog.alert({
+                    title: '充值成功',
+                    content: '资金已即时到账，可在账户中查看可用余额。',
+                    confirmText: '我知道了',
+                  })
                   loadData()
                 }
               })
@@ -886,6 +904,7 @@ const PortfolioContent: React.FC = () => {
           onChange={(e) => setSubscriptionStatus(e.target.value || undefined)}
         >
           <option value="">全部状态</option>
+          <option value="audit:pending">待审核</option>
           <option value="confirmed">待生效</option>
           <option value="effective">认购中</option>
           <option value="return_pending">退回审核中</option>
@@ -893,6 +912,7 @@ const PortfolioContent: React.FC = () => {
           <option value="returned">已退回</option>
           <option value="cancelled">已取消</option>
           <option value="slow_selling_refund">滞销退款</option>
+          <option value="settled">已结算</option>
         </select>
       </div>
 
@@ -904,7 +924,7 @@ const PortfolioContent: React.FC = () => {
       ) : (
         <>
           {subscriptions.map((sub, index) => {
-            const st = subscriptionStatusMap[sub.status] || { label: sub.status, color: '#848E9C' }
+            const st = getSubscriptionStatusDisplay(sub)
             const countdownDays = getCountdownDays(sub.slowSellingDeadline)
             return (
               <div 
@@ -1011,7 +1031,7 @@ const PortfolioContent: React.FC = () => {
         <div className="yield-summary-card">
           <span className="yield-summary-label">资产增长</span>
           <span className="yield-summary-value" style={{ 
-            color: (assetChangeData[assetChangeData.length - 1]?.value || 0) >= (assetChangeData[0]?.value || 0) ? '#0ECB81' : '#F6465D' 
+            color: (assetChangeData[assetChangeData.length - 1]?.value || 0) >= (assetChangeData[0]?.value || 0) ? '#F6465D' : '#0ECB81' 
           }}>
             ¥{Number((assetChangeData[assetChangeData.length - 1]?.value || 0) - (assetChangeData[0]?.value || 0)).toFixed(2)}
           </span>
@@ -1041,7 +1061,7 @@ const PortfolioContent: React.FC = () => {
     </div>
   )
 
-  // 渲染资金流水
+  // 渲染资金流水（简版预览，完整明细请跳转Transactions页面）
   const renderTransactions = () => (
     <div className="portfolio-list-content">
       {transactionLoading ? (
@@ -1055,8 +1075,8 @@ const PortfolioContent: React.FC = () => {
             const config = transactionTypeMap[tx.type] || { label: tx.type, color: '#848E9C' }
             const income = isIncome(tx.type)
             return (
-              <div 
-                className="portfolio-transaction-card" 
+              <div
+                className="portfolio-transaction-card"
                 key={tx.id}
                 style={{ animationDelay: `${index * 50}ms` }}
               >
@@ -1086,6 +1106,26 @@ const PortfolioContent: React.FC = () => {
               <span>暂无交易记录</span>
             </div>
           )}
+          {/* 查看完整明细跳转 */}
+          <div
+            className="portfolio-view-all-link"
+            onClick={() => navigate('/transactions')}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px 0',
+              color: '#F0B90B',
+              fontSize: 14,
+              cursor: 'pointer',
+              gap: 4,
+            }}
+          >
+            <span>查看完整明细</span>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+              <path d="M9 6l6 6-6 6" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+          </div>
         </>
       )}
     </div>

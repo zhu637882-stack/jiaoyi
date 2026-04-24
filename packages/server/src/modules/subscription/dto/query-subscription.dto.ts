@@ -1,4 +1,4 @@
-import { IsOptional, IsUUID, IsEnum, IsIn, IsInt, Min } from 'class-validator';Vv
+import { IsOptional, IsUUID, IsEnum, IsIn, IsInt, Min } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { SubscriptionOrderStatus } from '../../../database/entities/subscription-order.entity';
 
@@ -17,6 +17,10 @@ export class QuerySubscriptionDto {
   @Transform(transformStatus)
   @IsEnum(SubscriptionOrderStatus)
   status?: SubscriptionOrderStatus;
+
+  @IsOptional()
+  @IsIn(['pending', 'approved', 'rejected'])
+  auditStatus?: 'pending' | 'approved' | 'rejected';
 
   @IsOptional()
   @Type(() => Number)

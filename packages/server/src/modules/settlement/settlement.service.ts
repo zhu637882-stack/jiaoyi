@@ -132,9 +132,9 @@ export class SettlementService {
         (totalSalesQuantity * drug.purchasePrice).toFixed(2),
       );
       
-      // 运营费用 = 销售额 × 运营费用比例
+      // 运营费用 = 销售额 × 运营费用比例（数据库存百分比数值，需÷100）
       const operationFees = Number(
-        (totalSalesRevenue * drug.operationFeeRate).toFixed(2),
+        (totalSalesRevenue * drug.operationFeeRate / 100).toFixed(2),
       );
 
       // ========== 第三步：份额FIFO自动退回 ==========
@@ -676,7 +676,7 @@ export class SettlementService {
 
     // 5. 计算成本和费用
     const purchaseCost = totalSalesQuantity * drug.purchasePrice;
-    const operationFees = totalSalesRevenue * drug.operationFeeRate;
+    const operationFees = totalSalesRevenue * drug.operationFeeRate / 100;
 
     // 6. 计算预计退回订单（只包含审核通过的订单）
     const activeOrders = await this.subscriptionOrderRepository.find({

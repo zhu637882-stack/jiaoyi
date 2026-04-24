@@ -12,8 +12,12 @@ import { AccountBalance } from './account-balance.entity';
 import { AccountTransaction } from './account-transaction.entity';
 
 export enum UserRole {
-  INVESTOR = 'investor',
-  ADMIN = 'admin',
+  USER = 'user',          // 普通客户
+  VIEWER = 'viewer',      // 只读管理员
+  MANAGER = 'manager',    // 普通管理员
+  ADMIN = 'admin',        // 超级管理员
+  // 兼容旧值
+  INVESTOR = 'user',      // 已废弃，等同于USER
 }
 
 export enum UserStatus {
@@ -34,9 +38,8 @@ export class User {
   password: string;
 
   @Column({
-    type: 'enum',
-    enum: UserRole,
-    default: UserRole.INVESTOR,
+    type: 'varchar',
+    default: UserRole.USER,
   })
   role: UserRole;
 
@@ -67,6 +70,9 @@ export class User {
 
   @Column({ type: 'boolean', default: false, comment: '是否同意服务协议' })
   agreedToAgreement: boolean;
+
+  @Column({ type: 'integer', default: 0, comment: '登录次数' })
+  loginCount: number;
 
   @Column({ type: 'timestamp', nullable: true, comment: '同意协议时间' })
   agreedAt: Date;

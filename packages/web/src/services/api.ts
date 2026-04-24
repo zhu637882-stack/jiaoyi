@@ -1,5 +1,6 @@
-import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse } from 'axios'
+import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { message } from 'antd'
+import type { ApiResponse, DrugFormData } from '../types'
 
 // 错误码映射表
 const errorMessages: Record<string, string> = {
@@ -50,17 +51,56 @@ api.interceptors.request.use(
   }
 )
 
-// 响应拦截器 - 处理错误和 Token 刷新
+// ==================== GET 请求自动重试拦截器 ====================
+// 重试配置
+const RETRY_MAX_ATTEMPTS = 2 // 最多重试2次（共3次请求）
+const RETRY_DELAYS = [1000, 2000] // 间隔递增：1s、2s
+
+// 判断是否为可重试的错误
+const isRetryableError = (error: AxiosError): boolean => {
+  // 网络错误（无响应）
+  if (!error.response) {
+    const msg = error.message || ''
+    if (msg.includes('Network Error') || msg.includes('ECONNABORTED') || msg.includes('timeout')) {
+      return true
+    }
+    return false
+  }
+  // 5xx 服务器错误
+  if (error.response.status >= 500 && error.response.status < 600) {
+    return true
+  }
+  return false
+}
+
+// 响应拦截器 - 处理错误和 Token 刷新 + GET重试
 api.interceptors.response.use(
   (response: AxiosResponse) => {
     return response.data
   },
-  async (error) => {
-    const originalRequest = error.config
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: number; _isRetry?: boolean; _tokenRefreshed?: boolean }
+
+    // ---- GET 请求自动重试逻辑 ----
+    const method = originalRequest?.method?.toLowerCase()
+    if (method === 'get' && isRetryableError(error) && !originalRequest._isRetry) {
+      const retryCount = originalRequest._retry || 0
+      if (retryCount < RETRY_MAX_ATTEMPTS) {
+        originalRequest._retry = retryCount + 1
+        originalRequest._isRetry = true
+        const delay = RETRY_DELAYS[retryCount] || 2000
+        console.log(`[API Retry] GET ${originalRequest.url} 第${retryCount + 1}次重试，等待${delay}ms...`)
+        await new Promise((resolve) => setTimeout(resolve, delay))
+        originalRequest._isRetry = false
+        return api(originalRequest)
+      }
+    }
+
+    // ---- Token 过期，尝试刷新 ----
 
     // Token 过期，尝试刷新
-    if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true
+    if (error.response?.status === 401 && !originalRequest._tokenRefreshed) {
+      originalRequest._tokenRefreshed = true
       const refreshToken = localStorage.getItem('refresh_token')
       if (refreshToken) {
         try {
@@ -95,19 +135,19 @@ api.interceptors.response.use(
 
 // API 方法封装
 export const http = {
-  get: <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+  get: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> =>
     api.get(url, config),
   
-  post: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+  post: <T = unknown>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> =>
     api.post(url, data, config),
   
-  put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+  put: <T = unknown>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> =>
     api.put(url, data, config),
   
-  delete: <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+  delete: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> =>
     api.delete(url, config),
   
-  patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+  patch: <T = unknown>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> =>
     api.patch(url, data, config),
 }
 
@@ -152,6 +192,24 @@ export const adminApi = {
   // 管理员删除用户
   deleteUser: (userId: string) =>
     http.delete(`/users/${userId}`),
+
+  // ============ 系统管理员管理 ============
+
+  // 获取管理员列表
+  getAdmins: () =>
+    http.get('/users/admins'),
+
+  // 创建管理员
+  createAdmin: (data: { username: string; password: string; role: string; realName?: string; phone?: string }) =>
+    http.post('/users/admins', data),
+
+  // 更新管理员
+  updateAdmin: (adminId: string, data: { role?: string; adminStatus?: string; realName?: string; phone?: string }) =>
+    http.put(`/users/admins/${adminId}`, data),
+
+  // 删除管理员（降级为普通用户）
+  deleteAdmin: (adminId: string) =>
+    http.delete(`/users/admins/${adminId}`),
 }
 
 // 药品相关 API
@@ -168,11 +226,11 @@ export const drugApi = {
   getDrugHistory: (id: string) =>
     http.get(`/drugs/${id}/history`),
   
-  createDrug: (data: any) =>
-    http.post('/drugs', data),
+  createDrug: (data: DrugFormData) =>
+    http.post('/drugs', data as unknown as Record<string, unknown>),
   
-  updateDrug: (id: string, data: any) =>
-    http.put(`/drugs/${id}`, data),
+  updateDrug: (id: string, data: Partial<DrugFormData>) =>
+    http.put(`/drugs/${id}`, data as unknown as Record<string, unknown>),
   
   updateDrugStatus: (id: string, data: { status: string; reason?: string }) =>
     http.put(`/drugs/${id}/status`, data),
@@ -247,7 +305,7 @@ export const subscriptionApi = {
     http.get('/subscriptions/active/summary'),
 
   // 管理员获取全部认购列表
-  getAdminSubscriptions: (params?: any) =>
+  getAdminSubscriptions: (params?: { status?: string; page?: number; limit?: number }) =>
     http.get('/subscriptions/admin/list', { params }),
 
   // 管理员获取认购统计
@@ -273,6 +331,22 @@ export const subscriptionApi = {
   // 审核认购订单
   auditSubscription: (id: string, data: { approved: boolean; remark?: string }) =>
     http.put(`/subscriptions/admin/${id}/audit`, data),
+
+  // 查询到期/即将到期的订单
+  getExpiringOrders: (daysBeforeExpiry?: number) =>
+    http.get('/subscriptions/expiring', { params: { daysBeforeExpiry } }),
+
+  // 获取待确认的合伙人收益列表
+  getPendingPartnerProfit: () =>
+    http.get('/subscriptions/partner-profit/pending'),
+
+  // 管理员确认并发放合伙人收益
+  confirmPartnerProfit: (orderIds: string[]) =>
+    http.post('/subscriptions/partner-profit/confirm', { orderIds }),
+
+  // 截止处理 - 到期结算
+  settleOrder: (id: string) =>
+    http.post(`/subscriptions/${id}/settle`),
 }
 
 // 账户相关 API
@@ -455,8 +529,8 @@ export const systemMessageApi = {
     http.get('/system-messages/admin/list', { params }),
   adminCreate: (data: { title: string; content: string; type?: string }) => 
     http.post('/system-messages/admin', data),
-  adminUpdate: (id: string, data: any) => 
-    http.put(`/system-messages/admin/${id}`, data),
+  adminUpdate: (id: string, data: { title?: string; content?: string; type?: string }) => 
+    http.put(`/system-messages/admin/${id}`, data as unknown as Record<string, unknown>),
   adminDelete: (id: string) => 
     http.delete(`/system-messages/admin/${id}`),
   adminPublish: (id: string) => 
@@ -527,20 +601,32 @@ silentApi.interceptors.response.use(
 
 // silentHttp 方法封装
 export const silentHttp = {
-  get: <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+  get: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> =>
     silentApi.get(url, config),
   
-  post: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+  post: <T = unknown>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> =>
     silentApi.post(url, data, config),
   
-  put: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+  put: <T = unknown>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> =>
     silentApi.put(url, data, config),
   
-  delete: <T = any>(url: string, config?: AxiosRequestConfig): Promise<T> =>
+  delete: <T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T> =>
     silentApi.delete(url, config),
   
-  patch: <T = any>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> =>
+  patch: <T = unknown>(url: string, data?: Record<string, unknown>, config?: AxiosRequestConfig): Promise<T> =>
     silentApi.patch(url, data, config),
+}
+
+// 体验金管理 API
+export const trialBonusAdminApi = {
+  list: (page = 1, limit = 20) =>
+    http.get('/trial-bonus/admin/list', { params: { page, limit } }),
+}
+
+// 邀请管理 API
+export const invitationAdminApi = {
+  list: (page = 1, limit = 20) =>
+    http.get('/invitation/admin/list', { params: { page, limit } }),
 }
 
 export default api

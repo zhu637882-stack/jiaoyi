@@ -9,11 +9,11 @@
   padding-bottom: calc(90px + env(safe-area-inset-bottom, 0));
   position: relative;
 
-  /* 国际标准涨跌色：绿涨红跌（与币安App一致） */
-  --market-rise: #0ECB81;
-  --market-fall: #F6465D;
-  --market-rise-bg: rgba(14, 203, 129, 0.12);
-  --market-fall-bg: rgba(246, 70, 93, 0.12);
+  /* 中国标准涨跌色：红涨绿跌 */
+  --market-rise: #F6465D;
+  --market-fall: #0ECB81;
+  --market-rise-bg: rgba(246, 70, 93, 0.12);
+  --market-fall-bg: rgba(14, 203, 129, 0.12);
 }
 
 /* ============================================
@@ -177,11 +177,11 @@
 }
 
 .ticker-change.up {
-  color: #0ECB81;
+  color: #F6465D;
 }
 
 .ticker-change.down {
-  color: #F6465D;
+  color: #0ECB81;
 }
 
 /* ============================================

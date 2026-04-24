@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Popup, Toast, Modal, Badge } from 'antd-mobile'
-import { authApi, accountApi, paymentApi, systemMessageApi } from '../services/api'
+import { Popup, Toast, Modal, Badge, Dialog } from 'antd-mobile'
+import { authApi, accountApi, paymentApi, systemMessageApi, trialBonusApi } from '../services/api'
 import { isWechatBrowser } from '../utils/browser'
 import { ensureWechatOpenId, getStoredOpenId, redirectToWechatAuth } from '../utils/wechat-auth'
 import { useCountUp, formatCountUpValue } from '../hooks/useCountUp'
+import avatarLogo from '../assets/avatar-logo.png'
 import './Profile.css'
 
 // CountUp数字展示组件
@@ -129,6 +130,7 @@ const ProfileContent: React.FC = () => {
   const navigate = useNavigate()
   const [user, setUser] = useState<any>(null)
   const [balance, setBalance] = useState<any>(null)
+  const [trialBonus, setTrialBonus] = useState<any>(null)
   const [showRecharge, setShowRecharge] = useState(false)
   const [rechargeAmount, setRechargeAmount] = useState('')
   const [payChannel, setPayChannel] = useState<'wechat'>('wechat')
@@ -172,12 +174,14 @@ const ProfileContent: React.FC = () => {
 
   const loadData = async () => {
     try {
-      const [profileRes, balanceRes] = await Promise.all([
+      const [profileRes, balanceRes, trialRes] = await Promise.all([
         authApi.getProfile() as any,
         accountApi.getBalance() as any,
+        trialBonusApi.getStatus().catch(() => null) as any,
       ])
       setUser(profileRes?.data || profileRes)
       setBalance(balanceRes?.data || balanceRes)
+      setTrialBonus(trialRes?.data || trialRes)
     } catch (e) {
       console.error('Load profile error:', e)
     }
@@ -215,7 +219,11 @@ const ProfileContent: React.FC = () => {
               paySign: payData.paySign,
             }, (res: any) => {
               if (res.err_msg === 'get_brand_wcpay_request:ok') {
-                Toast.show({ content: '支付成功', icon: 'success' })
+                Dialog.alert({
+                  title: '充值成功',
+                  content: '资金已即时到账，可在账户中查看可用余额。',
+                  confirmText: '我知道了',
+                })
                 loadData()
               }
             })
@@ -381,7 +389,7 @@ const ProfileContent: React.FC = () => {
         </div>
         <div className="profile-account-main">
           <div className="profile-avatar">
-            <span className="avatar-text">{getUserInitial()}</span>
+            <img src={avatarLogo} alt="零钱保" className="avatar-logo" />
           </div>
           <div className="profile-user-info">
             <div className="profile-name-row">
@@ -433,6 +441,37 @@ const ProfileContent: React.FC = () => {
                 />
               </span>
             </div>
+            {trialBonus?.hasTrialBonus && (
+              <div className="asset-stat">
+                <span className="stat-label">体验金</span>
+                <span className="stat-value trial-bonus-value">
+                  <span className="trial-bonus-amount">¥{Number(trialBonus.amount || 0).toFixed(2)}</span>
+                  {(() => {
+                    // 状态判断优先级：PENDING > ACTIVATED未过期 > ACTIVATED已过期/EXPIRED/USED
+                    const status = trialBonus.status
+                    const isActivatedNotExpired = status === 'activated' && (!trialBonus.expiresAt || new Date(trialBonus.expiresAt) > new Date())
+                    if (status === 'pending') {
+                      return <span className="trial-bonus-badge pending">待激活</span>
+                    } else if (isActivatedNotExpired) {
+                      return <span className="trial-bonus-badge activated">已激活</span>
+                    } else {
+                      return <span className="trial-bonus-badge expired">已过期</span>
+                    }
+                  })()}
+                </span>
+                {trialBonus.status === 'pending' && (
+                  <span className="stat-sublabel">充值≥100元激活</span>
+                )}
+                {(() => {
+                  const isActivatedNotExpired = trialBonus.status === 'activated' && (!trialBonus.expiresAt || new Date(trialBonus.expiresAt) > new Date())
+                  if (isActivatedNotExpired && trialBonus.expiresAt) {
+                    const days = Math.ceil((new Date(trialBonus.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                    return <span className="stat-sublabel">{days}天后到期</span>
+                  }
+                  return null
+                })()}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -478,6 +517,29 @@ const ProfileContent: React.FC = () => {
           }
           label="交易明细"
           onClick={() => navigate('/m/transactions')}
+        />
+        <QuickAction
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="9" cy="7" r="4" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="19" y1="8" x2="19" y2="14" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round"/>
+              <line x1="22" y1="11" x2="16" y2="11" stroke="#F0B90B" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          }
+          label="我的邀请"
+          onClick={() => navigate('/m/invitation')}
+        />
+        <QuickAction
+          icon={
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="#F6465D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <polyline points="16,17 21,12 16,7" stroke="#F6465D" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <line x1="21" y1="12" x2="9" y2="12" stroke="#F6465D" strokeWidth="2" strokeLinecap="round"/>
+            </svg>
+          }
+          label="退出登录"
+          onClick={handleLogout}
         />
       </div>
 
@@ -531,18 +593,6 @@ const ProfileContent: React.FC = () => {
             onClick={() => navigate('/m/transactions')}
           />
         </div>
-      </div>
-
-      {/* 退出登录 */}
-      <div className="profile-logout-section">
-        <button className="profile-logout-btn" onClick={handleLogout}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <polyline points="16,17 21,12 16,7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <line x1="21" y1="12" x2="9" y2="12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          退出登录
-        </button>
       </div>
 
       {/* 账户安全弹窗 */}

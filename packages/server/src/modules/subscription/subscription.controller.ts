@@ -103,6 +103,7 @@ export class SubscriptionController {
   ) {
     const result = await this.subscriptionService.getMySubscriptions(userId, {
       status: query.status,
+      auditStatus: query.auditStatus,
       page: query.page,
       limit: query.limit,
     });
@@ -162,6 +163,7 @@ export class SubscriptionController {
       status: query.status,
       drugId: query.drugId,
       userId: query.userId,
+      auditStatus: query.auditStatus,
       page: query.page,
       limit: query.limit,
     });
@@ -271,6 +273,80 @@ export class SubscriptionController {
       success: true,
       data: order,
       message: body.approved ? '认购审核已通过' : '认购审核已拒绝',
+    };
+  }
+
+  /**
+   * A. 查询到期/即将到期的订单
+   * GET /api/subscriptions/expiring
+   */
+  @Get('expiring')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getExpiringOrders(
+    @Query('daysBeforeExpiry') daysBeforeExpiry?: string,
+  ) {
+    const days = daysBeforeExpiry ? parseInt(daysBeforeExpiry, 10) : 3;
+    const orders = await this.subscriptionService.getExpiringOrders(days);
+    return {
+      success: true,
+      data: orders,
+    };
+  }
+
+  /**
+   * B. 获取待确认的合伙人收益列表
+   * GET /api/subscriptions/partner-profit/pending
+   */
+  @Get('partner-profit/pending')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getPendingPartnerProfit() {
+    const list = await this.subscriptionService.getPendingPartnerProfit();
+    return {
+      success: true,
+      data: list,
+    };
+  }
+
+  /**
+   * B. 管理员确认并发放合伙人收益
+   * POST /api/subscriptions/partner-profit/confirm
+   */
+  @Post('partner-profit/confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async confirmPartnerProfit(
+    @CurrentUser('userId') adminUserId: string,
+    @Body() body: { orderIds: string[] },
+  ) {
+    const result = await this.subscriptionService.confirmPartnerProfit(
+      adminUserId,
+      body.orderIds,
+    );
+    return {
+      success: true,
+      data: result,
+      message: `成功发放 ${result.confirmedCount} 笔合伙人收益`,
+    };
+  }
+
+  /**
+   * C. 截止处理 - 到期结算
+   * POST /api/subscriptions/:id/settle
+   */
+  @Post(':id/settle')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async settleOrder(
+    @CurrentUser('userId') adminUserId: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) orderId: string,
+  ) {
+    const order = await this.subscriptionService.settleOrder(adminUserId, orderId);
+    return {
+      success: true,
+      data: order,
+      message: '到期截止处理完成，本金已退还',
     };
   }
 }

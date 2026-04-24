@@ -2,22 +2,8 @@ import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Toast, Modal } from 'antd-mobile'
 import { authApi } from '../services/api'
+import logoImg from '../assets/logo.png'
 import './Login.css'
-
-// 币安风格Logo组件
-const BinanceLogo = () => (
-  <svg width="64" height="64" viewBox="0 0 64 64" fill="none" className="login-logo-svg">
-    <rect width="64" height="64" rx="12" fill="#F0B90B"/>
-    <path d="M32 16L36.5 20.5L32 25L27.5 20.5L32 16Z" fill="#0B0E11"/>
-    <path d="M20.5 27.5L25 32L20.5 36.5L16 32L20.5 27.5Z" fill="#0B0E11"/>
-    <path d="M43.5 27.5L48 32L43.5 36.5L39 32L43.5 27.5Z" fill="#0B0E11"/>
-    <path d="M32 39L36.5 43.5L32 48L27.5 43.5L32 39Z" fill="#0B0E11"/>
-    <path d="M32 25L36.5 29.5L32 34L27.5 29.5L32 25Z" fill="#0B0E11"/>
-    <path d="M25 32L29.5 36.5L25 41L20.5 36.5L25 32Z" fill="#0B0E11"/>
-    <path d="M39 32L43.5 36.5L39 41L34.5 36.5L39 32Z" fill="#0B0E11"/>
-    <path d="M32 34L36.5 38.5L32 43L27.5 38.5L32 34Z" fill="#0B0E11"/>
-  </svg>
-)
 
 // 眼睛图标 - 显示密码
 const EyeOpenIcon = () => (
@@ -76,7 +62,15 @@ const Login: React.FC = () => {
   const [regConfirmPassword, setRegConfirmPassword] = useState('')
   const [regRealName, setRegRealName] = useState('')
   const [regPhone, setRegPhone] = useState('')
-  const [regReferrer, setRegReferrer] = useState('')
+  const [regReferrer, setRegReferrer] = useState(() => searchParams.get('code') || '')
+
+  // URL参数变化时自动填充邀请码
+  useEffect(() => {
+    const code = searchParams.get('code')
+    if (code) {
+      setRegReferrer(code)
+    }
+  }, [searchParams])
 
   const handleLogin = async () => {
     if (!loginUsername || !loginPassword) {
@@ -159,6 +153,7 @@ const Login: React.FC = () => {
         realName: regRealName,
         phone: regPhone,
         agreedToAgreement: true,
+        invitationCode: regReferrer || undefined,
       }) as any
       const data = res?.data || res
       
@@ -205,8 +200,7 @@ const Login: React.FC = () => {
       <div className="login-content">
         {/* Logo区域 */}
         <div className="login-logo-section">
-          <BinanceLogo />
-          <h1 className="login-brand">零钱保</h1>
+          <img src={logoImg} alt="零钱保" className="login-logo-img" />
         </div>
 
         {/* 登录表单 */}
@@ -358,16 +352,17 @@ const Login: React.FC = () => {
               </div>
             </div>
             
-            {/* 推荐人ID输入框 */}
+            {/* 邀请码输入框 */}
             <div className="login-input-wrapper">
-              <label className="login-input-label">推荐人ID <span className="login-optional">（选填）</span></label>
+              <label className="login-input-label">邀请码 <span className="login-optional">（选填）</span></label>
               <div className="login-input-box">
                 <input
                   type="text"
-                  placeholder="可不填"
+                  placeholder="请输入6位邀请码"
                   value={regReferrer}
                   onChange={(e) => setRegReferrer(e.target.value)}
                   className="login-input"
+                  maxLength={10}
                 />
               </div>
             </div>

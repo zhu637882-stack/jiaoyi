@@ -15,13 +15,20 @@ interface UseWebSocketOptions {
 
 // 根据环境获取 WebSocket URL
 const getDefaultWebSocketUrl = (): string => {
-  // 生产环境使用当前域名（不要加 /ws，否则 socket.io 会把 /ws 当成 namespace 导致 Invalid namespace 错误）
+  // 浏览器环境：使用当前页面域名（不要加 /ws，否则 socket.io 会把 /ws 当成 namespace 导致 Invalid namespace 错误）
   if (typeof window !== 'undefined') {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
     return `${protocol}//${host}`
   }
-  return 'ws://localhost:3000'
+  // 非浏览器环境：尝试从环境变量获取
+  if (import.meta.env?.VITE_API_URL) {
+    const apiUrl = import.meta.env.VITE_API_URL as string
+    return apiUrl.replace(/^http/, 'ws')
+  }
+  // 非浏览器环境且无环境变量：不应回退到localhost
+  console.warn('WebSocket: 无法确定连接地址，请在环境变量中设置 VITE_API_URL')
+  return ''
 }
 
 export const useWebSocket = (options: UseWebSocketOptions = {}) => {

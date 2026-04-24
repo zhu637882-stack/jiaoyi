@@ -56,7 +56,8 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
     const token = localStorage.getItem('access_token')
     const role = getUserRole()
     setIsAuthenticated(!!token)
-    setIsAdmin(role === 'admin')
+    // admin/manager/viewer 都可以访问管理后台
+    setIsAdmin(['admin', 'manager', 'viewer'].includes(role || ''))
   }, [location])
 
   if (isAuthenticated === null) {

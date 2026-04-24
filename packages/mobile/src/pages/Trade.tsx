@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { Popup, Toast } from 'antd-mobile'
+import { Popup, Toast, Dialog } from 'antd-mobile'
 import { marketApi, drugApi, subscriptionApi, paymentApi, accountApi } from '../services/api'
 import { isWechatBrowser, isMobile } from '../utils/browser'
 import { ensureWechatOpenId, getStoredOpenId, redirectToWechatAuth } from '../utils/wechat-auth'
@@ -437,7 +437,11 @@ const TradeContent: React.FC = () => {
                   paySign: payData.paySign,
                 }, (res: any) => {
                   if (res.err_msg === 'get_brand_wcpay_request:ok') {
-                    Toast.show({ content: '支付成功', icon: 'success' })
+                    Dialog.alert({
+                      title: '认购成功',
+                      content: '支付已完成，认购订单已即时生效！可前往「持仓」页面查看您的认购记录和收益情况。',
+                      confirmText: '我知道了',
+                    })
                     setShowSubscribe(false)
                     setQuantity('')
                     loadDrugData()

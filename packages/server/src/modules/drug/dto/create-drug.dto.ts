@@ -1,6 +1,7 @@
 import {
   IsString,
   IsNumber,
+  IsBoolean,
   IsOptional,
   Min,
   Length,
@@ -36,6 +37,12 @@ export class CreateDrugDto {
   batchNo: string;
 
   @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 2 }, { message: '实际成交价必须是数字，最多2位小数' })
+  @Min(0, { message: '实际成交价不能为负数' })
+  @Type(() => Number)
+  actualSellingPrice?: number;
+
+  @IsOptional()
   @IsNumber({ maxDecimalPlaces: 4 }, { message: '运营费用比例必须是数字，最多4位小数' })
   @Min(0, { message: '运营费用比例不能为负数' })
   @Type(() => Number)
@@ -46,4 +53,8 @@ export class CreateDrugDto {
   @Min(1, { message: '滞销天数必须大于0' })
   @Type(() => Number)
   slowSellingDays?: number;
+
+  @IsOptional()
+  @IsBoolean({ message: '是否冷链必须是布尔值' })
+  isColdChain?: boolean;
 }

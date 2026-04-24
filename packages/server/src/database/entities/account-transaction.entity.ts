@@ -21,6 +21,12 @@ export enum TransactionType {
   RETURN_PROFIT = 'return_profit',
   YIELD = 'yield',
   ADMIN_ADJUST = 'admin_adjust',
+  TRIAL_BONUS_GRANT = 'trial_bonus_grant',
+  TRIAL_BONUS_ACTIVATE = 'trial_bonus_activate',
+  TRIAL_BONUS_EXPIRE = 'trial_bonus_expire',
+  TRIAL_BONUS_USE = 'trial_bonus_use',
+  TRIAL_BONUS_RETURN = 'trial_bonus_return',
+  INVITATION_REWARD = 'invitation_reward',
 }
 
 @Entity('account_transactions')

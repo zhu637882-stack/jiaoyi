@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
+import { IsString, IsOptional, IsIn, MaxLength } from 'class-validator';
 import { UserRole } from '../../../database/entities/user.entity';
 
 export class AdminUpdateUserDto {
@@ -12,7 +12,13 @@ export class AdminUpdateUserDto {
   @MaxLength(20)
   phone?: string;
 
-  @IsEnum(UserRole)
+  @IsString()
   @IsOptional()
+  @IsIn([UserRole.USER, UserRole.VIEWER, UserRole.MANAGER, UserRole.ADMIN])
   role?: UserRole;
+
+  @IsString()
+  @IsOptional()
+  @IsIn(['active', 'disabled'])
+  adminStatus?: string;
 }

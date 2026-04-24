@@ -91,7 +91,7 @@ export class YieldCronService {
       });
 
       const activeBalances = balances.filter(
-        (b) => Number(b.availableBalance) + Number(b.frozenBalance) > 0,
+        (b) => Number(b.availableBalance) + Number(b.frozenBalance) + Number(b.trialBalance || 0) > 0,
       );
 
       this.logger.log(`发现 ${activeBalances.length} 个用户有余额，需要计算收益`);
@@ -101,8 +101,11 @@ export class YieldCronService {
           await queryRunner.startTransaction();
 
           const userId = balance.userId;
+          const now = new Date();
+          const trialBalance = Number(balance.trialBalance || 0);
+          const isTrialActive = trialBalance > 0 && (!balance.trialExpiresAt || balance.trialExpiresAt > now);
           const totalAssets = Number(
-            (Number(balance.availableBalance) + Number(balance.frozenBalance)).toFixed(2),
+            (Number(balance.availableBalance) + Number(balance.frozenBalance) + (isTrialActive ? trialBalance : 0)).toFixed(2),
           );
 
           // 日收益 = 总资产 × 5% / 365，保留2位小数

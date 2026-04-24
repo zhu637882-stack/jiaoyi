@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException, ConflictException } from '@nestjs/common';
+import { Injectable, UnauthorizedException, ConflictException, Logger } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -7,9 +7,13 @@ import * as bcrypt from 'bcrypt';
 import { User, UserRole, UserStatus } from '../../database/entities/user.entity';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AuditService } from '../../common/services/audit.service';
+import { InvitationService } from '../invitation/invitation.service';
+import { TrialBonusService } from '../trial-bonus/trial-bonus.service';
 
 @Injectable()
 export class AuthService {
+  private logger = new Logger(AuthService.name);
+
   constructor(
     private jwtService: JwtService,
     private configService: ConfigService,
@@ -18,6 +22,8 @@ export class AuthService {
     @InjectRepository(AccountBalance)
     private accountBalanceRepository: Repository<AccountBalance>,
     private auditService: AuditService,
+    private invitationService: InvitationService,
+    private trialBonusService: TrialBonusService,
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -33,6 +39,13 @@ export class AuthService {
   }
 
   async login(user: any) {
+    // 递增登录次数
+    const userEntity = await this.userRepository.findOne({ where: { id: user.id } });
+    if (userEntity) {
+      userEntity.loginCount = (userEntity.loginCount || 0) + 1;
+      await this.userRepository.save(userEntity);
+    }
+
     const payload = { 
       userId: user.id, 
       username: user.username, 
@@ -71,6 +84,7 @@ export class AuthService {
         role: user.role,
         realName: user.realName,
         phone: user.phone,
+        loginCount: userEntity?.loginCount || 1,
       },
     };
   }
@@ -124,7 +138,7 @@ export class AuthService {
     }
   }
 
-  async register(username: string, password: string, realName?: string, phone?: string, agreedToAgreement?: boolean) {
+  async register(username: string, password: string, realName?: string, phone?: string, agreedToAgreement?: boolean, invitationCode?: string) {
     // 检查用户名是否已存在
     const existingUser = await this.userRepository.findOne({
       where: { username },
@@ -141,7 +155,7 @@ export class AuthService {
     const user = this.userRepository.create({
       username,
       password: hashedPassword,
-      role: UserRole.INVESTOR,
+      role: UserRole.USER,
       status: UserStatus.PENDING,  // 新注册用户默认为待审核
       realName,
       phone,
@@ -160,6 +174,29 @@ export class AuthService {
       totalInvested: 0,
     });
     await this.accountBalanceRepository.save(accountBalance);
+
+    // 自动生成用户的邀请码（失败不影响注册）
+    try {
+      await this.invitationService.generateInvitationCode(savedUser.id);
+    } catch (e) {
+      this.logger.warn(`生成邀请码失败（不影响注册）: ${e.message}`);
+    }
+
+    // 如果传入了邀请码，绑定邀请关系（失败不影响注册）
+    if (invitationCode) {
+      try {
+        await this.invitationService.applyInvitationCode(savedUser.id, invitationCode);
+      } catch (e) {
+        this.logger.warn(`绑定邀请码失败（不影响注册）: ${e.message}`);
+      }
+    }
+
+    // 发放体验金（失败不影响注册）
+    try {
+      await this.trialBonusService.grantTrialBonus(savedUser.id);
+    } catch (e) {
+      this.logger.warn(`体验金发放失败（不影响注册）: ${e.message}`);
+    }
 
     const { password: _, ...result } = savedUser;
     return result;

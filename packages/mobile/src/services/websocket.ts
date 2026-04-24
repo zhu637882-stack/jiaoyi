@@ -10,12 +10,21 @@ class WebSocketService {
 
   // 连接 WebSocket
   connect(url?: string): void {
-    if (!url && typeof window !== 'undefined') {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-      const host = window.location.host
-      url = `${protocol}//${host}`
+    if (!url) {
+      if (typeof window !== 'undefined') {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+        const host = window.location.host
+        url = `${protocol}//${host}`
+      } else if (import.meta.env?.VITE_API_URL) {
+        const apiUrl = import.meta.env.VITE_API_URL as string
+        url = apiUrl.replace(/^http/, 'ws')
+      }
     }
-    url = url || 'ws://localhost:3000'
+    // 不应回退到localhost
+    if (!url) {
+      console.warn('WebSocket: 无法确定连接地址，请检查环境配置')
+      return
+    }
     if (this.socket?.connected) return
 
     this.socket = io(url, {

@@ -20,6 +20,7 @@ import { Drug } from './drug.entity';
  * RETURNED: 全部退回
  * CANCELLED: 已取消
  * SLOW_SELLING_REFUND: 滞销退款
+ * SETTLED: 到期已结算（10天期限到期，管理员手动截止处理）
  */
 export enum SubscriptionOrderStatus {
   CONFIRMED = 'confirmed',
@@ -29,6 +30,7 @@ export enum SubscriptionOrderStatus {
   RETURNED = 'returned',
   CANCELLED = 'cancelled',
   SLOW_SELLING_REFUND = 'slow_selling_refund',
+  SETTLED = 'settled',
 }
 
 @Entity('subscription_orders')

@@ -5,7 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction, TransactionType } from '../../database/entities/account-transaction.entity';
 import { WithdrawOrder, WithdrawStatus } from '../../database/entities/withdraw-order.entity';
-import { User } from '../../database/entities/user.entity';
+import { User, UserStatus } from '../../database/entities/user.entity';
 import { AuditService } from '../../common/services/audit.service';
 
 @Injectable()
@@ -289,8 +289,19 @@ export class AccountService {
    * 提现申请（T+1模式）
    * 客户提交出金申请 → 冻结余额 → 创建出金订单(pending)
    * 管理员次日确认后 → 扣减冻结余额 → 完成出金
+   *
+   * 资金流转：
+   * - 申请时：availableBalance -= amount, frozenBalance += amount（冻结，防止重复出金）
+   * - 确认时：frozenBalance -= amount（仅扣减冻结，不二次扣可用余额）
+   * - 驳回时：frozenBalance -= amount, availableBalance += amount（解冻返还）
    */
   async withdraw(userId: string, amount: number, description?: string, password?: string, bankInfo?: string) {
+    // 0. 校验用户审核状态
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || user.status !== UserStatus.APPROVED) {
+      throw new BadRequestException('您的账户尚未通过审核，暂时无法提现');
+    }
+
     // 1. 校验金额 > 0
     if (amount <= 0) {
       throw new BadRequestException('提现金额必须大于0');

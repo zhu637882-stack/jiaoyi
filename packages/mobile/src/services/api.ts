@@ -108,7 +108,7 @@ export const authApi = {
   login: (username: string, password: string) =>
     http.post('/auth/login', { username, password }),
 
-  register: (data: { username: string; password: string; realName?: string; phone?: string; agreedToAgreement?: boolean }) =>
+  register: (data: { username: string; password: string; realName?: string; phone?: string; agreedToAgreement?: boolean; invitationCode?: string }) =>
     http.post('/auth/register', data),
 
   logout: () =>
@@ -349,6 +349,24 @@ export const yieldApi = {
 export const systemMessageApi = {
   getPublished: (params?: { page?: number; pageSize?: number }) =>
     http.get('/system-messages', { params }),
+}
+
+// ========== 体验金相关 API ==========
+export const trialBonusApi = {
+  getStatus: () =>
+    http.get('/trial-bonus/status'),
+}
+
+// ========== 邀请相关 API ==========
+export const invitationApi = {
+  getMyCode: () =>
+    http.get('/invitation/my-code'),
+  getStats: () =>
+    http.get('/invitation/stats'),
+  getRecords: () =>
+    http.get('/invitation/records'),
+  validate: (code: string) =>
+    http.post('/invitation/validate', { code }),
 }
 
 // ========== 创建 silentHttp 实例（不自动弹出错误提示） ==========

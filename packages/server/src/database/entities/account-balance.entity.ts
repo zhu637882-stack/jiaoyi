@@ -28,6 +28,12 @@ export class AccountBalance {
   @Column('decimal', { precision: 12, scale: 2, default: 0 })
   totalInvested: number;
 
+  @Column('decimal', { precision: 12, scale: 2, default: 0, comment: '体验金余额' })
+  trialBalance: number;
+
+  @Column({ nullable: true, comment: '体验金过期时间' })
+  trialExpiresAt: Date;
+
   @UpdateDateColumn()
   updatedAt: Date;
 

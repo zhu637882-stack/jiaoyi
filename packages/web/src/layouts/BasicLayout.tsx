@@ -45,8 +45,8 @@ const getMenuItems = (role?: string) => {
     },
   ]
 
-  // 只有管理员才显示管理后台菜单
-  if (role === 'admin') {
+  // 管理员角色（viewer/manager/admin）才显示管理后台菜单
+  if (['admin', 'manager', 'viewer'].includes(role || '')) {
     items.push({
       path: '/admin',
       name: '管理后台',
@@ -379,7 +379,7 @@ const BasicLayout = () => {
                       fontSize: 11,
                     }}
                   >
-                    {userInfo?.role === 'admin' ? '管理员' : '投资者'}
+                    {userInfo?.role === 'admin' ? '超级管理员' : userInfo?.role === 'manager' ? '管理员' : userInfo?.role === 'viewer' ? '只读管理员' : '客户'}
                   </Text>
                 </div>
               )}

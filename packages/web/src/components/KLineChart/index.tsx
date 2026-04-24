@@ -256,22 +256,30 @@ const KLineChart = ({
   ]
 
   // 转换数据格式 - 将价格数据转换为客户收益率数据
-  // 客户收益率 = (收盘价 - 进价) / 进价 * 30% + 5%年化补贴
+  // 合伙人收益 = (零售价 - 进价 - 运营费) / 10，运营费 = 平台佣金(6%) + 处方费(0.45) + 快递费(普通3元/冷链20元)
   const convertedData = useMemo((): KLineChartsData[] => {
     if (!sortedData || sortedData.length === 0) return []
     
     // 假设进价为第一个开盘价的 80%（如果没有进价数据）
     const basePurchasePrice = sortedData[0]?.open * 0.8 || 10
     
+    // 计算合伙人收益率的辅助函数
+    const calcReturn = (retailPrice: number) => {
+      const platformCommission = retailPrice * 0.06
+      const prescriptionFee = 0.45
+      const shippingFee = 3 // 默认普通快递费，K线图不区分冷链
+      const operationFee = platformCommission + prescriptionFee + shippingFee
+      const partnershipReturnPerBox = (retailPrice - basePurchasePrice - operationFee) / 10
+      const partnershipReturnRate = basePurchasePrice > 0 ? partnershipReturnPerBox / basePurchasePrice : 0
+      const dailySubsidy = 0.05 / 365
+      return partnershipReturnRate + dailySubsidy
+    }
+    
     return sortedData.map(item => {
-      // 计算客户收益率（基于价格变动）
-      const priceReturn = (item.close - basePurchasePrice) / basePurchasePrice
-      const customerReturn = priceReturn * 0.3 + (0.05 / 365) // 30%合伙收益 + 5%年化补贴
-      
-      // 计算开盘、最高、最低对应的客户收益率
-      const openReturn = ((item.open - basePurchasePrice) / basePurchasePrice) * 0.3 + (0.05 / 365)
-      const highReturn = ((item.high - basePurchasePrice) / basePurchasePrice) * 0.3 + (0.05 / 365)
-      const lowReturn = ((item.low - basePurchasePrice) / basePurchasePrice) * 0.3 + (0.05 / 365)
+      const customerReturn = calcReturn(item.close)
+      const openReturn = calcReturn(item.open)
+      const highReturn = calcReturn(item.high)
+      const lowReturn = calcReturn(item.low)
       
       return {
         timestamp: item.time * 1000, // 秒转毫秒

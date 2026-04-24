@@ -265,13 +265,13 @@
 }
 
 .trade-card-change.up {
-  background: rgba(14, 203, 129, 0.15);
-  color: #0ECB81;
+  background: rgba(246, 70, 93, 0.15);
+  color: #F6465D;
 }
 
 .trade-card-change.down {
-  background: rgba(246, 70, 93, 0.15);
-  color: #F6465D;
+  background: rgba(14, 203, 129, 0.15);
+  color: #0ECB81;
 }
 
 /* ---------- 骨架屏 ---------- */

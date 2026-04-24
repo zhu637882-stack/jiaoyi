@@ -2,9 +2,10 @@ import {
   Injectable,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In, LessThanOrEqual } from 'typeorm';
+import { Repository, DataSource, In, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
 import {
   SubscriptionOrder,
   SubscriptionOrderStatus,
@@ -15,15 +16,20 @@ import {
   AccountTransaction,
   TransactionType,
 } from '../../database/entities/account-transaction.entity';
-import { User } from '../../database/entities/user.entity';
+import { DailyYield } from '../../database/entities/daily-yield.entity';
+import { User, UserStatus } from '../../database/entities/user.entity';
 import { CreateSubscriptionDto } from './dto/create-subscription.dto';
 import {
   QuerySubscriptionDto,
   AdminQuerySubscriptionDto,
 } from './dto/query-subscription.dto';
+import { InvitationService } from '../invitation/invitation.service';
+import { TrialBonusService } from '../trial-bonus/trial-bonus.service';
 
 @Injectable()
 export class SubscriptionService {
+  private logger = new Logger(SubscriptionService.name);
+
   constructor(
     @InjectRepository(SubscriptionOrder)
     private subscriptionOrderRepository: Repository<SubscriptionOrder>,
@@ -35,7 +41,11 @@ export class SubscriptionService {
     private accountTransactionRepository: Repository<AccountTransaction>,
     @InjectRepository(User)
     private userRepository: Repository<User>,
+    @InjectRepository(DailyYield)
+    private dailyYieldRepository: Repository<DailyYield>,
     private dataSource: DataSource,
+    private invitationService: InvitationService,
+    private trialBonusService: TrialBonusService,
   ) {}
 
   /**
@@ -70,6 +80,14 @@ export class SubscriptionService {
     dto: CreateSubscriptionDto,
   ): Promise<SubscriptionOrder> {
     const { drugId, quantity } = dto;
+
+    this.logger.log(`[createSubscription] 创建认购: userId=${userId}, drugId=${drugId}, quantity=${quantity}`);
+
+    // 0. 校验用户审核状态
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user || user.status !== UserStatus.APPROVED) {
+      throw new BadRequestException('您的账户尚未通过审核，暂时无法认购');
+    }
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -111,17 +129,26 @@ export class SubscriptionService {
         throw new NotFoundException('账户不存在');
       }
 
-      if (Number(balance.availableBalance) < amount) {
+      // 4. 校验总额（真实余额 + 体验金）
+      const availableReal = Number(balance.availableBalance);
+      // 实时检查体验金是否已过期
+      const now = new Date();
+      const isTrialExpired = balance.trialExpiresAt && balance.trialExpiresAt <= now;
+      const effectiveTrialBalance = isTrialExpired ? 0 : Number(balance.trialBalance || 0);
+      const totalAvailable = Number((availableReal + effectiveTrialBalance).toFixed(2));
+
+      if (totalAvailable < amount) {
         throw new BadRequestException(
-          `可用余额不足，当前可用：${balance.availableBalance}元，需要：${amount}元`,
+          `可用余额不足，当前可用：${totalAvailable}元（真实余额${availableReal}元 + 体验金${effectiveTrialBalance}元），需要：${amount}元`,
         );
       }
 
-      // 5. 冻结资金
-      const availableBefore = Number(balance.availableBalance);
+      // 5. 冻结资金（优先使用真实余额，不足部分用体验金）
+      const realUsed = Math.min(amount, availableReal);
+      const trialUsed = Number((amount - realUsed).toFixed(2));
       const frozenBefore = Number(balance.frozenBalance);
 
-      balance.availableBalance = Number((availableBefore - amount).toFixed(2));
+      balance.availableBalance = Number((availableReal - realUsed).toFixed(2));
       balance.frozenBalance = Number((frozenBefore + amount).toFixed(2));
 
       await queryRunner.manager.save(balance);
@@ -169,12 +196,22 @@ export class SubscriptionService {
       drug.subscribedQuantity += quantity;
       await queryRunner.manager.save(drug);
 
+      // 9. 如果使用体验金，扣减体验金
+      if (trialUsed > 0) {
+        await this.trialBonusService.useTrialBonus(
+          userId,
+          trialUsed,
+          queryRunner,
+          savedOrder.id,
+        );
+      }
+
       // 10. 记录资金流水
       const transaction = queryRunner.manager.create(AccountTransaction, {
         userId,
         type: TransactionType.SUBSCRIPTION,
         amount: -amount,
-        balanceBefore: availableBefore,
+        balanceBefore: availableReal,
         balanceAfter: balance.availableBalance,
         relatedOrderId: savedOrder.id,
         description: `认购 ${drug.name} ${quantity}盒，订单号：${orderNo}`,
@@ -182,7 +219,21 @@ export class SubscriptionService {
 
       await queryRunner.manager.save(transaction);
 
+      // 11. 首次认购判断（在事务内，防止并发重复发放奖励）
+      try {
+        const userOrderCount = await queryRunner.manager.count(SubscriptionOrder, {
+          where: { userId },
+        });
+        if (userOrderCount === 1) {
+          await this.invitationService.processFirstSubscriptionReward(userId, queryRunner);
+        }
+      } catch (e) {
+        this.logger.warn(`发放邀请奖励失败（不影响认购）: ${e.message}`);
+      }
+
       await queryRunner.commitTransaction();
+
+      this.logger.log(`[createSubscription] 认购成功: userId=${userId}, orderId=${savedOrder.id}, orderNo=${orderNo}, drugId=${drugId}, quantity=${quantity}, amount=${amount}`);
 
       // 返回完整订单信息（包含药品信息）
       return this.subscriptionOrderRepository.findOne({
@@ -209,6 +260,8 @@ export class SubscriptionService {
     amount: number,
     queryRunner: import('typeorm').QueryRunner,
   ): Promise<SubscriptionOrder> {
+    this.logger.log(`[createSubscriptionFromPayment] 认购直付: userId=${userId}, drugId=${drugId}, quantity=${quantity}, amount=${amount}`);
+
     // 1. 校验药品状态（带悲观锁）
     const drug = await queryRunner.manager.findOne(Drug, {
       where: { id: drugId },
@@ -305,6 +358,8 @@ export class SubscriptionService {
 
     await queryRunner.manager.save(transaction);
 
+    this.logger.log(`[createSubscriptionFromPayment] 认购直付成功: userId=${userId}, orderId=${savedOrder.id}, orderNo=${orderNo}`);
+
     return savedOrder;
   }
 
@@ -315,6 +370,8 @@ export class SubscriptionService {
     userId: string,
     orderId: string,
   ): Promise<SubscriptionOrder> {
+    this.logger.log(`[cancelSubscription] 取消认购: userId=${userId}, orderId=${orderId}`);
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -360,10 +417,28 @@ export class SubscriptionService {
       const frozenBefore = Number(balance.frozenBalance);
       const amount = Number(order.amount);
 
-      balance.availableBalance = Number((availableBefore + amount).toFixed(2));
-      balance.frozenBalance = Number((frozenBefore - amount).toFixed(2));
+      // 查询该订单使用的体验金金额
+      const trialAmount = await this.trialBonusService.getTrialAmountUsedForOrder(
+        userId,
+        order.id,
+        queryRunner,
+      );
 
+      // 解冻资金（真实余额 + 体验金分别恢复）
+      const realRefund = Number((amount - trialAmount).toFixed(2));
+      balance.availableBalance = Number((availableBefore + realRefund).toFixed(2));
+      balance.frozenBalance = Number((frozenBefore - amount).toFixed(2));
       await queryRunner.manager.save(balance);
+
+      // 恢复体验金
+      if (trialAmount > 0) {
+        await this.trialBonusService.restoreTrialBalance(
+          userId,
+          trialAmount,
+          queryRunner,
+          order.id,
+        );
+      }
 
       // 5. 更新订单状态
       order.status = SubscriptionOrderStatus.CANCELLED;
@@ -379,7 +454,7 @@ export class SubscriptionService {
       const transaction = queryRunner.manager.create(AccountTransaction, {
         userId,
         type: TransactionType.SUBSCRIPTION,
-        amount: amount,
+        amount: realRefund,
         balanceBefore: availableBefore,
         balanceAfter: balance.availableBalance,
         relatedOrderId: order.id,
@@ -389,6 +464,8 @@ export class SubscriptionService {
       await queryRunner.manager.save(transaction);
 
       await queryRunner.commitTransaction();
+
+      this.logger.log(`[cancelSubscription] 取消认购成功: userId=${userId}, orderId=${orderId}, 退回金额=${realRefund}`);
 
       return savedOrder;
     } catch (error) {
@@ -406,7 +483,7 @@ export class SubscriptionService {
     userId: string,
     query: QuerySubscriptionDto,
   ): Promise<{ list: any[]; pagination: any }> {
-    const { status, page = 1, limit = 10 } = query;
+    const { status, auditStatus, page = 1, limit = 10 } = query;
 
     const queryBuilder = this.subscriptionOrderRepository
       .createQueryBuilder('order')
@@ -416,6 +493,10 @@ export class SubscriptionService {
 
     if (status) {
       queryBuilder.andWhere('order.status = :status', { status });
+    }
+
+    if (auditStatus) {
+      queryBuilder.andWhere('order.auditStatus = :auditStatus', { auditStatus });
     }
 
     const total = await queryBuilder.getCount();
@@ -748,6 +829,8 @@ export class SubscriptionService {
    * 客户申请退回认购订单
    */
   async requestReturn(userId: string, orderId: string): Promise<SubscriptionOrder> {
+    this.logger.log(`[requestReturn] 申请退回: userId=${userId}, orderId=${orderId}`);
+
     const order = await this.subscriptionOrderRepository.findOne({
       where: { id: orderId, userId },
     });
@@ -762,6 +845,9 @@ export class SubscriptionService {
 
     order.status = SubscriptionOrderStatus.RETURN_PENDING;
     order.returnRequestedAt = new Date();
+
+    this.logger.log(`[requestReturn] 退回申请已提交: userId=${userId}, orderId=${orderId}, 状态变更为RETURN_PENDING`);
+
     return this.subscriptionOrderRepository.save(order);
   }
 
@@ -770,6 +856,8 @@ export class SubscriptionService {
    * 退回本金从冻结余额转入可用余额，收益也转入可用余额
    */
   async approveReturn(adminUserId: string, orderId: string): Promise<SubscriptionOrder> {
+    this.logger.log(`[approveReturn] 管理员核准退回: adminUserId=${adminUserId}, orderId=${orderId}`);
+
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -790,6 +878,15 @@ export class SubscriptionService {
 
       const returnPrincipal = Number(order.unsettledAmount);
       const returnProfit = Number(Number(order.totalProfit) - Number(order.totalLoss || 0));
+
+      // 查询该订单使用的体验金金额
+      const trialAmount = await this.trialBonusService.getTrialAmountUsedForOrder(
+        order.userId,
+        order.id,
+        queryRunner,
+      );
+      const actualTrialReturn = Math.min(trialAmount, returnPrincipal);
+      const realReturn = Number((returnPrincipal - actualTrialReturn).toFixed(2));
 
       // 更新订单状态
       order.status = SubscriptionOrderStatus.RETURNED;
@@ -819,8 +916,8 @@ export class SubscriptionService {
         const availableBefore = Number(balance.availableBalance);
         const frozenBefore = Number(balance.frozenBalance);
 
-        // 本金：冻结 → 可用
-        balance.availableBalance = Number((availableBefore + returnPrincipal).toFixed(2));
+        // 本金真实部分：冻结 → 可用
+        balance.availableBalance = Number((availableBefore + realReturn).toFixed(2));
         balance.frozenBalance = Number((frozenBefore - returnPrincipal).toFixed(2));
 
         // 收益：加到可用余额
@@ -830,15 +927,25 @@ export class SubscriptionService {
 
         await queryRunner.manager.save(balance);
 
+        // 体验金部分变成真钱
+        if (actualTrialReturn > 0) {
+          await this.trialBonusService.returnTrialBonus(
+            order.userId,
+            actualTrialReturn,
+            queryRunner,
+            order.id,
+          );
+        }
+
         // 记录资金流水 - 本金退回
         const principalTx = queryRunner.manager.create(AccountTransaction, {
           userId: order.userId,
           type: TransactionType.PRINCIPAL_RETURN,
-          amount: returnPrincipal,
+          amount: realReturn,
           balanceBefore: availableBefore,
           balanceAfter: Number(balance.availableBalance) - (returnProfit > 0 ? returnProfit : 0),
           relatedOrderId: order.id,
-          description: `退回本金：${drug?.name || ''} ${order.quantity}盒，¥${returnPrincipal.toFixed(2)}`,
+          description: `退回本金：${drug?.name || ''} ${order.quantity}盒，¥${realReturn.toFixed(2)}`,
         });
         await queryRunner.manager.save(principalTx);
 
@@ -858,6 +965,9 @@ export class SubscriptionService {
       }
 
       await queryRunner.commitTransaction();
+
+      this.logger.log(`[approveReturn] 退回核准成功: orderId=${orderId}, userId=${order.userId}, 退回本金=${returnPrincipal}, 收益=${returnProfit}`);
+
       return order;
     } catch (error) {
       await queryRunner.rollbackTransaction();
@@ -871,6 +981,8 @@ export class SubscriptionService {
    * 管理员驳回退回申请
    */
   async rejectReturn(adminUserId: string, orderId: string, reason: string): Promise<SubscriptionOrder> {
+    this.logger.log(`[rejectReturn] 管理员驳回退回: adminUserId=${adminUserId}, orderId=${orderId}, reason=${reason}`);
+
     const order = await this.subscriptionOrderRepository.findOne({
       where: { id: orderId },
     });
@@ -886,6 +998,9 @@ export class SubscriptionService {
     order.status = SubscriptionOrderStatus.EFFECTIVE;
     order.returnApprovedBy = adminUserId;
     order.returnRejectReason = reason;
+
+    this.logger.log(`[rejectReturn] 退回已驳回: orderId=${orderId}, 状态恢复为EFFECTIVE`);
+
     return this.subscriptionOrderRepository.save(order);
   }
 
@@ -906,6 +1021,11 @@ export class SubscriptionService {
 
       if (!order) {
         throw new NotFoundException('认购订单不存在');
+      }
+
+      // 安全检查：已滞销退款的订单不可审核
+      if (order.status === SubscriptionOrderStatus.SLOW_SELLING_REFUND) {
+        throw new BadRequestException('该订单已被滞销退款，无法审核');
       }
 
       // 必须是 CONFIRMED 或 EFFECTIVE 状态且 auditStatus='pending'
@@ -1042,5 +1162,392 @@ export class SubscriptionService {
         totalPages: Math.ceil(total / limit),
       },
     };
+  }
+
+  // ==================== 到期功能相关 ====================
+
+  /**
+   * A. 查询到期/即将到期的订单
+   * 10天期限从 effectiveAt 起算
+   */
+  async getExpiringOrders(daysBeforeExpiry: number = 3): Promise<any[]> {
+    const now = new Date();
+    // 到期日 = effectiveAt + 10天
+    // 查询 effectiveAt + 10天 <= now + daysBeforeExpiry 的 EFFECTIVE 订单
+    const deadlineDate = new Date(now);
+    deadlineDate.setDate(deadlineDate.getDate() + daysBeforeExpiry);
+
+    const orders = await this.subscriptionOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.drug', 'drug')
+      .leftJoinAndMapOne(
+        'order.user',
+        User,
+        'user',
+        'user.id = order.userId',
+      )
+      .where('order.status = :status', { status: SubscriptionOrderStatus.EFFECTIVE })
+      .getMany();
+
+    // 在JS中过滤：effectiveAt + 10天 <= deadlineDate
+    const filtered = orders.filter((order: any) => {
+      const expiryDate = new Date(order.effectiveAt);
+      expiryDate.setDate(expiryDate.getDate() + 10);
+      return expiryDate <= deadlineDate;
+    });
+
+    return filtered.map((order: any) => {
+      const expiryDate = new Date(order.effectiveAt);
+      expiryDate.setDate(expiryDate.getDate() + 10);
+      const isExpired = expiryDate <= now;
+      const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+
+      return {
+        id: order.id,
+        orderNo: order.orderNo,
+        userId: order.userId,
+        username: order.user?.username,
+        realName: order.user?.realName,
+        drugId: order.drugId,
+        drugName: order.drug?.name,
+        drugCode: order.drug?.code,
+        quantity: order.quantity,
+        amount: Number(order.amount),
+        unsettledAmount: Number(order.unsettledAmount),
+        effectiveAt: order.effectiveAt,
+        expiryDate,
+        isExpired,
+        daysLeft,
+        status: order.status,
+        totalProfit: Number(order.totalProfit),
+        totalLoss: Number(order.totalLoss),
+      };
+    });
+  }
+
+  /**
+   * B. 获取待确认的合伙人收益列表
+   * 合伙人收益 = (sellingPrice - purchasePrice - 运营费) / 10
+   * 运营费 = sellingPrice * 0.06 + 0.45 + (isColdChain ? 20 : 3)
+   */
+  async getPendingPartnerProfit(): Promise<any[]> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const orders = await this.subscriptionOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.drug', 'drug')
+      .leftJoinAndMapOne(
+        'order.user',
+        User,
+        'user',
+        'user.id = order.userId',
+      )
+      .where('order.status = :status', { status: SubscriptionOrderStatus.EFFECTIVE })
+      .getMany();
+
+    const result = [];
+
+    for (const order of orders as any[]) {
+      const drug = order.drug;
+      if (!drug) continue;
+
+      // 检查今天是否已发放过合伙人收益
+      const todayYield = await this.dailyYieldRepository.findOne({
+        where: {
+          orderId: order.id,
+          yieldDate: today,
+        },
+      });
+
+      // 如果今天已有记录且 subsidyFilled=true，说明已确认发放
+      if (todayYield && todayYield.subsidyFilled) {
+        continue;
+      }
+
+      const sellingPrice = Number(drug.sellingPrice);
+      const purchasePrice = Number(drug.purchasePrice);
+      const deliveryFee = drug.isColdChain ? 20 : 3;
+      const operationFee = Number((sellingPrice * 0.06 + 0.45 + deliveryFee).toFixed(2));
+      const partnerProfit = Number(((sellingPrice - purchasePrice - operationFee) / 10).toFixed(2));
+
+      // 检查是否在10天有效期内
+      const effectiveAt = new Date(order.effectiveAt);
+      const expiryDate = new Date(effectiveAt);
+      expiryDate.setDate(expiryDate.getDate() + 10);
+      const isExpired = expiryDate <= new Date();
+
+      result.push({
+        id: order.id,
+        orderNo: order.orderNo,
+        userId: order.userId,
+        username: order.user?.username,
+        realName: order.user?.realName,
+        drugId: order.drugId,
+        drugName: drug.name,
+        drugCode: drug.code,
+        sellingPrice,
+        purchasePrice,
+        isColdChain: drug.isColdChain,
+        deliveryFee,
+        operationFee,
+        partnerProfit,
+        quantity: order.quantity,
+        amount: Number(order.amount),
+        unsettledAmount: Number(order.unsettledAmount),
+        effectiveAt: order.effectiveAt,
+        expiryDate,
+        isExpired,
+        alreadyConfirmed: !!(todayYield && todayYield.subsidyFilled),
+      });
+    }
+
+    return result;
+  }
+
+  /**
+   * B. 管理员确认并发放合伙人收益
+   */
+  async confirmPartnerProfit(adminUserId: string, orderIds: string[]): Promise<any> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const results = [];
+
+      for (const orderId of orderIds) {
+        const order = await queryRunner.manager.findOne(SubscriptionOrder, {
+          where: { id: orderId },
+          lock: { mode: 'pessimistic_write' },
+          relations: ['drug'],
+        });
+
+        if (!order || order.status !== SubscriptionOrderStatus.EFFECTIVE) {
+          continue;
+        }
+
+        const drug = order.drug;
+        if (!drug) continue;
+
+        // 检查今天是否已发放
+        const existingYield = await queryRunner.manager.findOne(DailyYield, {
+          where: { orderId: order.id, yieldDate: today },
+        });
+
+        if (existingYield && existingYield.subsidyFilled) {
+          continue; // 已发放，跳过
+        }
+
+        const sellingPrice = Number(drug.sellingPrice);
+        const purchasePrice = Number(drug.purchasePrice);
+        const deliveryFee = drug.isColdChain ? 20 : 3;
+        const operationFee = Number((sellingPrice * 0.06 + 0.45 + deliveryFee).toFixed(2));
+        const partnerProfit = Number(((sellingPrice - purchasePrice - operationFee) / 10).toFixed(2));
+
+        if (partnerProfit <= 0) {
+          continue; // 无收益，跳过
+        }
+
+        // 更新用户可用余额
+        const balance = await queryRunner.manager.findOne(AccountBalance, {
+          where: { userId: order.userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!balance) continue;
+
+        const availableBefore = Number(balance.availableBalance);
+        balance.availableBalance = Number((availableBefore + partnerProfit).toFixed(2));
+        balance.totalProfit = Number((Number(balance.totalProfit) + partnerProfit).toFixed(2));
+        await queryRunner.manager.save(balance);
+
+        // 更新订单累计收益
+        order.totalProfit = Number((Number(order.totalProfit) + partnerProfit).toFixed(2));
+        await queryRunner.manager.save(order);
+
+        // 创建流水记录
+        const transaction = queryRunner.manager.create(AccountTransaction, {
+          userId: order.userId,
+          type: TransactionType.PROFIT_SHARE,
+          amount: partnerProfit,
+          balanceBefore: availableBefore,
+          balanceAfter: Number(balance.availableBalance),
+          relatedOrderId: order.id,
+          description: `合伙人收益：${drug.name}，¥${partnerProfit.toFixed(2)}`,
+        });
+        await queryRunner.manager.save(transaction);
+
+        // 记录到 daily_yields 表
+        if (existingYield) {
+          existingYield.subsidy = partnerProfit;
+          existingYield.totalYield = Number((Number(existingYield.baseYield) + partnerProfit).toFixed(2));
+          existingYield.subsidyFilled = true;
+          await queryRunner.manager.save(existingYield);
+        } else {
+          const dailyYield = queryRunner.manager.create(DailyYield, {
+            orderId: order.id,
+            userId: order.userId,
+            drugId: order.drugId,
+            yieldDate: today,
+            baseYield: 0,
+            subsidy: partnerProfit,
+            totalYield: partnerProfit,
+            principalBalance: Number(order.unsettledAmount),
+            cumulativeYield: Number(order.totalProfit),
+            subsidyFilled: true,
+          });
+          await queryRunner.manager.save(dailyYield);
+        }
+
+        results.push({
+          orderId: order.id,
+          orderNo: order.orderNo,
+          partnerProfit,
+          userId: order.userId,
+        });
+      }
+
+      await queryRunner.commitTransaction();
+      return {
+        confirmedCount: results.length,
+        details: results,
+      };
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * C. 截止处理 - 到期结算
+   * 1. 更新订单状态为 SETTLED
+   * 2. 退还本金到用户可用余额
+   * 3. 创建退还本金流水记录
+   */
+  async settleOrder(adminUserId: string, orderId: string): Promise<SubscriptionOrder> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.findOne(SubscriptionOrder, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+        relations: ['drug'],
+      });
+
+      if (!order) {
+        throw new NotFoundException('认购订单不存在');
+      }
+
+      // 安全检查：如果订单已被自动滞销退款，跳过手动结算
+      if (order.status === SubscriptionOrderStatus.SLOW_SELLING_REFUND) {
+        this.logger.warn(`订单 ${orderId} 已被滞销退款，跳过结算`);
+        throw new BadRequestException('该订单已被滞销退款，无法进行截止处理');
+      }
+
+      if (order.status === SubscriptionOrderStatus.RETURNED) {
+        throw new BadRequestException('该订单已退回，无法进行截止处理');
+      }
+
+      if (order.status !== SubscriptionOrderStatus.EFFECTIVE) {
+        throw new BadRequestException('仅生效中的订单可进行截止处理');
+      }
+
+      // 验证10天期限已到
+      const effectiveAt = new Date(order.effectiveAt);
+      const expiryDate = new Date(effectiveAt);
+      expiryDate.setDate(expiryDate.getDate() + 10);
+
+      // 即使未到期也允许管理员手动截止（但给出提示）
+      const isExpired = expiryDate <= new Date();
+
+      const unsettledAmount = Number(order.unsettledAmount);
+
+      // 查询该订单使用的体验金金额
+      const trialAmount = await this.trialBonusService.getTrialAmountUsedForOrder(
+        order.userId,
+        order.id,
+        queryRunner,
+      );
+      const actualTrialReturn = Math.min(trialAmount, unsettledAmount);
+      const realReturn = Number((unsettledAmount - actualTrialReturn).toFixed(2));
+
+      // 1. 更新订单状态
+      order.status = SubscriptionOrderStatus.SETTLED;
+      order.unsettledAmount = 0;
+      order.settledQuantity = order.quantity;
+      await queryRunner.manager.save(order);
+
+      // 2. 退还本金到用户可用余额
+      if (unsettledAmount > 0) {
+        const balance = await queryRunner.manager.findOne(AccountBalance, {
+          where: { userId: order.userId },
+          lock: { mode: 'pessimistic_write' },
+        });
+
+        if (!balance) {
+          throw new NotFoundException('用户账户不存在');
+        }
+
+        const availableBefore = Number(balance.availableBalance);
+        const frozenBefore = Number(balance.frozenBalance);
+
+        // 本金真实部分：冻结 → 可用
+        balance.availableBalance = Number((availableBefore + realReturn).toFixed(2));
+        balance.frozenBalance = Number((frozenBefore - unsettledAmount).toFixed(2));
+        await queryRunner.manager.save(balance);
+
+        // 体验金部分变成真钱
+        if (actualTrialReturn > 0) {
+          await this.trialBonusService.returnTrialBonus(
+            order.userId,
+            actualTrialReturn,
+            queryRunner,
+            order.id,
+          );
+        }
+
+        // 3. 创建退还本金的流水记录
+        const transaction = queryRunner.manager.create(AccountTransaction, {
+          userId: order.userId,
+          type: TransactionType.PRINCIPAL_RETURN,
+          amount: realReturn,
+          balanceBefore: availableBefore,
+          balanceAfter: Number(balance.availableBalance),
+          relatedOrderId: order.id,
+          description: `到期退还本金：${order.drug?.name || ''} ${order.quantity}盒，¥${realReturn.toFixed(2)}`,
+        });
+        await queryRunner.manager.save(transaction);
+      }
+
+      // 更新药品已认购数量
+      const drug = await queryRunner.manager.findOne(Drug, {
+        where: { id: order.drugId },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (drug) {
+        drug.subscribedQuantity = Math.max(0, Number(drug.subscribedQuantity) - order.quantity);
+        await queryRunner.manager.save(drug);
+      }
+
+      await queryRunner.commitTransaction();
+
+      return this.subscriptionOrderRepository.findOne({
+        where: { id: order.id },
+        relations: ['drug', 'user'],
+      });
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

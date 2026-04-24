@@ -67,6 +67,16 @@
   --color-rise-glow: rgba(246, 70, 93, 0.3);
   --color-fall-glow: rgba(14, 203, 129, 0.3);
 
+  /* === 业务状态色板 === */
+  --color-status-pending: #1890FF;      /* 待生效/待审核 - 蓝 */
+  --color-status-active: #F0B90B;       /* 认购中/生效中 - 黄 */
+  --color-status-success: #0ECB81;      /* 已完成/已结算 - 绿 */
+  --color-status-partial: #FAAD14;      /* 部分退回 - 橙 */
+  --color-status-returned: #848E9C;     /* 已退回 - 灰 */
+  --color-status-cancelled: #5E6673;    /* 已取消 - 深灰 */
+  --color-status-slow-sell: #722ED1;    /* 滞销退款 - 紫 */
+  --color-status-rejected: #F6465D;     /* 已拒绝 - 红 */
+
   /* ========== 字体系统 ========== */
   --font-family-base: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --font-family-mono: 'SF Mono', 'JetBrains Mono', 'DIN', 'Roboto Mono', Monaco, monospace;
@@ -922,3 +932,191 @@ input, textarea {
 .gap-sm { gap: var(--spacing-sm); }
 .gap-md { gap: var(--spacing-md); }
 .gap-lg { gap: var(--spacing-lg); }
+
+/* ============================================
+   统一按钮系统
+   ============================================ */
+.btn-base {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  height: 48px;
+  padding: 0 24px;
+  background: var(--color-primary);
+  color: #181A20;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  width: 100%;
+}
+.btn-primary:active {
+  background: var(--color-primary-dark);
+  transform: scale(0.98);
+}
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  height: 48px;
+  padding: 0 24px;
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-secondary:active {
+  background: rgba(240, 185, 11, 0.1);
+  transform: scale(0.98);
+}
+
+.btn-small {
+  height: 36px;
+  padding: 0 16px;
+  background: var(--color-primary);
+  color: #181A20;
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-small:active {
+  background: var(--color-primary-dark);
+  transform: scale(0.98);
+}
+
+.btn-small-outline {
+  height: 36px;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--color-primary);
+  border: 1px solid var(--color-primary);
+  border-radius: var(--radius-sm);
+  font-size: var(--font-size-sm);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn-danger {
+  height: 48px;
+  padding: 0 24px;
+  background: var(--color-status-rejected);
+  color: #fff;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: 600;
+  border: none;
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.btn-danger:active {
+  opacity: 0.85;
+  transform: scale(0.98);
+}
+
+/* ============================================
+   统一输入框系统
+   ============================================ */
+.input-base {
+  height: 48px;
+  padding: 0 16px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  color: var(--color-text-primary);
+  width: 100%;
+  outline: none;
+  transition: border-color var(--transition-fast);
+  -webkit-appearance: none;
+}
+.input-base::placeholder {
+  color: var(--color-text-tertiary);
+}
+.input-base:focus {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.15);
+}
+
+/* ============================================
+   统一加载态
+   ============================================ */
+.loading-skeleton {
+  background: linear-gradient(90deg, var(--color-bg-tertiary) 25%, var(--color-bg-hover) 50%, var(--color-bg-tertiary) 75%);
+  background-size: 200% 100%;
+  animation: skeletonShimmer 1.5s infinite;
+  border-radius: var(--radius-sm);
+}
+@keyframes skeletonShimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.loading-spinner {
+  width: 24px;
+  height: 24px;
+  border: 2px solid var(--color-bg-tertiary);
+  border-top-color: var(--color-primary);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ============================================
+   状态徽章
+   ============================================ */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: var(--font-size-xs);
+  font-weight: 500;
+  line-height: 1.6;
+}
+.status-badge-pending { background: rgba(24,144,255,0.15); color: var(--color-status-pending); }
+.status-badge-active { background: rgba(240,185,11,0.15); color: var(--color-status-active); }
+.status-badge-success { background: rgba(14,203,129,0.15); color: var(--color-status-success); }
+.status-badge-partial { background: rgba(250,173,20,0.15); color: var(--color-status-partial); }
+.status-badge-returned { background: rgba(132,142,156,0.15); color: var(--color-status-returned); }
+.status-badge-cancelled { background: rgba(94,102,115,0.15); color: var(--color-status-cancelled); }
+.status-badge-slow-sell { background: rgba(114,46,209,0.15); color: var(--color-status-slow-sell); }
+.status-badge-rejected { background: rgba(246,70,93,0.15); color: var(--color-status-rejected); }

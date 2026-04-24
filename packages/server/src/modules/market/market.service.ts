@@ -14,6 +14,7 @@ export interface MarketOverviewItem {
   drugCode: string;
   purchasePrice: number;
   sellingPrice: number;
+  isColdChain: boolean;
   dailySalesQuantity: number;
   dailySalesRevenue: number;
   averageSellingPrice: number;
@@ -258,6 +259,7 @@ export class MarketService {
           drugCode: drug.code,
           purchasePrice: Number(drug.purchasePrice),
           sellingPrice: Number(drug.sellingPrice),
+          isColdChain: drug.isColdChain ?? false,
           dailySalesQuantity: latestSnapshot.dailySalesQuantity,
           dailySalesRevenue: Number(latestSnapshot.dailySalesRevenue),
           averageSellingPrice: Number(latestSnapshot.averageSellingPrice),
@@ -284,6 +286,7 @@ export class MarketService {
           drugCode: drug.code,
           purchasePrice: Number(drug.purchasePrice),
           sellingPrice: Number(drug.sellingPrice),
+          isColdChain: drug.isColdChain ?? false,
           dailySalesQuantity: 0,
           dailySalesRevenue: 0,
           averageSellingPrice: Number(drug.sellingPrice),
