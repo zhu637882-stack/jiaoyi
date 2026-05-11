@@ -357,8 +357,15 @@ export const yieldApi = {
 
 // ========== 系统消息相关 API ==========
 export const systemMessageApi = {
+  // 前台：获取已发布消息
   getPublished: (params?: { page?: number; pageSize?: number }) =>
     http.get('/system-messages', { params }),
+  // 管理员：创建消息
+  adminCreate: (data: { title: string; content: string; type?: string }) =>
+    http.post('/system-messages/admin', data),
+  // 管理员：发布消息
+  adminPublish: (id: string) =>
+    http.patch(`/system-messages/admin/${id}/publish`),
 }
 
 // ========== 体验金相关 API ==========

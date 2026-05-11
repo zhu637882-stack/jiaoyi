@@ -70,7 +70,7 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
   const fetchSubscriptionSummary = useCallback(async (drugId: string) => {
     try {
       setLoadingSubscription(true)
-      const response = await subscriptionApi.getActiveSubscriptionSummary()
+      const response = await subscriptionApi.getActiveSubscriptionSummary() as { success: boolean; data?: { activeSubscriptions?: any[] } }
       if (response.success && response.data) {
         const activeSubs = response.data.activeSubscriptions || []
         // 筛选当前药品的认购
@@ -113,7 +113,7 @@ const TradePanel: React.FC<TradePanelProps> = ({ drug, onOrderSuccess }) => {
     try {
       const result = await (channel === 'alipay'
         ? paymentApi.queryAlipayOrder(tradeNo)
-        : paymentApi.queryWechatOrder(tradeNo))
+        : paymentApi.queryWechatOrder(tradeNo)) as { status: string }
 
       if (result.status === 'paid') {
         stopPolling()

@@ -1,7 +1,7 @@
 import { MigrationInterface, QueryRunner } from 'typeorm';
 
 /**
- * 零钱保认购模式改造迁移
+ * 零钱宝认购模式改造迁移
  * - 删除 pending_orders 表
  * - 重命名 funding_orders → subscription_orders 并修改字段
  * - 修改 drugs 表字段

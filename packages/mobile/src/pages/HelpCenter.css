@@ -1,0 +1,247 @@
+/* 帮助中心页面 - 币安深色风格 */
+.help-center-page {
+  min-height: 100vh;
+  background: #0B0E11;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+/* 顶部导航 */
+.hc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: #181A20;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.hc-back-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  color: #EAECEF;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.hc-back-btn:active {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.hc-header-title {
+  font-size: 17px;
+  font-weight: 600;
+  color: #EAECEF;
+  margin: 0;
+  flex: 1;
+  text-align: center;
+}
+
+.hc-header-placeholder {
+  width: 40px;
+}
+
+/* 内容区域 */
+.hc-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 区块卡片 */
+.hc-section {
+  background: #181A20;
+  border-radius: 12px;
+  margin-bottom: 16px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hc-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.hc-section-icon {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(240, 185, 11, 0.1);
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.hc-section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #EAECEF;
+  margin: 0;
+}
+
+.hc-section-body {
+  padding: 16px;
+}
+
+/* 步骤样式 */
+.hc-step-item {
+  display: flex;
+  gap: 12px;
+  padding-bottom: 16px;
+}
+
+.hc-step-item:last-child {
+  padding-bottom: 0;
+}
+
+.hc-step-line-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.hc-step-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(240, 185, 11, 0.15);
+  border: 1.5px solid #F0B90B;
+  color: #F0B90B;
+  font-size: 13px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.hc-step-line {
+  width: 1.5px;
+  flex: 1;
+  min-height: 24px;
+  background: rgba(240, 185, 11, 0.2);
+  margin: 4px 0;
+}
+
+.hc-step-content {
+  flex: 1;
+  padding-top: 2px;
+}
+
+.hc-step-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: #EAECEF;
+  margin-bottom: 4px;
+}
+
+.hc-step-desc {
+  font-size: 14px;
+  color: #848E9C;
+  line-height: 1.6;
+}
+
+/* 纯文本区块 */
+.hc-text-block {
+  font-size: 14px;
+  color: #848E9C;
+  line-height: 1.8;
+}
+
+.hc-text-block p {
+  margin: 0 0 8px 0;
+}
+
+.hc-text-block p:last-child {
+  margin-bottom: 0;
+}
+
+/* Collapse 折叠面板自定义 */
+.hc-collapse {
+  --adm-color-background: transparent !important;
+}
+
+.hc-collapse .adm-collapse-panel-header {
+  background: transparent !important;
+  color: #EAECEF !important;
+  font-size: 14px !important;
+  font-weight: 500 !important;
+  padding: 12px 0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+}
+
+.hc-collapse .adm-collapse-panel-content {
+  background: transparent !important;
+  color: #848E9C !important;
+  font-size: 14px !important;
+  line-height: 1.7 !important;
+  padding: 12px 0 !important;
+}
+
+.hc-collapse .adm-list-item-content-main {
+  color: #EAECEF !important;
+}
+
+.hc-collapse .adm-list-item {
+  background: transparent !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+
+.hc-collapse .adm-list-body {
+  background: transparent !important;
+  border: none !important;
+}
+
+.hc-faq-answer {
+  color: #B7BDC6;
+  line-height: 1.7;
+}
+
+/* 底部间距 */
+.hc-bottom-spacer {
+  height: 24px;
+}
+
+/* 适配安全区域 */
+@supports (padding-top: env(safe-area-inset-top)) {
+  .hc-header {
+    padding-top: calc(12px + env(safe-area-inset-top));
+  }
+}
+
+/* 响应式适配 */
+@media (max-width: 375px) {
+  .hc-content {
+    padding: 12px;
+  }
+
+  .hc-section-title {
+    font-size: 15px;
+  }
+
+  .hc-step-title {
+    font-size: 14px;
+  }
+
+  .hc-step-desc {
+    font-size: 13px;
+  }
+}

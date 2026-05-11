@@ -1,4 +1,4 @@
-# 零钱保服务启动脚本 (PowerShell)
+# 零钱宝服务启动脚本 (PowerShell)
 # 以管理员身份运行
 
 $PROJECT_DIR = "d:\wwwroot\jiaoyi"

@@ -1,0 +1,1388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>零钱宝 - 全页面设计效果图 V2</title>
+<style>
+/* ============================================================
+   设计令牌系统 - 严格遵循 duokeer.com/m/trade 风格
+   ============================================================ */
+:root {
+  /* 背景层级 */
+  --bg-primary: #0B0E11;
+  --bg-secondary: #1A1D23;
+  --bg-card: #1E2329;
+  --bg-input: #1A1D23;
+  --bg-hover: rgba(255,255,255,0.04);
+  
+  /* 深蓝渐变卡片 - 核心复用 */
+  --card-gradient: linear-gradient(135deg, #1a2332 0%, #162030 50%, #1a2840 100%);
+  --card-glow: radial-gradient(ellipse at 85% 15%, rgba(240,185,11,0.08) 0%, transparent 55%);
+  
+  /* 边框 */
+  --border-primary: #2B3139;
+  --border-gold: rgba(240,185,11,0.15);
+  --border-gold-hover: rgba(240,185,11,0.30);
+  
+  /* 文字 */
+  --text-primary: #EAECEF;
+  --text-secondary: #848E9C;
+  --text-tertiary: #5E6673;
+  
+  /* 品牌色 - 美团黄 */
+  --gold: #F0B90B;
+  --gold-light: #FCD535;
+  --gold-bg: rgba(240,185,11,0.10);
+  
+  /* 语义色 */
+  --up: #00D4AA;
+  --up-bg: rgba(0,212,170,0.10);
+  --down: #EF4444;
+  --down-bg: rgba(239,68,68,0.10);
+  
+  /* 间距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  
+  /* 圆角 */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  
+  /* 手机宽度 */
+  --phone-width: 390px;
+  
+  /* 字体 */
+  --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-mono: "SF Mono", "Menlo", "Consolas", monospace;
+}
+
+/* Reset */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font);
+  background: #0a0a0a;
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 32px;
+  padding: 24px;
+}
+
+/* 手机框架 */
+.phone-frame {
+  width: var(--phone-width);
+  min-height: 700px;
+  background: var(--bg-primary);
+  border-radius: 24px;
+  overflow: hidden;
+  box-shadow: 0 0 60px rgba(240,185,11,0.06), 0 0 0 1px var(--border-primary);
+  position: relative;
+}
+.phone-frame::-webkit-scrollbar { width: 0; }
+
+/* 页面分隔标题 */
+.page-separator {
+  width: 100%;
+  max-width: 600px;
+  text-align: center;
+  padding: 16px 0;
+  color: var(--gold);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: 2px;
+}
+
+/* ============================================================
+   深蓝渐变卡片 - 核心复用组件
+   ============================================================ */
+.premium-card {
+  background: var(--card-gradient);
+  border: 1px solid var(--border-gold);
+  border-radius: var(--radius-lg);
+  padding: var(--space-5);
+  position: relative;
+  overflow: hidden;
+}
+.premium-card::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -15%;
+  width: 140px;
+  height: 140px;
+  background: var(--card-glow);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 普通卡片 */
+.normal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  transition: all 0.2s ease;
+}
+.normal-card:hover {
+  border-color: var(--border-gold);
+  transform: translateY(-1px);
+}
+
+/* ============================================================
+   导航栏
+   ============================================================ */
+.nav-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px var(--space-4);
+  padding-top: calc(14px + 28px);
+  background: var(--bg-primary);
+}
+.nav-title { font-size: 20px; font-weight: 700; color: var(--text-primary); }
+.nav-actions { display: flex; gap: var(--space-2); }
+.nav-btn {
+  width: 36px; height: 36px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+/* ============================================================
+   分类标签栏
+   ============================================================ */
+.tab-bar {
+  display: flex;
+  padding: 0 var(--space-4);
+  border-bottom: 1px solid var(--border-primary);
+  gap: 20px;
+}
+.tab-item {
+  padding: 10px 0;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  position: relative;
+  white-space: nowrap;
+}
+.tab-item.active { color: var(--text-primary); font-weight: 600; }
+.tab-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  height: 2px;
+  background: var(--gold);
+  border-radius: 1px;
+}
+.tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px; height: 16px;
+  padding: 0 4px;
+  font-size: 10px; font-weight: 700;
+  color: #FFF;
+  background: var(--down);
+  border-radius: 8px;
+  margin-left: 4px;
+}
+
+/* ============================================================
+   产品卡片 - 垫资进货风格
+   ============================================================ */
+.product-card {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  margin-bottom: var(--space-3);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-primary);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+.product-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(240,185,11,0.25), transparent);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.product-card:hover { background: rgba(255,255,255,0.02); }
+.product-card:hover::before { opacity: 1; }
+
+.product-icon {
+  width: 72px; height: 72px;
+  border-radius: 10px;
+  background: var(--bg-input);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  color: var(--gold);
+}
+.product-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; justify-content: space-between; }
+
+.product-name-row { display: flex; align-items: center; gap: 6px; }
+.category-badge {
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.category-otc { background: var(--up-bg); color: var(--up); }
+.category-prescription { background: var(--down-bg); color: var(--down); }
+.category-supplement { background: var(--gold-bg); color: var(--gold); }
+.product-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-spec {
+  font-size: 11px;
+  color: var(--text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.product-price-row { display: flex; align-items: baseline; gap: 6px; }
+.product-price {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--up);
+  font-family: var(--font-mono);
+}
+.product-profit {
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: 700;
+  color: #FFF;
+  background: var(--down);
+}
+.product-original {
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-decoration: line-through;
+  font-family: var(--font-mono);
+}
+
+.product-action { display: flex; justify-content: space-between; align-items: center; padding-top: 4px; border-top: 1px solid rgba(255,255,255,0.05); }
+.product-stock { font-size: 10px; color: var(--text-tertiary); }
+.buy-btn {
+  padding: 3px 12px;
+  min-width: 64px; height: 28px;
+  background: linear-gradient(135deg, var(--gold) 0%, #e6a800 100%);
+  color: #000;
+  font-size: 12px;
+  font-weight: 700;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(240,185,11,0.25);
+}
+
+/* ============================================================
+   底部导航栏
+   ============================================================ */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: var(--phone-width);
+  height: 64px;
+  padding-bottom: env(safe-area-inset-bottom);
+  background: var(--bg-primary);
+  border-top: 1px solid var(--border-primary);
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  z-index: 200;
+}
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 12px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 10px;
+}
+.nav-item.active { color: var(--gold); }
+.nav-item svg { width: 22px; height: 22px; }
+
+/* ============================================================
+   首页专属组件
+   ============================================================ */
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.quick-action-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+}
+.qa-icon {
+  width: 48px; height: 48px;
+  border-radius: var(--radius-md);
+  background: var(--gold-bg);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.qa-label { font-size: 12px; color: var(--text-secondary); }
+
+.transaction-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+.transaction-item:last-child { border-bottom: none; }
+.tx-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--gold-bg);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.tx-info { flex: 1; }
+.tx-name { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.tx-meta { font-size: 11px; color: var(--text-tertiary); }
+.tx-amount { text-align: right; }
+.tx-price { font-size: 14px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono); }
+.tx-time { font-size: 11px; color: var(--text-tertiary); }
+
+/* ============================================================
+   持仓页组件
+   ============================================================ */
+.holding-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+.holding-img {
+  width: 44px; height: 44px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+}
+.holding-info { flex: 1; }
+.holding-name { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+.holding-tags { display: flex; gap: 6px; margin-top: 4px; }
+.holding-qty { font-size: 12px; color: var(--text-secondary); }
+.holding-data { text-align: right; }
+.holding-price { font-size: 14px; font-weight: 600; font-family: var(--font-mono); }
+.holding-pnl { font-size: 12px; font-weight: 600; }
+.pnl-up { color: var(--up); }
+.pnl-down { color: var(--down); }
+
+/* ============================================================
+   资金页组件
+   ============================================================ */
+.fund-actions {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-4);
+}
+.fund-btn {
+  flex: 1;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.fund-btn-primary {
+  background: var(--gold);
+  color: #000;
+}
+.fund-btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-gold);
+  color: var(--gold);
+}
+
+.record-item {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  border-bottom: 1px solid var(--border-primary);
+}
+.record-icon {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--gold-bg);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.record-info { flex: 1; }
+.record-desc { font-size: 14px; color: var(--text-primary); }
+.record-time { font-size: 11px; color: var(--text-tertiary); }
+.record-amount { font-size: 14px; font-weight: 600; font-family: var(--font-mono); }
+.amount-up { color: var(--up); }
+.amount-down { color: var(--down); }
+
+/* ============================================================
+   个人中心组件
+   ============================================================ */
+.profile-stats {
+  display: flex;
+  justify-content: space-around;
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin: var(--space-4);
+}
+.stat-item { text-align: center; }
+.stat-value { font-size: 18px; font-weight: 700; color: var(--gold); font-family: var(--font-mono); }
+.stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
+
+.menu-list { padding: 0 var(--space-4); }
+.menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-2);
+  cursor: pointer;
+}
+.menu-item:hover { background: var(--bg-hover); }
+.menu-left { display: flex; align-items: center; gap: var(--space-3); }
+.menu-icon {
+  width: 36px; height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--gold-bg);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.menu-text { font-size: 15px; color: var(--text-primary); }
+.menu-arrow { color: var(--text-tertiary); }
+
+/* ============================================================
+   进货下单页组件
+   ============================================================ */
+.order-hero {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 4/3;
+  background: var(--bg-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--gold);
+  margin: var(--space-4);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+.order-hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(11,14,17,0.8) 0%, transparent 50%);
+}
+
+.order-info-card {
+  padding: var(--space-4);
+  margin: var(--space-4);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+}
+.order-row { display: flex; justify-content: space-between; padding: var(--space-2) 0; }
+.order-label { font-size: 13px; color: var(--text-secondary); }
+.order-value { font-size: 13px; color: var(--text-primary); font-family: var(--font-mono); }
+
+.quantity-section {
+  padding: var(--space-4);
+  margin: var(--space-4);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+}
+.qty-label { font-size: 13px; color: var(--text-secondary); margin-bottom: var(--space-2); }
+.qty-input-wrap {
+  display: flex;
+  align-items: center;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  padding: var(--space-3);
+  gap: var(--space-3);
+}
+.qty-btn {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--gold-bg);
+  color: var(--gold);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 18px;
+  font-weight: 600;
+}
+.qty-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  text-align: center;
+}
+.qty-unit { font-size: 14px; color: var(--text-secondary); }
+
+.price-summary {
+  padding: var(--space-4);
+  margin: var(--space-4);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+}
+.summary-row { display: flex; justify-content: space-between; padding: var(--space-2) 0; }
+.summary-total { 
+  display: flex; 
+  justify-content: space-between; 
+  padding: var(--space-3) 0;
+  border-top: 1px solid var(--border-primary);
+  margin-top: var(--space-2);
+}
+.total-label { font-size: 14px; color: var(--text-secondary); }
+.total-value { font-size: 20px; font-weight: 700; color: var(--gold); font-family: var(--font-mono); }
+
+.confirm-btn {
+  width: calc(100% - 32px);
+  margin: var(--space-4);
+  height: 50px;
+  background: var(--gold);
+  color: #000;
+  font-size: 16px;
+  font-weight: 700;
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgba(240,185,11,0.25);
+}
+
+/* ============================================================
+   SVG图标样式
+   ============================================================ */
+.icon-svg { stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+/* ============================================================
+   动画
+   ============================================================ */
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-in { animation: slideUp 0.4s ease both; }
+</style>
+</head>
+<body>
+
+<!-- ========== 页面1: 首页 ========== -->
+<div class="page-separator">首页 /m</div>
+<div class="phone-frame">
+  <!-- 导航栏 -->
+  <div class="nav-bar">
+    <div class="nav-title">零钱宝</div>
+    <div class="nav-actions">
+      <div class="nav-btn">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <div class="nav-btn">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 资产总览卡片 -->
+  <div style="padding: var(--space-4);">
+    <div class="premium-card animate-in">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;">
+        <div>
+          <div style="font-size: 13px; color: var(--text-secondary);">总资产</div>
+          <div style="font-size: 28px; font-weight: 700; color: var(--gold); font-family: var(--font-mono);">¥200,000.00</div>
+          <div style="display: flex; gap: 16px; margin-top: 8px;">
+            <div>
+              <div style="font-size: 11px; color: var(--text-tertiary);">今日收益</div>
+              <div style="font-size: 14px; color: var(--up); font-family: var(--font-mono);">+¥1,280.00</div>
+            </div>
+            <div>
+              <div style="font-size: 11px; color: var(--text-tertiary);">累计收益</div>
+              <div style="font-size: 14px; color: var(--up); font-family: var(--font-mono);">+¥45,680.00</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 快捷入口 -->
+  <div class="quick-actions">
+    <div class="quick-action-item">
+      <div class="qa-icon">
+        <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      </div>
+      <span class="qa-label">垫资进货</span>
+    </div>
+    <div class="quick-action-item">
+      <div class="qa-icon">
+        <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+      </div>
+      <span class="qa-label">持仓管理</span>
+    </div>
+    <div class="quick-action-item">
+      <div class="qa-icon">
+        <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+      </div>
+      <span class="qa-label">资金明细</span>
+    </div>
+    <div class="quick-action-item">
+      <div class="qa-icon">
+        <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+      </div>
+      <span class="qa-label">收益报表</span>
+    </div>
+  </div>
+  
+  <!-- 最新交易 -->
+  <div style="padding: var(--space-4);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
+      <span style="font-size: 16px; font-weight: 600; color: var(--text-primary);">最新交易</span>
+      <span style="font-size: 13px; color: var(--text-secondary); cursor: pointer;">查看全部 ›</span>
+    </div>
+    <div class="normal-card" style="padding: 0 var(--space-4);">
+      <div class="transaction-item">
+        <div class="tx-icon">
+          <svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24"><polyline points="12,4 12,16"/><polyline points="8,12 12,16 16,12"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+        </div>
+        <div class="tx-info">
+          <div class="tx-name">阿莫西林胶囊</div>
+          <div class="tx-meta">200盒 · 石药集团</div>
+        </div>
+        <div class="tx-amount">
+          <div class="tx-price">¥3,200.00</div>
+          <div class="tx-time">14:32</div>
+        </div>
+      </div>
+      <div class="transaction-item">
+        <div class="tx-icon">
+          <svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24"><polyline points="12,16 12,4"/><polyline points="8,8 12,4 16,8"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+        </div>
+        <div class="tx-info">
+          <div class="tx-name">复方丹参滴片</div>
+          <div class="tx-meta">500盒 · 天士力制药</div>
+        </div>
+        <div class="tx-amount">
+          <div class="tx-price" style="color: var(--up);">+¥8,500.00</div>
+          <div class="tx-time">11:15</div>
+        </div>
+      </div>
+      <div class="transaction-item">
+        <div class="tx-icon">
+          <svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24"><polyline points="12,4 12,16"/><polyline points="8,12 12,16 16,12"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+        </div>
+        <div class="tx-info">
+          <div class="tx-name">布洛芬缓释胶囊</div>
+          <div class="tx-meta">150盒 · 中美史克</div>
+        </div>
+        <div class="tx-amount">
+          <div class="tx-price">¥2,250.00</div>
+          <div class="tx-time">09:48</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 底部导航 -->
+  <div class="bottom-nav" style="position: absolute;">
+    <div class="nav-item active">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>首页</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>垫资进货</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+      <span>持仓</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+      <span>资金</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      <span>我的</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 页面2: 垫资进货 ========== -->
+<div class="page-separator">垫资进货 /m/trade</div>
+<div class="phone-frame">
+  <!-- 导航栏 -->
+  <div class="nav-bar">
+    <div class="nav-title">垫资进货</div>
+    <div class="nav-actions">
+      <div class="nav-btn">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+      <div class="nav-btn" style="position: relative;">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        <span style="position: absolute; top: 6px; right: 6px; width: 7px; height: 7px; border-radius: 50%; background: var(--down); border: 1.5px solid var(--bg-card);"></span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 额度卡片 -->
+  <div style="padding: var(--space-4);">
+    <div class="premium-card animate-in">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;">
+        <div>
+          <div style="font-size: 13px; color: var(--text-secondary);">今日可垫资额度</div>
+          <div style="font-size: 28px; font-weight: 700; color: var(--gold); font-family: var(--font-mono);">¥48,350.00</div>
+        </div>
+        <div style="min-width: 110px;">
+          <div style="font-size: 13px; color: var(--text-secondary);">已用额度</div>
+          <div style="font-size: 15px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono); margin-bottom: 8px;">¥151,650.00</div>
+          <div style="height: 4px; background: rgba(255,255,255,0.1); border-radius: 2px;">
+            <div style="width: 75.8%; height: 100%; background: var(--gold); border-radius: 2px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 分类标签 -->
+  <div class="tab-bar">
+    <div class="tab-item active">全部<div style="position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--gold);"></div></div>
+    <div class="tab-item">OTC<span class="tab-badge">8</span></div>
+    <div class="tab-item">处方药<span class="tab-badge">6</span></div>
+    <div class="tab-item">保健品<span class="tab-badge">4</span></div>
+  </div>
+  
+  <!-- 统计行 -->
+  <div style="display: flex; justify-content: space-between; padding: 10px var(--space-4);">
+    <span style="font-size: 13px; color: var(--text-secondary);">共 18 种药品</span>
+    <span style="font-size: 13px; font-weight: 600; color: var(--down);">最低利润率 +8%</span>
+  </div>
+  
+  <!-- 产品列表 -->
+  <div style="padding: 0 var(--space-4) 80px;">
+    <div class="product-card animate-in" style="animation-delay: 0s">
+      <div class="product-icon">
+        <svg class="icon-svg" width="28" height="28" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      </div>
+      <div class="product-info">
+        <div class="product-name-row">
+          <span class="category-badge category-otc">OTC</span>
+          <span class="product-name">阿莫西林胶囊</span>
+        </div>
+        <div class="product-spec">0.5g×24粒 | 华北制药</div>
+        <div class="product-price-row">
+          <span class="product-price">¥28.50</span>
+          <span class="product-profit">+12%</span>
+          <span class="product-original">¥25.40</span>
+        </div>
+        <div class="product-action">
+          <span class="product-stock">剩余 1,250 盒</span>
+          <button class="buy-btn">立即进货</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="product-card animate-in" style="animation-delay: 0.04s">
+      <div class="product-icon">
+        <svg class="icon-svg" width="28" height="28" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M12 13v4"/><path d="M9 17h6"/></svg>
+      </div>
+      <div class="product-info">
+        <div class="product-name-row">
+          <span class="category-badge category-prescription">处方药</span>
+          <span class="product-name">苯磺酸氨氯地平片</span>
+        </div>
+        <div class="product-spec">5mg×7片 | 辉瑞制药</div>
+        <div class="product-price-row">
+          <span class="product-price">¥35.80</span>
+          <span class="product-profit">+18%</span>
+          <span class="product-original">¥30.30</span>
+        </div>
+        <div class="product-action">
+          <span class="product-stock">剩余 680 盒</span>
+          <button class="buy-btn">立即进货</button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="product-card animate-in" style="animation-delay: 0.08s">
+      <div class="product-icon">
+        <svg class="icon-svg" width="28" height="28" viewBox="0 0 24 24"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.5 5.5 3 8.5 3C10.3 3 11.8 3.9 12 5C12.2 3.9 13.7 3 15.5 3C18.5 3 21 5.5 21 8.5C21 14.5 12 21 12 21Z"/></svg>
+      </div>
+      <div class="product-info">
+        <div class="product-name-row">
+          <span class="category-badge category-supplement">保健品</span>
+          <span class="product-name">东阿阿胶</span>
+        </div>
+        <div class="product-spec">250g/盒 | 东阿阿胶股份</div>
+        <div class="product-price-row">
+          <span class="product-price">¥899.00</span>
+          <span class="product-profit">+8%</span>
+          <span class="product-original">¥832.00</span>
+        </div>
+        <div class="product-action">
+          <span class="product-stock">剩余 120 盒</span>
+          <button class="buy-btn">立即进货</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 底部导航 -->
+  <div class="bottom-nav" style="position: absolute;">
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>首页</span>
+    </div>
+    <div class="nav-item active">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>垫资进货</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+      <span>持仓</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+      <span>资金</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      <span>我的</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 页面3: 持仓管理 ========== -->
+<div class="page-separator">持仓管理 /m/portfolio</div>
+<div class="phone-frame">
+  <!-- 导航栏 -->
+  <div class="nav-bar">
+    <div class="nav-title">持仓管理</div>
+    <div class="nav-actions">
+      <div class="nav-btn">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 持仓概览卡片 -->
+  <div style="padding: var(--space-4);">
+    <div class="premium-card animate-in">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;">
+        <div>
+          <div style="font-size: 13px; color: var(--text-secondary);">持仓总市值</div>
+          <div style="font-size: 28px; font-weight: 700; color: var(--gold); font-family: var(--font-mono);">¥156,800.00</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 13px; color: var(--text-secondary);">持仓药品数</div>
+          <div style="font-size: 18px; font-weight: 600; color: var(--text-primary); font-family: var(--font-mono);">12 种</div>
+          <div style="font-size: 13px; color: var(--up); font-family: var(--font-mono); margin-top: 4px;">+¥2,350.00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 筛选标签 -->
+  <div class="tab-bar">
+    <div class="tab-item active">全部<div style="position: absolute; bottom: 0; left: 0; right: 0; height: 2px; background: var(--gold);"></div></div>
+    <div class="tab-item">持仓中</div>
+    <div class="tab-item">已售出</div>
+  </div>
+  
+  <!-- 持仓列表 -->
+  <div style="padding: 0 var(--space-4) 80px;">
+    <div class="normal-card" style="padding: 0 var(--space-4); margin-top: var(--space-4);">
+      <div class="holding-row">
+        <div class="holding-img">
+          <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </div>
+        <div class="holding-info">
+          <div class="holding-name">阿莫西林胶囊</div>
+          <div class="holding-tags">
+            <span class="category-badge category-otc">OTC</span>
+            <span class="holding-qty">持有 500 盒</span>
+          </div>
+        </div>
+        <div class="holding-data">
+          <div class="holding-price" style="color: var(--text-primary);">¥14,250.00</div>
+          <div class="holding-pnl pnl-up">+8.5%</div>
+        </div>
+      </div>
+      
+      <div class="holding-row">
+        <div class="holding-img">
+          <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><circle cx="12" cy="8" r="5"/><path d="M12 13v4"/><path d="M9 17h6"/></svg>
+        </div>
+        <div class="holding-info">
+          <div class="holding-name">苯磺酸氨氯地平片</div>
+          <div class="holding-tags">
+            <span class="category-badge category-prescription">处方药</span>
+            <span class="holding-qty">持有 200 盒</span>
+          </div>
+        </div>
+        <div class="holding-data">
+          <div class="holding-price" style="color: var(--text-primary);">¥7,160.00</div>
+          <div class="holding-pnl pnl-up">+12.3%</div>
+        </div>
+      </div>
+      
+      <div class="holding-row">
+        <div class="holding-img">
+          <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><path d="M12 21C12 21 3 14.5 3 8.5C3 5.5 5.5 3 8.5 3C10.3 3 11.8 3.9 12 5C12.2 3.9 13.7 3 15.5 3C18.5 3 21 5.5 21 8.5C21 14.5 12 21 12 21Z"/></svg>
+        </div>
+        <div class="holding-info">
+          <div class="holding-name">东阿阿胶</div>
+          <div class="holding-tags">
+            <span class="category-badge category-supplement">保健品</span>
+            <span class="holding-qty">持有 30 盒</span>
+          </div>
+        </div>
+        <div class="holding-data">
+          <div class="holding-price" style="color: var(--text-primary);">¥26,970.00</div>
+          <div class="holding-pnl pnl-up">+6.2%</div>
+        </div>
+      </div>
+      
+      <div class="holding-row">
+        <div class="holding-img">
+          <svg class="icon-svg" width="24" height="24" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+        </div>
+        <div class="holding-info">
+          <div class="holding-name">布洛芬缓释胶囊</div>
+          <div class="holding-tags">
+            <span class="category-badge category-otc">OTC</span>
+            <span class="holding-qty">持有 150 盒</span>
+          </div>
+        </div>
+        <div class="holding-data">
+          <div class="holding-price" style="color: var(--text-primary);">¥3,300.00</div>
+          <div class="holding-pnl pnl-down">-2.1%</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 底部导航 -->
+  <div class="bottom-nav" style="position: absolute;">
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>首页</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>垫资进货</span>
+    </div>
+    <div class="nav-item active">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+      <span>持仓</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+      <span>资金</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      <span>我的</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 页面4: 资金明细 ========== -->
+<div class="page-separator">资金明细 /m/settlement</div>
+<div class="phone-frame">
+  <!-- 导航栏 -->
+  <div class="nav-bar">
+    <div class="nav-title">资金明细</div>
+    <div class="nav-actions">
+      <div class="nav-btn">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 账户余额卡片 -->
+  <div style="padding: var(--space-4);">
+    <div class="premium-card animate-in">
+      <div style="display: flex; justify-content: space-between; align-items: flex-start; position: relative; z-index: 1;">
+        <div>
+          <div style="font-size: 13px; color: var(--text-secondary);">可用余额</div>
+          <div style="font-size: 28px; font-weight: 700; color: var(--gold); font-family: var(--font-mono);">¥52,680.00</div>
+        </div>
+        <div style="text-align: right;">
+          <div style="font-size: 13px; color: var(--text-secondary);">冻结金额</div>
+          <div style="font-size: 15px; font-weight: 600; color: var(--text-tertiary); font-family: var(--font-mono);">¥12,000.00</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 资金操作按钮 -->
+  <div class="fund-actions">
+    <div class="fund-btn fund-btn-primary">
+      <svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+      充值
+    </div>
+    <div class="fund-btn fund-btn-outline">
+      <svg class="icon-svg" width="18" height="18" viewBox="0 0 24 24"><polyline points="12,16 12,4"/><polyline points="8,8 12,4 16,8"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+      提现
+    </div>
+  </div>
+  
+  <!-- 交易记录 -->
+  <div style="padding: var(--space-4);">
+    <div style="font-size: 16px; font-weight: 600; color: var(--text-primary); margin-bottom: var(--space-3);">交易记录</div>
+    <div class="normal-card" style="padding: 0 var(--space-4);">
+      <div class="record-item">
+        <div class="record-icon">
+          <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+        </div>
+        <div class="record-info">
+          <div class="record-desc">账户充值</div>
+          <div class="record-time">2026-05-09 14:22</div>
+        </div>
+        <div class="record-amount amount-up">+¥10,000.00</div>
+      </div>
+      
+      <div class="record-item">
+        <div class="record-icon">
+          <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24"><polyline points="12,4 12,16"/><polyline points="8,12 12,16 16,12"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+        </div>
+        <div class="record-info">
+          <div class="record-desc">交易收入 · 阿莫西林胶囊</div>
+          <div class="record-time">2026-05-09 11:30</div>
+        </div>
+        <div class="record-amount amount-up">+¥5,700.00</div>
+      </div>
+      
+      <div class="record-item">
+        <div class="record-icon">
+          <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24"><polyline points="12,16 12,4"/><polyline points="8,8 12,4 16,8"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+        </div>
+        <div class="record-info">
+          <div class="record-desc">垫资支出 · 头孢克肟分散片</div>
+          <div class="record-time">2026-05-08 16:15</div>
+        </div>
+        <div class="record-amount amount-down">-¥4,800.00</div>
+      </div>
+      
+      <div class="record-item">
+        <div class="record-icon">
+          <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24"><polyline points="12,4 12,16"/><polyline points="8,12 12,16 16,12"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+        </div>
+        <div class="record-info">
+          <div class="record-desc">交易收入 · 复方丹参滴片</div>
+          <div class="record-time">2026-05-08 10:05</div>
+        </div>
+        <div class="record-amount amount-up">+¥8,500.00</div>
+      </div>
+      
+      <div class="record-item" style="border-bottom: none;">
+        <div class="record-icon">
+          <svg class="icon-svg" width="16" height="16" viewBox="0 0 24 24"><polyline points="12,16 12,4"/><polyline points="8,8 12,4 16,8"/><rect x="4" y="18" width="16" height="2" rx="1"/></svg>
+        </div>
+        <div class="record-info">
+          <div class="record-desc">垫资支出 · 连花清瘟颗粒</div>
+          <div class="record-time">2026-05-06 14:48</div>
+        </div>
+        <div class="record-amount amount-down">-¥3,200.00</div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 底部导航 -->
+  <div class="bottom-nav" style="position: absolute;">
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>首页</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>垫资进货</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+      <span>持仓</span>
+    </div>
+    <div class="nav-item active">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+      <span>资金</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      <span>我的</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 页面5: 个人中心 ========== -->
+<div class="page-separator">个人中心 /m/profile</div>
+<div class="phone-frame">
+  <!-- 导航栏 -->
+  <div class="nav-bar">
+    <div class="nav-title">我的</div>
+    <div class="nav-actions">
+      <div class="nav-btn">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 个人资料卡片 -->
+  <div style="padding: var(--space-4);">
+    <div class="premium-card animate-in">
+      <div style="display: flex; align-items: center; gap: var(--space-4); position: relative; z-index: 1;">
+        <div style="width: 56px; height: 56px; border-radius: 50%; background: var(--gold-bg); display: flex; align-items: center; justify-content: center; color: var(--gold);">
+          <svg class="icon-svg" width="32" height="32" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+        </div>
+        <div>
+          <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">张先生</div>
+          <div style="font-size: 13px; color: var(--text-secondary);">138****8888</div>
+          <span style="display: inline-block; margin-top: 6px; padding: 2px 10px; background: var(--gold-bg); color: var(--gold); border-radius: 10px; font-size: 11px; font-weight: 600;">VIP会员</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 资产统计 -->
+  <div class="profile-stats">
+    <div class="stat-item">
+      <div class="stat-value">¥200K</div>
+      <div class="stat-label">总资产</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">¥45.6K</div>
+      <div class="stat-label">累计收益</div>
+    </div>
+    <div class="stat-item">
+      <div class="stat-value">12</div>
+      <div class="stat-label">持仓数量</div>
+    </div>
+  </div>
+  
+  <!-- 功能菜单 -->
+  <div class="menu-list">
+    <div class="menu-item">
+      <div class="menu-left">
+        <div class="menu-icon">
+          <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+        </div>
+        <span class="menu-text">我的订单</span>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    
+    <div class="menu-item">
+      <div class="menu-left">
+        <div class="menu-icon">
+          <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><polyline points="22,12 18,12 15,21 9,3 6,12 2,12"/></svg>
+        </div>
+        <span class="menu-text">收益明细</span>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    
+    <div class="menu-item">
+      <div class="menu-left">
+        <div class="menu-icon">
+          <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </div>
+        <span class="menu-text">邀请好友</span>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    
+    <div class="menu-item">
+      <div class="menu-left">
+        <div class="menu-icon">
+          <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
+        <span class="menu-text">安全设置</span>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    
+    <div class="menu-item">
+      <div class="menu-left">
+        <div class="menu-icon">
+          <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+        </div>
+        <span class="menu-text">关于我们</span>
+      </div>
+      <span class="menu-arrow">›</span>
+    </div>
+    
+    <div class="menu-item" style="margin-top: var(--space-4); border: 1px solid var(--down);">
+      <div class="menu-left">
+        <div class="menu-icon" style="background: var(--down-bg); color: var(--down);">
+          <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </div>
+        <span class="menu-text" style="color: var(--down);">退出登录</span>
+      </div>
+    </div>
+  </div>
+  
+  <!-- 底部导航 -->
+  <div class="bottom-nav" style="position: absolute;">
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      <span>首页</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+      <span>垫资进货</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="7" y1="16" x2="13" y2="16"/></svg>
+      <span>持仓</span>
+    </div>
+    <div class="nav-item">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><line x1="6" y1="10" x2="18" y2="10"/><circle cx="12" cy="14" r="2"/></svg>
+      <span>资金</span>
+    </div>
+    <div class="nav-item active">
+      <svg class="icon-svg" width="22" height="22" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 22c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      <span>我的</span>
+    </div>
+  </div>
+</div>
+
+<!-- ========== 页面6: 进货下单页 ========== -->
+<div class="page-separator">进货下单 /m/trade/:id</div>
+<div class="phone-frame">
+  <!-- 导航栏 -->
+  <div class="nav-bar">
+    <div style="display: flex; align-items: center; gap: var(--space-3);">
+      <div class="nav-btn">
+        <svg class="icon-svg" width="20" height="20" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+      </div>
+      <div class="nav-title">进货下单</div>
+    </div>
+  </div>
+  
+  <!-- 药品展示区 -->
+  <div class="order-hero animate-in">
+    <svg class="icon-svg" width="80" height="80" viewBox="0 0 24 24" style="position: relative; z-index: 1;"><rect x="8" y="3" width="8" height="18" rx="4"/><line x1="8" y1="12" x2="16" y2="12"/></svg>
+  </div>
+  
+  <!-- 药品信息 -->
+  <div class="order-info-card">
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: var(--space-3);">
+      <span class="category-badge category-otc">OTC</span>
+      <span style="font-size: 18px; font-weight: 700; color: var(--text-primary);">阿莫西林胶囊</span>
+    </div>
+    <div style="font-size: 13px; color: var(--text-tertiary); margin-bottom: var(--space-4);">0.5g×24粒 | 华北制药</div>
+    <div class="order-row">
+      <span class="order-label">单价</span>
+      <span class="order-value" style="color: var(--up);">¥28.50</span>
+    </div>
+    <div class="order-row">
+      <span class="order-label">利润率</span>
+      <span class="order-value" style="color: var(--down);">+12%</span>
+    </div>
+    <div class="order-row">
+      <span class="order-label">剩余库存</span>
+      <span class="order-value">1,250 盒</span>
+    </div>
+  </div>
+  
+  <!-- 数量选择 -->
+  <div class="quantity-section">
+    <div class="qty-label">进货数量</div>
+    <div class="qty-input-wrap">
+      <div class="qty-btn">-</div>
+      <input class="qty-input" type="text" value="100" readonly>
+      <div class="qty-btn">+</div>
+      <span class="qty-unit">盒</span>
+    </div>
+    <div style="display: flex; gap: var(--space-2); margin-top: var(--space-3);">
+      <div style="padding: 8px 16px; background: var(--bg-input); border-radius: var(--radius-sm); color: var(--gold); font-size: 14px; cursor: pointer;">50盒</div>
+      <div style="padding: 8px 16px; background: var(--bg-input); border-radius: var(--radius-sm); color: var(--gold); font-size: 14px; cursor: pointer;">100盒</div>
+      <div style="padding: 8px 16px; background: var(--bg-input); border-radius: var(--radius-sm); color: var(--gold); font-size: 14px; cursor: pointer;">200盒</div>
+      <div style="padding: 8px 16px; background: var(--bg-input); border-radius: var(--radius-sm); color: var(--gold); font-size: 14px; cursor: pointer;">全部</div>
+    </div>
+  </div>
+  
+  <!-- 价格计算 -->
+  <div class="price-summary">
+    <div class="summary-row">
+      <span style="font-size: 13px; color: var(--text-secondary);">药品总价</span>
+      <span style="font-size: 14px; color: var(--text-primary); font-family: var(--font-mono);">¥2,850.00</span>
+    </div>
+    <div class="summary-row">
+      <span style="font-size: 13px; color: var(--text-secondary);">预计利润</span>
+      <span style="font-size: 14px; color: var(--up); font-family: var(--font-mono);">+¥340.00</span>
+    </div>
+    <div class="summary-row">
+      <span style="font-size: 13px; color: var(--text-secondary);">服务费</span>
+      <span style="font-size: 14px; color: var(--text-tertiary); font-family: var(--font-mono);">¥0.00</span>
+    </div>
+    <div class="summary-total">
+      <span class="total-label">应付总额</span>
+      <span class="total-value">¥2,850.00</span>
+    </div>
+  </div>
+  
+  <!-- 确认按钮 -->
+  <button class="confirm-btn">确认进货</button>
+  
+  <!-- 底部安全区域 -->
+  <div style="height: 80px;"></div>
+</div>
+
+</body>
+</html>

@@ -30,7 +30,7 @@ export class AlipayService {
       }
 
       this.alipaySdk = new AlipaySdk({
-        appId: this.configService.get('ALIPAY_APP_ID'),
+        appId: this.configService.get('ALIPAY_APP_ID') || '',
         privateKey: this.privateKey,
         alipayPublicKey: this.alipayPublicKey,
         keyType: 'PKCS8', // 支付宝密钥工具默认生成PKCS8格式

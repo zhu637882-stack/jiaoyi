@@ -1,461 +1,500 @@
-import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react'
+import React, { useEffect, useState, useCallback, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { PullToRefresh, SearchBar, Toast } from 'antd-mobile'
-import { marketApi, drugApi, subscriptionApi } from '../services/api'
-import { wsService } from '../services/websocket'
-import VirtualList from '../components/VirtualList'
+import { PullToRefresh } from 'antd-mobile'
+import { drugApi, accountApi } from '../services/api'
 import './TradeList.css'
+
+// ============================================
+// 类型定义
+// ============================================
 
 interface DrugItem {
   id: string | number
   name: string
   code: string
+  spec?: string
+  manufacturer?: string
+  category?: string
+  type?: string
   purchasePrice: number
   sellingPrice: number
-  change: number
   changePercent: number
-  status: string
   remainingQuantity: number
   totalQuantity: number
-  actualSellingPrice?: number
-  actualPriceUpdatedAt?: string
-  operationFeeRate?: number
-  slowSellingDays?: number
-  batchNo?: string
+  imageUrl?: string
+  image?: string
 }
 
-type CategoryTab = 'all' | 'hot' | 'gain' | 'loss'
+type CategoryTab = 'all' | 'otc' | 'prescription' | 'supplement'
 
-const PAGE_SIZE = 20
+interface BalanceData {
+  availableBalance: number
+  totalInvested: number
+}
 
-/* ============================================
-   格式化工具
-   ============================================ */
+// ============================================
+// 分类配置
+// ============================================
+
+const CATEGORY_TABS: { key: CategoryTab; label: string }[] = [
+  { key: 'all', label: '全部' },
+  { key: 'otc', label: 'OTC' },
+  { key: 'prescription', label: '处方药' },
+  { key: 'supplement', label: '保健品' },
+]
+
+const CATEGORY_MAP: Record<string, CategoryTab> = {
+  'otc': 'otc',
+  'OTC': 'otc',
+  'prescription': 'prescription',
+  '处方药': 'prescription',
+  'supplement': 'supplement',
+  '保健品': 'supplement',
+  'health_supplement': 'supplement',
+}
+
+const CATEGORY_LABEL: Record<CategoryTab, string> = {
+  otc: 'OTC',
+  prescription: '处方药',
+  supplement: '保健品',
+  all: '',
+}
+
+const CATEGORY_COLORS: Record<CategoryTab, { bg: string; color: string }> = {
+  prescription: { bg: 'rgba(239, 68, 68, 0.15)', color: '#EF4444' },
+  otc: { bg: 'rgba(16, 185, 129, 0.15)', color: '#10B981' },
+  supplement: { bg: 'rgba(240, 185, 11, 0.15)', color: '#F0B90B' },
+  all: { bg: 'transparent', color: 'transparent' },
+}
+
+// ============================================
+// 工具函数
+// ============================================
+
 const formatPrice = (price: number): string => {
-  return price.toFixed(2)
+  return price.toLocaleString('zh-CN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-/* ============================================
-   TradeList - 交易页（卡片风格产品列表）
-   ============================================ */
+const getDrugCategory = (drug: DrugItem): CategoryTab => {
+  if (drug.category) return CATEGORY_MAP[drug.category] || 'otc'
+  if (drug.type) return CATEGORY_MAP[drug.type] || 'otc'
+  return 'otc'
+}
+
+// ============================================
+// SVG 图标
+// ============================================
+
+const SearchIcon = () => (
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#848E9C" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="11" cy="11" r="8" />
+    <line x1="21" y1="21" x2="16.65" y2="16.65" />
+  </svg>
+)
+
+// 处方药 - 听诊器图标（红色）
+const PrescriptionIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <circle cx="12" cy="8" r="5" stroke="#EF4444" strokeWidth="1.5" fill="rgba(239,68,68,0.1)" />
+    <path d="M12 13v4" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" />
+    <path d="M9 17h6" stroke="#EF4444" strokeWidth="1.5" strokeLinecap="round" />
+    <circle cx="8" cy="7" r="1.5" fill="#EF4444" />
+    <circle cx="16" cy="7" r="1.5" fill="#EF4444" />
+  </svg>
+)
+
+// OTC - 胶囊图标（绿色）
+const OtcIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <rect x="8" y="3" width="8" height="18" rx="4" stroke="#10B981" strokeWidth="1.5" fill="rgba(16,185,129,0.1)" />
+    <line x1="8" y1="12" x2="16" y2="12" stroke="#10B981" strokeWidth="1.5" />
+  </svg>
+)
+
+// 保健品 - 心形图标（黄色）
+const SupplementIcon = () => (
+  <svg width="28" height="28" viewBox="0 0 24 24" fill="none">
+    <path d="M12 21C12 21 3 14.5 3 8.5C3 5.5 5.5 3 8.5 3C10.3 3 11.8 3.9 12 5C12.2 3.9 13.7 3 15.5 3C18.5 3 21 5.5 21 8.5C21 14.5 12 21 12 21Z" stroke="#F0B90B" strokeWidth="1.5" fill="rgba(240,185,11,0.1)" />
+  </svg>
+)
+
+// 药品图片占位图标
+const DrugImagePlaceholder = () => (
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5E6673" strokeWidth="1.5">
+    <rect x="5" y="2" width="14" height="20" rx="7" />
+    <line x1="5" y1="12" x2="19" y2="12" />
+  </svg>
+)
+
+// 药品图片组件 - 带懒加载和错误处理（缩略图优先，失败回退原图）
+const DrugImage: React.FC<{ drug: DrugItem; categoryIcon: React.ReactNode }> = ({ drug, categoryIcon }) => {
+  const [loaded, setLoaded] = React.useState(false)
+  const [error, setError] = React.useState(false)
+  const [useFallback, setUseFallback] = React.useState(false)
+  const imgRef = React.useRef<HTMLImageElement>(null)
+
+  // 构建图片URL - 优先缩略图版本（300px），不存在则回退原图
+  const buildImageUrls = (url: string | undefined) => {
+    if (!url) return { thumb: '', original: '' }
+    if (url.startsWith('http://') || url.startsWith('https://')) return { thumb: url, original: url }
+    const path = url.startsWith('/') ? url : `/${url}`
+    const thumb = path.replace(/(\.[^.]+)$/, '_thumb$1')
+    return { thumb, original: path }
+  }
+
+  const { thumb: thumbSrc, original: originalSrc } = buildImageUrls(drug.imageUrl || drug.image)
+  const src = useFallback ? originalSrc : thumbSrc
+
+  // 检查图片是否已缓存加载
+  React.useEffect(() => {
+    if (imgRef.current && imgRef.current.complete && imgRef.current.naturalHeight > 0) {
+      setLoaded(true)
+    }
+  }, [src])
+
+  // 图片加载失败时：缩略图失败回退原图，原图失败显示占位图标
+  const handleError = () => {
+    if (!useFallback && thumbSrc !== originalSrc) {
+      console.warn(`缩略图加载失败,回退原图: ${thumbSrc}`)
+      setUseFallback(true)
+      return
+    }
+    console.warn(`图片加载失败: ${src}`)
+    setError(true)
+  }
+
+  if (!thumbSrc || error) {
+    return (
+      <div className="tl-drug-img-placeholder">
+        {categoryIcon}
+      </div>
+    )
+  }
+
+  return (
+    <>
+      {!loaded && (
+        <div className="tl-drug-img-placeholder tl-drug-img-loading">
+          <DrugImagePlaceholder />
+        </div>
+      )}
+      <img
+        ref={imgRef}
+        src={src}
+        alt={drug.name}
+        className={`tl-drug-img ${loaded ? 'tl-drug-img-loaded' : ''}`}
+        onLoad={() => setLoaded(true)}
+        onError={handleError}
+        style={{ opacity: loaded ? 1 : 0 }}
+      />
+    </>
+  )
+}
+
+// ============================================
+// 主组件
+// ============================================
+
 const TradeList: React.FC = () => {
   const navigate = useNavigate()
   const [drugs, setDrugs] = useState<DrugItem[]>([])
   const [loading, setLoading] = useState(true)
-  const [keyword, setKeyword] = useState('')
   const [activeTab, setActiveTab] = useState<CategoryTab>('all')
+  const [searchText, setSearchText] = useState('')
+  const [balance, setBalance] = useState<BalanceData | null>(null)
 
-  // 分页状态
-  const [page, setPage] = useState(1)
-  const [total, setTotal] = useState(0)
-  const [hasMore, setHasMore] = useState(true)
-  const [loadingMore, setLoadingMore] = useState(false)
-  const [exporting, setExporting] = useState(false)
-  const loadingMoreRef = useRef(false)
-  const listBottomRef = useRef<HTMLDivElement>(null)
-
-  const tabs = [
-    { key: 'all', label: '全部' },
-    { key: 'hot', label: '热门' },
-    { key: 'gain', label: '涨幅榜' },
-    { key: 'loss', label: '跌幅榜' },
-  ] as const
-
-  /* ---------- 映射药品数据 ---------- */
-  const mapDrugItem = (d: any): DrugItem => ({
-    id: d.id,
-    name: d.name,
-    code: d.code,
-    purchasePrice: Number(d.purchasePrice) || 0,
-    sellingPrice: Number(d.sellingPrice) || 0,
-    change: Number(d.change || d.dailyReturn) || 0,
-    changePercent: Number(d.changePercent || d.dailyReturnRate) || 0,
-    status: d.status,
-    remainingQuantity: Number(d.remainingQuantity) || 0,
-    totalQuantity: Number(d.totalQuantity) || 0,
-    actualSellingPrice: d.actualSellingPrice != null ? Number(d.actualSellingPrice) : undefined,
-    actualPriceUpdatedAt: d.actualPriceUpdatedAt || undefined,
-    operationFeeRate: d.operationFeeRate != null ? Number(d.operationFeeRate) : undefined,
-    slowSellingDays: d.slowSellingDays != null ? Number(d.slowSellingDays) : undefined,
-    batchNo: d.batchNo || undefined,
-  })
-
-  /* ---------- 初始加载 ---------- */
-  const loadData = useCallback(async () => {
+  // 加载药品列表
+  const loadDrugs = useCallback(async () => {
     try {
       setLoading(true)
-      const drugsRes = await drugApi.getDrugs({ keyword: keyword || undefined, page: 1, pageSize: PAGE_SIZE }) as any
-      const drugsData = drugsRes?.data?.items || drugsRes?.data || drugsRes?.list || drugsRes || []
+      const res = await drugApi.getDrugs({ page: 1, pageSize: 100 }) as any
+      const drugsData = res?.data?.items || res?.data || res?.list || res || []
       const arr = Array.isArray(drugsData) ? drugsData : (drugsData?.items ? drugsData.items : [])
-      const mapped = arr.map(mapDrugItem)
-      const totalCount = drugsRes?.data?.total || 0
+      const mapped = arr.map((d: any): DrugItem => ({
+        id: d.id,
+        name: d.name || '未知药品',
+        code: d.code || '',
+        spec: d.spec || d.unit || '',
+        manufacturer: d.manufacturer || d.factory || '',
+        category: d.category || d.type || '',
+        type: d.type || d.category || '',
+        imageUrl: d.imageUrl || d.image || '',
+        purchasePrice: Number(d.purchasePrice) || 0,
+        sellingPrice: Number(d.sellingPrice) || 0,
+        changePercent: Number(d.changePercent || d.dailyReturnRate) || 0,
+        remainingQuantity: Number(d.remainingQuantity) || 0,
+        totalQuantity: Number(d.totalQuantity) || 0,
+      }))
       setDrugs(mapped)
-      setTotal(totalCount)
-      setPage(1)
-      setHasMore(mapped.length < totalCount)
     } catch (e) {
-      console.error('Load trade list error:', e)
+      console.error('Load drugs error:', e)
     } finally {
       setLoading(false)
     }
-  }, [keyword])
+  }, [])
 
-  /* ---------- 加载更多 ---------- */
-  const loadMore = useCallback(async () => {
-    if (loadingMoreRef.current || !hasMore) return
-    loadingMoreRef.current = true
-    setLoadingMore(true)
+  // 加载账户余额
+  const loadBalance = useCallback(async () => {
     try {
-      const nextPage = page + 1
-      const drugsRes = await drugApi.getDrugs({ keyword: keyword || undefined, page: nextPage, pageSize: PAGE_SIZE }) as any
-      const drugsData = drugsRes?.data?.items || drugsRes?.data || drugsRes?.list || drugsRes || []
-      const arr = Array.isArray(drugsData) ? drugsData : (drugsData?.items ? drugsData.items : [])
-      const mapped = arr.map(mapDrugItem)
-      const totalCount = drugsRes?.data?.total || 0
-      setDrugs(prev => [...prev, ...mapped])
-      setPage(nextPage)
-      setTotal(totalCount)
-      setHasMore(drugs.length + mapped.length < totalCount)
-    } catch (e) {
-      console.error('Load more error:', e)
-    } finally {
-      setLoadingMore(false)
-      loadingMoreRef.current = false
-    }
-  }, [page, hasMore, keyword, drugs.length])
-
-  /* ---------- IntersectionObserver 上拉加载 ---------- */
-  useEffect(() => {
-    const bottomEl = listBottomRef.current
-    if (!bottomEl) return
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && hasMore && !loadingMoreRef.current && !loading) {
-          loadMore()
-        }
-      },
-      { rootMargin: '200px' }
-    )
-    observer.observe(bottomEl)
-    return () => observer.disconnect()
-  }, [hasMore, loadMore, loading])
-
-  /* ---------- WebSocket 行情推送 ---------- */
-  useEffect(() => {
-    let isMounted = true
-
-    const init = async () => {
-      try { if (isMounted) await loadData() } catch (e) { console.error('TradeList init error:', e) }
-    }
-    init()
-
-    try {
-      wsService.connect()
-      wsService.subscribeTicker()
-      wsService.on('market:ticker', (data: any) => {
-        if (isMounted && data) {
-          setDrugs(prev => prev.map(d => {
-            if (!d?.id) return d
-            const tickerItem = Array.isArray(data)
-              ? data.find((t: any) => String(t?.drugId) === String(d.id))
-              : null
-            if (tickerItem) {
-              return {
-                ...d,
-                sellingPrice: tickerItem?.price || d?.sellingPrice,
-                change: tickerItem?.change ?? d?.change,
-                changePercent: tickerItem?.changePercent ?? d?.changePercent,
-              }
-            }
-            return d
-          }))
-        }
+      const res = await accountApi.getBalance() as any
+      const data = res?.data || res
+      setBalance({
+        availableBalance: Number(data?.availableBalance ?? 0),
+        totalInvested: Number(data?.totalInvested ?? 0),
       })
     } catch (e) {
-      console.error('WebSocket error:', e)
+      console.error('Load balance error:', e)
     }
+  }, [])
 
-    return () => {
-      isMounted = false
-      try { wsService.unsubscribeTicker() } catch (e) { console.error('WS unsubscribe error:', e) }
+  // 初始加载
+  useEffect(() => {
+    let isMounted = true
+    const init = async () => {
+      try {
+        if (isMounted) await loadDrugs()
+        if (isMounted) await loadBalance()
+      } catch (e) {
+        console.error('TradeList init error:', e)
+      }
     }
-  }, [loadData])
+    init()
+    return () => { isMounted = false }
+  }, [loadDrugs, loadBalance])
 
-  /* ---------- 筛选 ---------- */
+  // 分类计数
+  const categoryCounts = useMemo(() => {
+    const counts: Record<CategoryTab, number> = { all: 0, otc: 0, prescription: 0, supplement: 0 }
+    drugs.forEach(d => {
+      counts.all++
+      const cat = getDrugCategory(d)
+      counts[cat] = (counts[cat] || 0) + 1
+    })
+    return counts
+  }, [drugs])
+
+  // 筛选后的药品
   const filteredDrugs = useMemo(() => {
     let result = drugs
-
-    // 分类筛选
-    switch (activeTab) {
-      case 'hot':
-        result = result.slice(0, 5)
-        break
-      case 'gain':
-        result = [...result].sort((a, b) => (b.changePercent || 0) - (a.changePercent || 0))
-        break
-      case 'loss':
-        result = [...result].sort((a, b) => (a.changePercent || 0) - (b.changePercent || 0))
-        break
-      default:
-        break
+    if (activeTab !== 'all') {
+      result = result.filter(d => getDrugCategory(d) === activeTab)
     }
-
-    // 关键词搜索
-    if (keyword.trim()) {
-      const kw = keyword.trim().toLowerCase()
-      result = result.filter(d =>
-        d.name.toLowerCase().includes(kw) || d.code.toLowerCase().includes(kw)
-      )
+    if (searchText.trim()) {
+      const kw = searchText.trim().toLowerCase()
+      result = result.filter(d => d.name.toLowerCase().includes(kw))
     }
-
     return result
-  }, [drugs, keyword, activeTab])
+  }, [drugs, activeTab, searchText])
 
-  /* ---------- 卡片交互处理 ---------- */
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const card = e.currentTarget
-    const rect = card.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    const centerX = rect.width / 2
-    const centerY = rect.height / 2
-    
-    // 计算旋转角度（±15度范围）
-    const rotateX = ((y - centerY) / centerY) * -15
-    const rotateY = ((x - centerX) / centerX) * 15
-    
-    card.style.setProperty('--rotateX', `${rotateX}deg`)
-    card.style.setProperty('--rotateY', `${rotateY}deg`)
-    card.classList.add('is-3d')
-  }
+  // 最低利润率
+  const minProfitRate = useMemo(() => {
+    if (filteredDrugs.length === 0) return 0
+    let minRate = Infinity
+    filteredDrugs.forEach(d => {
+      if (d.purchasePrice > 0) {
+        const rate = ((d.sellingPrice - d.purchasePrice) / d.purchasePrice) * 100
+        if (rate < minRate) minRate = rate
+      }
+    })
+    return minRate === Infinity ? 0 : minRate
+  }, [filteredDrugs])
 
-  const handleMouseLeave = (e: React.MouseEvent<HTMLDivElement>) => {
-    const card = e.currentTarget
-    card.classList.remove('is-3d')
-    card.style.setProperty('--rotateX', '0deg')
-    card.style.setProperty('--rotateY', '0deg')
-  }
+  // 额度数据
+  const quotaTotal = balance ? balance.availableBalance + balance.totalInvested : 50000
+  const quotaUsed = balance?.totalInvested || 0
+  const quotaPercent = quotaTotal > 0 ? Math.min((quotaUsed / quotaTotal) * 100, 100) : 0
 
-  const handleCardClick = (e: React.MouseEvent<HTMLDivElement>, drugId: string | number) => {
-    const card = e.currentTarget
-    
-    // 添加点击动画类
-    card.classList.add('clicked')
-    
-    // 创建波纹效果
-    const rect = card.getBoundingClientRect()
-    const x = e.clientX - rect.left
-    const y = e.clientY - rect.top
-    
-    const ripple = document.createElement('span')
-    ripple.className = 'ripple'
-    const size = Math.max(rect.width, rect.height)
-    ripple.style.width = ripple.style.height = `${size}px`
-    ripple.style.left = `${x - size / 2}px`
-    ripple.style.top = `${y - size / 2}px`
-    
-    card.appendChild(ripple)
-    
-    // 动画结束后跳转
-    setTimeout(() => {
-      navigate(`/m/trade/${drugId}`)
-    }, 500)
-  }
-
-  const handleTouchStart = (e: React.TouchEvent<HTMLDivElement>) => {
-    const card = e.currentTarget
-    card.classList.add('touch-active')
-  }
-
-  const handleTouchEnd = (e: React.TouchEvent<HTMLDivElement>) => {
-    const card = e.currentTarget
-    card.classList.remove('touch-active')
-  }
-
-  /* ---------- 导出交易记录 ---------- */
-  const handleExport = useCallback(async () => {
-    if (exporting) return
-    setExporting(true)
-    try {
-      const blob = await subscriptionApi.exportCsv()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      const now = new Date()
-      const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`
-      a.href = url
-      a.download = `零钱保_交易记录_${dateStr}.csv`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(url)
-    } catch (e) {
-      console.error('Export error:', e)
-      Toast.show({ content: '导出失败，请稍后重试', icon: 'fail' })
-    } finally {
-      setExporting(false)
+  // 获取分类图标
+  const getCategoryIcon = (cat: CategoryTab) => {
+    switch (cat) {
+      case 'prescription': return <PrescriptionIcon />
+      case 'otc': return <OtcIcon />
+      case 'supplement': return <SupplementIcon />
+      default: return <OtcIcon />
     }
-  }, [exporting])
+  }
 
-  /* ---------- 渲染卡片 ---------- */
-  const renderDrugCard = (drug: DrugItem, index: number) => {
-    const isUp = (drug.changePercent || 0) >= 0
-    const changePercent = drug.changePercent || 0
+  // 利润率计算
+  const calcProfitRate = (drug: DrugItem): number => {
+    if (drug.purchasePrice > 0) {
+      return ((drug.sellingPrice - drug.purchasePrice) / drug.purchasePrice) * 100
+    }
+    return 0
+  }
 
-    return (
-      <div
-        key={drug.id}
-        className="trade-card"
-        onClick={(e) => handleCardClick(e, drug.id)}
-        onMouseMove={handleMouseMove}
-        onMouseLeave={handleMouseLeave}
-        onTouchStart={handleTouchStart}
-        onTouchEnd={handleTouchEnd}
-        style={{ animationDelay: `${index * 0.06}s` }}
-      >
-        {/* 第一行：品种名称 */}
-        <div className="trade-card-row1">
-          <span className="trade-card-name">{drug.name}</span>
+  return (
+    <div className="tl-page">
+      {/* ===== 固定头部区域 ===== */}
+      <div className="tl-sticky-header">
+        {/* ===== 顶部导航栏 ===== */}
+        <div className="tl-nav">
+          <div className="tl-nav-title">垫资进货</div>
+
         </div>
 
-        {/* 第二行：规格代码（左）+ 徽章/价格/涨跌幅（右） */}
-        <div className="trade-card-row2">
-          <span className="trade-card-code">{drug.code}</span>
-          <div className="trade-card-row2-right">
-            <span className="trade-card-badge">实时更新</span>
-            <span className="trade-card-price">
-              <span className="trade-price-flip">
-                <span key={drug.sellingPrice} className="trade-price-flip-enter">¥{formatPrice(drug.sellingPrice)}</span>
-              </span>
-            </span>
-            <span className={`trade-card-change ${isUp ? 'up' : 'down'}`}>
-              {isUp ? '+' : ''}{changePercent.toFixed(2)}%
-            </span>
+        {/* ===== 额度卡片 ===== */}
+        <div className="tl-quota-card">
+          <div className="tl-quota-body">
+            <div className="tl-quota-main">
+              <div className="tl-quota-label">今日可垫资额度</div>
+              <div className="tl-quota-amount">¥{formatPrice(quotaTotal - quotaUsed)}</div>
+            </div>
+            <div className="tl-quota-side">
+              <div className="tl-quota-label">已用额度</div>
+              <div className="tl-quota-used-value">¥{formatPrice(quotaUsed)}</div>
+              <div className="tl-quota-progress-track">
+                <div
+                  className="tl-quota-progress-fill"
+                  style={{ width: `${quotaPercent}%` }}
+                />
+              </div>
+            </div>
           </div>
         </div>
 
-        {/* 第三行：运营费率/滞销天数/批次号 */}
-        <div className="trade-card-row3">
-          {drug.operationFeeRate != null && (
-            <span>运营费率: {Number(drug.operationFeeRate).toFixed(0)}%</span>
-          )}
-          {drug.slowSellingDays != null && (
-            <span>滞销保障期: {drug.slowSellingDays}天</span>
-          )}
-          {drug.batchNo && (
-            <span>批次: {drug.batchNo}</span>
-          )}
+        {/* ===== 分类 Tab 栏 ===== */}
+        <div className="tl-category-tabs">
+          {CATEGORY_TABS.map(tab => {
+            const isActive = activeTab === tab.key
+            const count = categoryCounts[tab.key] || 0
+            return (
+              <div
+                key={tab.key}
+                className={`tl-category-tab ${isActive ? 'active' : ''}`}
+                onClick={() => setActiveTab(tab.key)}
+              >
+                <span className="tl-category-tab-label">{tab.label}</span>
+                {tab.key !== 'all' && count > 0 && (
+                  <span className="tl-category-tab-badge">{count}</span>
+                )}
+                {isActive && <div className="tl-category-tab-line" />}
+              </div>
+            )
+          })}
+        </div>
+
+        {/* ===== 统计行 ===== */}
+        <div className="tl-stats-row">
+          <span className="tl-stats-total">共 {filteredDrugs.length} 种药品</span>
+          <span className="tl-stats-profit">最低利润率 +{minProfitRate.toFixed(0)}%</span>
         </div>
       </div>
-    )
-  }
 
-  /* ---------- 渲染 ---------- */
-  return (
-    <div className="trade-list-page">
-      {/* ===== 顶部标题栏 + 搜索 ===== */}
-      <div className="trade-list-header">
-        <div className="trade-list-title-row">
-          <h1 className="trade-list-title">交易</h1>
-          <button
-            className={`trade-export-btn ${exporting ? 'loading' : ''}`}
-            onClick={handleExport}
-            disabled={exporting}
-          >
-            {exporting ? (
-              <span className="trade-export-spinner" />
-            ) : (
-              <svg className="trade-export-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
-                <path d="M7 1v8M7 9L4 6M7 9l3-3M2 12h10" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-            )}
-            <span>{exporting ? '导出中' : '导出'}</span>
-          </button>
-        </div>
-        <div className="trade-search-wrapper">
-          <SearchBar
-            placeholder="搜索产品名称/代码"
-            value={keyword}
-            onChange={setKeyword}
-            className="trade-search-bar"
+      {/* ===== 搜索栏 ===== */}
+      {searchText !== '' && (
+        <div className="tl-search-bar">
+          <SearchIcon />
+          <input
+            type="text"
+            className="tl-search-input"
+            placeholder="搜索药品名称"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            autoFocus
           />
         </div>
-        {/* ===== 分类标签栏 ===== */}
-        <div className="trade-category-tabs">
-          {tabs.map(tab => (
-            <div
-              key={tab.key}
-              className={`trade-tab-item ${activeTab === tab.key ? 'active' : ''}`}
-              onClick={() => setActiveTab(tab.key as CategoryTab)}
-            >
-              {tab.label}
-            </div>
-          ))}
-        </div>
-        {/* 总数提示 */}
-        {!loading && total > 0 && activeTab === 'all' && !keyword.trim() && (
-          <div className="trade-total-hint">共 {total} 个品种</div>
-        )}
-      </div>
+      )}
 
-      {/* ===== 产品卡片列表 ===== */}
-      <PullToRefresh onRefresh={loadData}>
-        <div className="trade-card-list">
-          {/* 骨架屏加载 */}
+      {/* ===== 药品卡片列表 ===== */}
+      <PullToRefresh onRefresh={loadDrugs}>
+        <div className="tl-drug-list">
           {loading ? (
-            <div className="trade-skeleton">
-              {[1, 2, 3, 4, 5].map(i => (
-                <div key={i} className="trade-skeleton-card">
-                  <div className="trade-skeleton-left">
-                    <div className="trade-skeleton-bar" style={{ width: '80px', height: '18px' }} />
-                    <div className="trade-skeleton-bar" style={{ width: '50px', height: '12px' }} />
-                  </div>
-                  <div className="trade-skeleton-right">
-                    <div className="trade-skeleton-bar" style={{ width: '70px', height: '20px' }} />
-                    <div className="trade-skeleton-bar" style={{ width: '60px', height: '24px' }} />
+            <div className="tl-skeleton-wrap">
+              {[1, 2, 3].map(i => (
+                <div key={i} className="tl-skeleton-card">
+                  <div className="tl-skeleton-img" />
+                  <div className="tl-skeleton-body">
+                    <div className="tl-skeleton-line" style={{ width: '60%' }} />
+                    <div className="tl-skeleton-line" style={{ width: '80%' }} />
+                    <div className="tl-skeleton-line" style={{ width: '50%' }} />
                   </div>
                 </div>
               ))}
             </div>
           ) : (
-            /* 产品卡片 — 虚拟滚动 */
-            <VirtualList
-              items={filteredDrugs}
-              itemHeight={148}
-              overscan={4}
-              keyExtractor={(drug) => String(drug.id)}
-              className="trade-virtual-list"
-              renderItem={(drug, index) => renderDrugCard(drug, index)}
-            />
-          )}
+            <>
+              {filteredDrugs.map((drug, index) => {
+                const cat = getDrugCategory(drug)
+                const profitRate = calcProfitRate(drug)
+                const catStyle = CATEGORY_COLORS[cat]
+                return (
+                  <div
+                    key={drug.id}
+                    className="tl-drug-card list-item-enter"
+                    style={{ animationDelay: `${index * 0.04}s` }}
+                    onClick={() => navigate(`/m/trade/${drug.id}`)}
+                  >
+                    {/* 左侧产品图片 */}
+                    <div className="tl-drug-icon">
+                      <DrugImage 
+                        drug={drug} 
+                        categoryIcon={getCategoryIcon(cat)} 
+                      />
+                    </div>
 
-          {/* 空状态 */}
-          {!loading && filteredDrugs.length === 0 && (
-            <div className="empty-state">
-              <div className="empty-state-icon">
-                <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-                  <circle cx="35" cy="35" r="18" stroke="#5E6673" strokeWidth="2"/>
-                  <line x1="48" y1="48" x2="62" y2="62" stroke="#5E6673" strokeWidth="3" strokeLinecap="round"/>
-                  <text x="35" y="40" textAnchor="middle" fill="#F0B90B" fontSize="18" fontWeight="bold">?</text>
-                </svg>
-              </div>
-              <p className="empty-state-text">{keyword.trim() ? '未找到相关产品' : '暂无产品'}</p>
-              <p className="empty-state-hint">{keyword.trim() ? '换个关键词试试' : '下拉刷新试试'}</p>
-            </div>
-          )}
+                    {/* 右侧信息 */}
+                    <div className="tl-drug-info">
+                      {/* 行1: 分类标签 + 药品名称 */}
+                      <div className="tl-drug-name-row">
+                        <span
+                          className="tl-drug-category-badge"
+                          style={{ backgroundColor: catStyle.bg, color: catStyle.color }}
+                        >
+                          {CATEGORY_LABEL[cat]}
+                        </span>
+                        <span className="tl-drug-name">{drug.name}</span>
+                      </div>
 
-          {/* 上拉加载更多指示器 */}
-          {!loading && filteredDrugs.length > 0 && activeTab === 'all' && !keyword.trim() && (
-            <div className="trade-load-more" ref={listBottomRef}>
-              {loadingMore ? (
-                <div className="trade-load-more-loading">
-                  <span className="trade-load-spinner" />
-                  <span>加载中...</span>
+                      {/* 行2: 规格 | 厂家 */}
+                      <div className="tl-drug-spec-row">
+                        {drug.spec && <span>{drug.spec}</span>}
+                        {drug.spec && drug.manufacturer && <span className="tl-drug-spec-divider">|</span>}
+                        {drug.manufacturer && <span>{drug.manufacturer}</span>}
+                      </div>
+
+                      {/* 行3: 价格 + 涨幅 + 原价 */}
+                      <div className="tl-drug-price-row">
+                        <span className="tl-drug-price">¥{formatPrice(drug.sellingPrice)}</span>
+                        {profitRate > 0 && (
+                          <span className="tl-drug-profit-badge">+{profitRate.toFixed(0)}%</span>
+                        )}
+                        {drug.purchasePrice > 0 && drug.purchasePrice < drug.sellingPrice && (
+                          <span className="tl-drug-original-price">¥{formatPrice(drug.purchasePrice)}</span>
+                        )}
+                      </div>
+
+                      {/* 行4: 剩余库存 + 进货按钮 */}
+                      <div className="tl-drug-action-row">
+                        <span className="tl-drug-stock">剩余 {drug.remainingQuantity} 盒</span>
+                        <button
+                          className="tl-drug-buy-btn"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            navigate(`/m/trade/${drug.id}`)
+                          }}
+                        >
+                          立即进货
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+
+              {/* 空状态 */}
+              {filteredDrugs.length === 0 && (
+                <div className="tl-empty">
+                  <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+                    <rect x="12" y="20" width="40" height="32" rx="4" stroke="#5E6673" strokeWidth="2"/>
+                    <circle cx="24" cy="12" r="6" stroke="#5E6673" strokeWidth="2"/>
+                    <circle cx="40" cy="12" r="6" stroke="#5E6673" strokeWidth="2"/>
+                    <line x1="24" y1="18" x2="24" y2="20" stroke="#5E6673" strokeWidth="2"/>
+                    <line x1="40" y1="18" x2="40" y2="20" stroke="#5E6673" strokeWidth="2"/>
+                  </svg>
+                  <p className="tl-empty-text">暂无药品数据</p>
                 </div>
-              ) : !hasMore ? (
-                <div className="trade-load-more-done">已加载全部 {total} 个品种</div>
-              ) : null}
-            </div>
+              )}
+            </>
           )}
         </div>
       </PullToRefresh>

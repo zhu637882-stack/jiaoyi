@@ -1,4 +1,4 @@
-// 零钱保 Service Worker - 离线缓存支持
+// 零钱宝 Service Worker - 离线缓存支持
 const CACHE_NAME = 'lqb-cache-v1'
 const STATIC_CACHE = 'lqb-static-v1'
 const API_CACHE = 'lqb-api-v1'

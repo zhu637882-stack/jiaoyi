@@ -65,6 +65,35 @@ export class YieldService {
   ) {}
 
   /**
+   * 计算有效计息本金 — 考虑部分确认逻辑
+   * - 无待确认数量：使用 unsettledAmount 全额计息
+   * - 有待确认数量且未满24h：仅 confirmedQuantity 部分计息
+   * - 有待确认数量且已满24h：全额计息
+   */
+  private calcEffectivePrincipal(order: SubscriptionOrder): number {
+    const totalAmount = Number(order.unsettledAmount);
+    const quantity = order.quantity || 1;
+    const unconfirmedQty = order.unconfirmedQuantity || 0;
+
+    if (unconfirmedQty <= 0) {
+      return totalAmount;
+    }
+
+    // 未确认部分超过24小时，自动开始计息
+    if (order.unconfirmedAt) {
+      const hoursSinceUnconfirmed = (Date.now() - new Date(order.unconfirmedAt).getTime()) / (1000 * 60 * 60);
+      if (hoursSinceUnconfirmed >= 24) {
+        return totalAmount;
+      }
+    }
+
+    // 未确认部分24小时内不计息：仅对确认部分计息
+    const confirmedQty = order.confirmedQuantity || 0;
+    if (confirmedQty <= 0) return 0;
+    return Number(((confirmedQty / quantity) * totalAmount).toFixed(2));
+  }
+
+  /**
    * 为所有生效中的订单生成指定日期的日收益记录
    * 基础收益 = 本金余额 × 5% / 365
    */
@@ -100,19 +129,20 @@ export class YieldService {
         where: { orderId: order.id, yieldDate: date },
       });
 
+      // 计算有效本金（考虑部分确认逻辑）
+      const effectivePrincipal = this.calcEffectivePrincipal(order);
+
       if (existing) {
         // 已存在则更新基础收益（补贴金保留）
-        const principal = Number(order.unsettledAmount);
-        const baseYield = Number((principal * ANNUAL_YIELD_RATE / DAYS_PER_YEAR).toFixed(2));
+        const baseYield = Number((effectivePrincipal * ANNUAL_YIELD_RATE / DAYS_PER_YEAR).toFixed(2));
         existing.baseYield = baseYield;
-        existing.principalBalance = principal;
+        existing.principalBalance = effectivePrincipal;
         existing.totalYield = Number((baseYield + Number(existing.subsidy)).toFixed(2));
         await this.dailyYieldRepo.save(existing);
         continue;
       }
 
-      const principal = Number(order.unsettledAmount);
-      const baseYield = Number((principal * ANNUAL_YIELD_RATE / DAYS_PER_YEAR).toFixed(2));
+      const baseYield = Number((effectivePrincipal * ANNUAL_YIELD_RATE / DAYS_PER_YEAR).toFixed(2));
 
       // 计算累计收益
       const previousYields = await this.dailyYieldRepo.find({
@@ -136,7 +166,7 @@ export class YieldService {
         baseYield,
         subsidy: 0,
         totalYield: baseYield,
-        principalBalance: principal,
+        principalBalance: effectivePrincipal,
         cumulativeYield: Number((prevCumulative + baseYield).toFixed(2)),
         subsidyFilled: false,
       });

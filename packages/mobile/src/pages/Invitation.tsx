@@ -21,9 +21,9 @@ const CopyIcon = () => (
 
 // 邀请记录状态标签
 const statusMap: Record<string, { label: string; color: string; bg: string }> = {
-  registered: { label: '已注册', color: '#848E9C', bg: 'rgba(132,142,156,0.12)' },
-  subscribed: { label: '已认购', color: '#F0B90B', bg: 'rgba(240,185,11,0.12)' },
-  rewarded: { label: '已发放', color: '#0ECB81', bg: 'rgba(14,203,129,0.12)' },
+  registered: { label: '已注册', color: '#848E9C', bg: 'rgba(132,142,156,0.1)' },
+  subscribed: { label: '已认购', color: '#F0B90B', bg: 'rgba(240,185,11,0.1)' },
+  rewarded: { label: '已发放', color: '#10B981', bg: 'rgba(16,185,129,0.1)' },
 }
 
 const Invitation: React.FC = () => {
@@ -109,7 +109,7 @@ const Invitation: React.FC = () => {
     if (!inviteCode) return ''
     const origin = window.location.origin
     const registerUrl = `${origin}/m/login?tab=register&code=${inviteCode}`
-    return `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(registerUrl)}&size=200x200&color=0B0E11&bgcolor=F0B90B`
+    return `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(registerUrl)}&size=200x200&color=2151F5&bgcolor=0B0E11`
   }
 
   // 格式化时间
@@ -132,7 +132,7 @@ const Invitation: React.FC = () => {
         <button className="inv-back-btn" onClick={() => navigate(-1)}>
           <BackIcon />
         </button>
-        <h1 className="inv-header-title">我的邀请</h1>
+        <h1 className="inv-header-title">邀请好友</h1>
         <div className="inv-header-placeholder" />
       </div>
 

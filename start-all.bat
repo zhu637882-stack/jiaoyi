@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ==========================================
-echo    启动零钱保全部服务
+echo    启动零钱宝全部服务
 echo ==========================================
 echo.
 
@@ -49,19 +49,19 @@ if not exist "dist\main.js" (
 
 echo.
 echo [3/4] 启动后端服务 (端口 3000)...
-start "零钱保-后端" cmd /c "cd /d %PROJECT_DIR%\packages\server && set DB_USERNAME=postgres&& set DB_PASSWORD=123456&& set DB_DATABASE=jiaoyi&& set DB_HOST=localhost&& set DB_PORT=5432&& set REDIS_HOST=localhost&& set REDIS_PORT=6379&& set JWT_SECRET=jiaoyi-secret-key&& set PORT=3000&& pnpm run start:prod"
+start "零钱宝-后端" cmd /c "cd /d %PROJECT_DIR%\packages\server && set DB_USERNAME=postgres&& set DB_PASSWORD=123456&& set DB_DATABASE=jiaoyi&& set DB_HOST=localhost&& set DB_PORT=5432&& set REDIS_HOST=localhost&& set REDIS_PORT=6379&& set JWT_SECRET=jiaoyi-secret-key&& set PORT=3000&& pnpm run start:prod"
 timeout /t 5 /nobreak >nul
 echo        后端启动中...
 
 echo.
 echo [4/4] 启动前端服务 (端口 5173)...
-start "零钱保-前端" cmd /c "cd /d %PROJECT_DIR%\packages\web && %NODE_PATH% node_modules\vite\bin\vite.js --host"
+start "零钱宝-前端" cmd /c "cd /d %PROJECT_DIR%\packages\web && %NODE_PATH% node_modules\vite\bin\vite.js --host"
 timeout /t 5 /nobreak >nul
 echo        前端启动中...
 
 echo.
 echo [5/5] 启动反向代理 (端口 80)...
-start "零钱保-代理" cmd /c "cd /d %PROJECT_DIR% && %NODE_PATH% proxy-server-v2.js"
+start "零钱宝-代理" cmd /c "cd /d %PROJECT_DIR% && %NODE_PATH% proxy-server-v2.js"
 timeout /t 3 /nobreak >nul
 echo        代理启动中...
 

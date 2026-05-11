@@ -37,7 +37,7 @@ const ServiceAgreement: React.FC = () => {
 
       {/* 内容区域 */}
       <div className="agreement-content">
-        <h1 className="agreement-main-title">零钱保·药品供应链合作认购服务规则</h1>
+        <h1 className="agreement-main-title">零钱宝·药品供应链合作认购服务规则</h1>
 
         {/* 第一章 总则 */}
         <div className="agreement-chapter">
@@ -46,7 +46,7 @@ const ServiceAgreement: React.FC = () => {
           <div className="agreement-article">
             <h3 className="agreement-article-title">第一条 规则效力与适用范围</h3>
             <div className="agreement-clause">
-              <p>1.1 本规则是零钱保药品供应链合作认购服务的唯一正式执行依据，适用于平台方、结算方、药品供应链服务方、终端医药机构（药店/诊所/医院）及合作方（用户），围绕药品预售认购、订单确认、资金结算、滞销退货等全流程合作开展，与相关服务协议具有同等法律效力。</p>
+              <p>1.1 本规则是零钱宝药品供应链合作认购服务的唯一正式执行依据，适用于平台方、结算方、药品供应链服务方、终端医药机构（药店/诊所/医院）及合作方（用户），围绕药品预售认购、订单确认、资金结算、滞销退货等全流程合作开展，与相关服务协议具有同等法律效力。</p>
             </div>
             <div className="agreement-clause">
               <p>1.2 任何主体通过平台完成注册、登录、认购、确认、结算等相关操作，即视为已完整阅读、充分理解并自愿接受本规则全部条款，无任何异议。</p>
@@ -467,7 +467,7 @@ const ServiceAgreement: React.FC = () => {
           onClick={handleAgree}
           type="button"
         >
-          我已阅读并同意《零钱保合作认购协议》
+          我已阅读并同意《零钱宝合作认购协议》
         </button>
       </div>
     </div>

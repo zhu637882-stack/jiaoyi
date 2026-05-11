@@ -5,7 +5,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, DataSource, In, LessThanOrEqual, MoreThanOrEqual } from 'typeorm';
+import { Repository, DataSource, In, LessThanOrEqual, MoreThanOrEqual, LessThan } from 'typeorm';
 import {
   SubscriptionOrder,
   SubscriptionOrderStatus,
@@ -23,12 +23,22 @@ import {
   QuerySubscriptionDto,
   AdminQuerySubscriptionDto,
 } from './dto/query-subscription.dto';
+import { SaleRecord } from '../../database/entities/sale-record.entity';
 import { InvitationService } from '../invitation/invitation.service';
 import { TrialBonusService } from '../trial-bonus/trial-bonus.service';
 
 @Injectable()
 export class SubscriptionService {
   private logger = new Logger(SubscriptionService.name);
+
+  // 交易限额配置
+  private readonly MAX_SINGLE_AMOUNT = 100000; // 单笔最大10万
+  private readonly DAILY_LIMIT = 500000; // 日限额50万
+
+  // 频率限制配置（内存实现）
+  private readonly requestCache = new Map<string, number[]>();
+  private readonly RATE_LIMIT = 3; // 每分钟最多3次
+  private readonly RATE_WINDOW = 60000; // 1分钟窗口
 
   constructor(
     @InjectRepository(SubscriptionOrder)
@@ -43,10 +53,68 @@ export class SubscriptionService {
     private userRepository: Repository<User>,
     @InjectRepository(DailyYield)
     private dailyYieldRepository: Repository<DailyYield>,
+    @InjectRepository(SaleRecord)
+    private saleRecordRepository: Repository<SaleRecord>,
     private dataSource: DataSource,
     private invitationService: InvitationService,
     private trialBonusService: TrialBonusService,
   ) {}
+
+  /**
+   * 频率限制检查（内存实现）
+   * 同一用户每分钟最多 RATE_LIMIT 次认购请求
+   */
+  private checkRateLimit(userId: string): void {
+    const now = Date.now();
+    const requests = this.requestCache.get(userId) || [];
+    const recentRequests = requests.filter(t => now - t < this.RATE_WINDOW);
+    if (recentRequests.length >= this.RATE_LIMIT) {
+      throw new BadRequestException('操作过于频繁，请稍后再试');
+    }
+    recentRequests.push(now);
+    this.requestCache.set(userId, recentRequests);
+
+    // 定期清理过期数据（防止内存泄漏）
+    if (this.requestCache.size > 10000) {
+      for (const [key, timestamps] of this.requestCache.entries()) {
+        const filtered = timestamps.filter(t => now - t < this.RATE_WINDOW);
+        if (filtered.length === 0) {
+          this.requestCache.delete(key);
+        } else {
+          this.requestCache.set(key, filtered);
+        }
+      }
+    }
+  }
+
+  /**
+   * 单笔限额校验
+   */
+  private checkSingleAmountLimit(amount: number): void {
+    if (amount > this.MAX_SINGLE_AMOUNT) {
+      throw new BadRequestException(`单笔认购金额不能超过${this.MAX_SINGLE_AMOUNT / 10000}万元`);
+    }
+  }
+
+  /**
+   * 日限额校验（在事务内执行，使用queryRunner）
+   */
+  private async checkDailyLimit(userId: string, amount: number, queryRunner: import('typeorm').QueryRunner): Promise<void> {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const todayTotal = await queryRunner.manager
+      .createQueryBuilder(SubscriptionOrder, 'so')
+      .where('so.userId = :userId', { userId })
+      .andWhere('so.createdAt >= :today', { today })
+      .andWhere('so.status != :cancelled', { cancelled: SubscriptionOrderStatus.CANCELLED })
+      .select('COALESCE(SUM(so.amount), 0)', 'total')
+      .getRawOne();
+
+    if (Number(todayTotal.total) + amount > this.DAILY_LIMIT) {
+      throw new BadRequestException(`今日认购总额已超限，日限额${this.DAILY_LIMIT / 10000}万元`);
+    }
+  }
 
   /**
    * 生成唯一订单号
@@ -81,7 +149,15 @@ export class SubscriptionService {
   ): Promise<SubscriptionOrder> {
     const { drugId, quantity } = dto;
 
+    // 最小认购数量校验
+    if (quantity < 100) {
+      throw new BadRequestException('最小认购单位为100盒');
+    }
+
     this.logger.log(`[createSubscription] 创建认购: userId=${userId}, drugId=${drugId}, quantity=${quantity}`);
+
+    // 0. 频率限制校验
+    this.checkRateLimit(userId);
 
     // 0. 校验用户审核状态
     const user = await this.userRepository.findOne({ where: { id: userId } });
@@ -119,6 +195,12 @@ export class SubscriptionService {
       // 3. 计算认购金额
       const amount = Number((quantity * Number(drug.purchasePrice)).toFixed(2));
 
+      // 3.1 单笔限额校验
+      this.checkSingleAmountLimit(amount);
+
+      // 3.2 日限额校验
+      await this.checkDailyLimit(userId, amount, queryRunner);
+
       // 4. 校验用户余额（带悲观锁）
       const balance = await queryRunner.manager.findOne(AccountBalance, {
         where: { userId },
@@ -153,22 +235,16 @@ export class SubscriptionService {
 
       await queryRunner.manager.save(balance);
 
-      // 6. 获取当前最大排队序号
+      // 6. 获取当前最大排队序号（全局排序，不按drugId分组）
       const maxQueueResult = await queryRunner.manager
         .createQueryBuilder(SubscriptionOrder, 'order')
         .select('MAX(order.queuePosition)', 'maxPosition')
-        .where('order.drugId = :drugId', { drugId })
         .getRawOne();
 
       const queuePosition = (maxQueueResult?.maxPosition || 0) + 1;
 
-      // 7. 计算生效时间和滞销截止日
+      // 7. 记录确认时间，生效时间和滞销截止日由审核通过时设置
       const confirmedAt = new Date();
-      const effectiveAt = this.getNextDayMidnight(confirmedAt);
-      const slowSellingDeadline = new Date(effectiveAt);
-      slowSellingDeadline.setDate(
-        slowSellingDeadline.getDate() + drug.slowSellingDays,
-      );
 
       // 8. 创建认购订单
       const orderNo = this.generateOrderNo();
@@ -184,8 +260,8 @@ export class SubscriptionService {
         status: SubscriptionOrderStatus.CONFIRMED,
         queuePosition,
         confirmedAt,
-        effectiveAt,
-        slowSellingDeadline,
+        effectiveAt: null,
+        slowSellingDeadline: null,
         totalProfit: 0,
         totalLoss: 0,
       });
@@ -302,22 +378,16 @@ export class SubscriptionService {
     );
     await queryRunner.manager.save(balance);
 
-    // 5. 获取当前最大排队序号
+    // 5. 获取当前最大排队序号（全局排序，不按drugId分组）
     const maxQueueResult = await queryRunner.manager
       .createQueryBuilder(SubscriptionOrder, 'order')
       .select('MAX(order.queuePosition)', 'maxPosition')
-      .where('order.drugId = :drugId', { drugId })
       .getRawOne();
 
     const queuePosition = (maxQueueResult?.maxPosition || 0) + 1;
 
-    // 6. 计算生效时间和滞销截止日
+    // 6. 记录确认时间，生效时间和滞销截止日由审核通过时设置
     const confirmedAt = new Date();
-    const effectiveAt = this.getNextDayMidnight(confirmedAt);
-    const slowSellingDeadline = new Date(effectiveAt);
-    slowSellingDeadline.setDate(
-      slowSellingDeadline.getDate() + drug.slowSellingDays,
-    );
 
     // 7. 创建认购订单
     const orderNo = this.generateOrderNo();
@@ -333,8 +403,8 @@ export class SubscriptionService {
       status: SubscriptionOrderStatus.CONFIRMED,
       queuePosition,
       confirmedAt,
-      effectiveAt,
-      slowSellingDeadline,
+      effectiveAt: null,
+      slowSellingDeadline: null,
       totalProfit: 0,
       totalLoss: 0,
     });
@@ -392,7 +462,13 @@ export class SubscriptionService {
         throw new BadRequestException('该订单当前状态不可取消');
       }
 
-      // 3. 校验取消时间窗口（T+1生效前才可取消）
+      // 3. 校验取消时间窗口（锁定期内不可取消）
+      if (order.lockExpiresAt && order.lockExpiresAt > new Date()) {
+        const remainingDays = Math.ceil((order.lockExpiresAt.getTime() - Date.now()) / (24 * 60 * 60 * 1000));
+        throw new BadRequestException(`该订单处于10天锁定期内，剩余${remainingDays}天，暂不可取消`);
+      }
+
+      // 4. 校验取消时间窗口（T+1生效前才可取消）
       if (order.effectiveAt && order.effectiveAt <= new Date()) {
         throw new BadRequestException('该订单已过取消时限（T+1已生效），无法取消');
       }
@@ -526,6 +602,11 @@ export class SubscriptionService {
         returnedAt: order.returnedAt,
         totalProfit: Number(order.totalProfit),
         totalLoss: Number(order.totalLoss),
+        lockExpiresAt: order.lockExpiresAt,
+        dividendAmount: Number(order.dividendAmount),
+        confirmedQuantity: order.confirmedQuantity || 0,
+        unconfirmedQuantity: order.unconfirmedQuantity || 0,
+        unconfirmedAt: order.unconfirmedAt,
         createdAt: order.createdAt,
       })),
       pagination: {
@@ -717,7 +798,13 @@ export class SubscriptionService {
         'user',
         'user.id = order.userId',
       )
-      .orderBy('order.createdAt', 'DESC');
+      .leftJoinAndMapOne(
+        'order.auditor',
+        User,
+        'auditor',
+        'auditor.id = order.auditBy',
+      )
+      .orderBy('order.queuePosition', 'ASC');
 
     if (status) {
       queryBuilder.andWhere('order.status = :status', { status });
@@ -767,6 +854,7 @@ export class SubscriptionService {
         auditStatus: order.auditStatus,
         auditAt: order.auditAt,
         auditBy: order.auditBy,
+        auditorName: order.auditor?.realName || order.auditor?.username || null,
         auditRemark: order.auditRemark,
         queuePosition: order.queuePosition,
         confirmedAt: order.confirmedAt,
@@ -775,6 +863,11 @@ export class SubscriptionService {
         returnedAt: order.returnedAt,
         totalProfit: Number(order.totalProfit),
         totalLoss: Number(order.totalLoss),
+        lockExpiresAt: order.lockExpiresAt,
+        dividendAmount: Number(order.dividendAmount),
+        confirmedQuantity: order.confirmedQuantity || 0,
+        unconfirmedQuantity: order.unconfirmedQuantity || 0,
+        unconfirmedAt: order.unconfirmedAt,
         createdAt: order.createdAt,
       })),
       pagination: {
@@ -877,7 +970,8 @@ export class SubscriptionService {
   }
 
   /**
-   * 客户申请退回认购订单
+   * 客户申请退回认购订单（退货回库）
+   * 允许状态：EFFECTIVE（可退全部）、PARTIAL_SOLD（可退未售出部分）
    */
   async requestReturn(userId: string, orderId: string): Promise<SubscriptionOrder> {
     this.logger.log(`[requestReturn] 申请退回: userId=${userId}, orderId=${orderId}`);
@@ -890,15 +984,22 @@ export class SubscriptionService {
       throw new NotFoundException('认购订单不存在');
     }
 
-    // 允许：EFFECTIVE、PARTIAL_RETURNED、以及审核通过的CONFIRMED订单
+    // 允许：EFFECTIVE（已入库，可退全部）、PARTIAL_SOLD（部分售出，可退未售部分）
     const allowedStatuses = [
       SubscriptionOrderStatus.EFFECTIVE,
-      SubscriptionOrderStatus.PARTIAL_RETURNED,
+      SubscriptionOrderStatus.PARTIAL_SOLD,
     ];
-    const isApprovedConfirmed = order.status === SubscriptionOrderStatus.CONFIRMED && order.auditStatus === 'approved';
 
-    if (!allowedStatuses.includes(order.status) && !isApprovedConfirmed) {
-      throw new BadRequestException('当前订单状态不可申请退回，仅已生效、部分退回或已审核通过的订单可申请');
+    if (!allowedStatuses.includes(order.status)) {
+      throw new BadRequestException('当前订单状态不可申请退回，仅已生效或部分售出的订单可申请');
+    }
+
+    // PARTIAL_SOLD 时检查是否还有未售出部分
+    if (order.status === SubscriptionOrderStatus.PARTIAL_SOLD) {
+      const unsoldQuantity = order.quantity - order.soldQuantity;
+      if (unsoldQuantity <= 0) {
+        throw new BadRequestException('该订单已全部售出，没有可退回的部分');
+      }
     }
 
     order.status = SubscriptionOrderStatus.RETURN_PENDING;
@@ -912,11 +1013,12 @@ export class SubscriptionService {
   }
 
   /**
-   * 管理员核准退回
-   * 退回本金从冻结余额转入可用余额，收益也转入可用余额
+   * 管理员核准退回（退货回库模式）
+   * 退货 = 回库：未售出部分本金从冻结退回可用，药品库存回退，停止计息
+   * 不发放利润（未售出的没有利润），不发放滞销补贴
    */
   async approveReturn(adminUserId: string, orderId: string): Promise<SubscriptionOrder> {
-    this.logger.log(`[approveReturn] 管理员核准退回: adminUserId=${adminUserId}, orderId=${orderId}`);
+    this.logger.log(`[approveReturn] 管理员核准退回(回库): adminUserId=${adminUserId}, orderId=${orderId}`);
 
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -936,37 +1038,16 @@ export class SubscriptionService {
         throw new BadRequestException('该订单不在退回审核状态');
       }
 
-      const returnPrincipal = Number(order.unsettledAmount);
-      const returnProfit = Number(Number(order.totalProfit) - Number(order.totalLoss || 0));
-
-      // 查询该订单使用的体验金金额
-      const trialAmount = await this.trialBonusService.getTrialAmountUsedForOrder(
-        order.userId,
-        order.id,
-        queryRunner,
-      );
-      const actualTrialReturn = Math.min(trialAmount, returnPrincipal);
-      const realReturn = Number((returnPrincipal - actualTrialReturn).toFixed(2));
-
-      // 更新订单状态
-      order.status = SubscriptionOrderStatus.RETURNED;
-      order.returnedAt = new Date();
-      order.returnApprovedBy = adminUserId;
-      order.settledQuantity = order.quantity;
-      order.unsettledAmount = 0;
-      await queryRunner.manager.save(order);
-
-      // 更新药品已认购数量
       const drug = await queryRunner.manager.findOne(Drug, {
         where: { id: order.drugId },
         lock: { mode: 'pessimistic_write' },
       });
-      if (drug) {
-        drug.subscribedQuantity = Math.max(0, Number(drug.subscribedQuantity) - order.quantity);
-        await queryRunner.manager.save(drug);
-      }
 
-      // 更新用户余额：本金从冻结转可用，收益加到可用
+      // 退货数量 = 未售出部分
+      const returnQuantity = order.quantity - order.soldQuantity;
+      const returnPrincipal = Number((returnQuantity * Number(drug.purchasePrice)).toFixed(2));
+
+      // 更新用户余额：冻结→可用（只退未售出部分的本金）
       const balance = await queryRunner.manager.findOne(AccountBalance, {
         where: { userId: order.userId },
         lock: { mode: 'pessimistic_write' },
@@ -976,57 +1057,47 @@ export class SubscriptionService {
         const availableBefore = Number(balance.availableBalance);
         const frozenBefore = Number(balance.frozenBalance);
 
-        // 本金真实部分：冻结 → 可用
-        balance.availableBalance = Number((availableBefore + realReturn).toFixed(2));
         balance.frozenBalance = Number((frozenBefore - returnPrincipal).toFixed(2));
-
-        // 收益：加到可用余额
-        if (returnProfit > 0) {
-          balance.availableBalance = Number((Number(balance.availableBalance) + returnProfit).toFixed(2));
-        }
-
+        balance.availableBalance = Number((availableBefore + returnPrincipal).toFixed(2));
         await queryRunner.manager.save(balance);
 
-        // 体验金部分变成真钱
-        if (actualTrialReturn > 0) {
-          await this.trialBonusService.returnTrialBonus(
-            order.userId,
-            actualTrialReturn,
-            queryRunner,
-            order.id,
-          );
-        }
-
-        // 记录资金流水 - 本金退回
+        // 生成本金退回流水
         const principalTx = queryRunner.manager.create(AccountTransaction, {
           userId: order.userId,
           type: TransactionType.PRINCIPAL_RETURN,
-          amount: realReturn,
+          amount: returnPrincipal,
           balanceBefore: availableBefore,
-          balanceAfter: Number(balance.availableBalance) - (returnProfit > 0 ? returnProfit : 0),
+          balanceAfter: Number(balance.availableBalance),
           relatedOrderId: order.id,
-          description: `退回本金：${drug?.name || ''} ${order.quantity}盒，¥${realReturn.toFixed(2)}`,
+          description: `退货回库-本金退回(${returnQuantity}份) ${drug?.name || ''}`,
         });
         await queryRunner.manager.save(principalTx);
-
-        // 记录资金流水 - 退回收益
-        if (returnProfit > 0) {
-          const profitTx = queryRunner.manager.create(AccountTransaction, {
-            userId: order.userId,
-            type: TransactionType.RETURN_PROFIT,
-            amount: returnProfit,
-            balanceBefore: Number(balance.availableBalance) - returnProfit,
-            balanceAfter: Number(balance.availableBalance),
-            relatedOrderId: order.id,
-            description: `退回收益：${drug?.name || ''} ¥${returnProfit.toFixed(2)}`,
-          });
-          await queryRunner.manager.save(profitTx);
-        }
       }
+
+      // 药品库存回退（减少已认购数量，使其可重新售出）
+      if (drug) {
+        drug.subscribedQuantity = Math.max(0, Number(drug.subscribedQuantity) - returnQuantity);
+        await queryRunner.manager.save(drug);
+      }
+
+      // 更新订单状态
+      if (order.soldQuantity > 0) {
+        // 有部分已售出 → 标记为全部售出（退回的部分已处理，剩下的等结算）
+        order.status = SubscriptionOrderStatus.FULLY_SOLD;
+      } else {
+        // 完全未售出 → 标记为已退回
+        order.status = SubscriptionOrderStatus.RETURNED;
+      }
+
+      order.returnApprovedBy = adminUserId;
+      order.returnedAt = new Date();
+      // 更新未结算金额（扣除退回部分）
+      order.unsettledAmount = Number((Number(order.unsettledAmount) - returnPrincipal).toFixed(2));
+      await queryRunner.manager.save(order);
 
       await queryRunner.commitTransaction();
 
-      this.logger.log(`[approveReturn] 退回核准成功: orderId=${orderId}, userId=${order.userId}, 退回本金=${returnPrincipal}, 收益=${returnProfit}`);
+      this.logger.log(`[approveReturn] 退货回库核准成功: orderId=${orderId}, userId=${order.userId}, 退回数量=${returnQuantity}, 退回本金=${returnPrincipal}, 新状态=${order.status}`);
 
       return order;
     } catch (error) {
@@ -1073,7 +1144,7 @@ export class SubscriptionService {
   /**
    * 审核认购订单
    */
-  async auditSubscription(adminUserId: string, orderId: string, approved: boolean, remark?: string): Promise<SubscriptionOrder> {
+  async auditSubscription(adminUserId: string, orderId: string, approved: boolean, remark?: string, confirmedQuantity?: number): Promise<SubscriptionOrder> {
     this.logger.log(`[auditSubscription] 开始审核: orderId=${orderId}, approved=${approved}`);
     const queryRunner = this.dataSource.createQueryRunner();
     await queryRunner.connect();
@@ -1119,10 +1190,34 @@ export class SubscriptionService {
       order.auditRemark = remark || '';
 
       if (approved) {
-        // 审核通过
+        // 部分确认数量校验
+        let confirmQty = confirmedQuantity != null ? confirmedQuantity : order.quantity;
+        if (confirmQty <= 0 || confirmQty > order.quantity) {
+          throw new BadRequestException(`确认数量必须在1-${order.quantity}之间`);
+        }
+
+        // 设置确认数量和待确认数量
+        order.confirmedQuantity = confirmQty;
+        order.unconfirmedQuantity = order.quantity - confirmQty;
+
+        // 审核通过：变为生效/入库状态
         order.auditStatus = 'approved';
+        order.status = SubscriptionOrderStatus.EFFECTIVE;
+        order.effectiveAt = new Date();
+        // 设置锁定期截止日 = 生效日 + 10天
+        const lockExpires = new Date();
+        lockExpires.setDate(lockExpires.getDate() + 10);
+        order.lockExpiresAt = lockExpires;
+        order.slowSellingDeadline = new Date(Date.now() + 90 * 24 * 60 * 60 * 1000);
+
+        // 如果部分确认，记录未确认部分计时起点
+        if (order.unconfirmedQuantity > 0) {
+          order.unconfirmedAt = new Date();
+          this.logger.log(`[auditSubscription] 部分确认: orderId=${orderId}, 确认${confirmQty}盒, 待确认${order.unconfirmedQuantity}盒`);
+        }
+
         await queryRunner.manager.save(order);
-        this.logger.log(`[auditSubscription] 审核通过: orderId=${orderId}`);
+        this.logger.log(`[auditSubscription] 审核通过并即时入库生效: orderId=${orderId}, 锁定期截止=${lockExpires.toISOString()}`);
       } else {
         // 审核拒绝
         order.auditStatus = 'rejected';
@@ -1209,11 +1304,17 @@ export class SubscriptionService {
         'user',
         'user.id = order.userId',
       )
+      .leftJoinAndMapOne(
+        'order.auditor',
+        User,
+        'auditor',
+        'auditor.id = order.auditBy',
+      )
       .where('order.auditStatus = :auditStatus', { auditStatus: 'pending' })
       .andWhere('order.status IN (:...statuses)', {
         statuses: [SubscriptionOrderStatus.CONFIRMED, SubscriptionOrderStatus.EFFECTIVE],
       })
-      .orderBy('order.createdAt', 'DESC');
+      .orderBy('order.queuePosition', 'ASC');
 
     if (filters?.drugId) {
       queryBuilder.andWhere('order.drugId = :drugId', { drugId: filters.drugId });
@@ -1244,6 +1345,8 @@ export class SubscriptionService {
         amount: Number(order.amount),
         status: order.status,
         auditStatus: order.auditStatus,
+        auditBy: order.auditBy,
+        auditorName: order.auditor?.realName || order.auditor?.username || null,
         confirmedAt: order.confirmedAt,
         effectiveAt: order.effectiveAt,
         createdAt: order.createdAt,
@@ -1261,12 +1364,12 @@ export class SubscriptionService {
 
   /**
    * A. 查询到期/即将到期的订单
-   * 10天期限从 effectiveAt 起算
+   * 90天期限从 effectiveAt 起算
    */
   async getExpiringOrders(daysBeforeExpiry: number = 3): Promise<any[]> {
     const now = new Date();
-    // 到期日 = effectiveAt + 10天
-    // 查询 effectiveAt + 10天 <= now + daysBeforeExpiry 的 EFFECTIVE 订单
+    // 到期日 = effectiveAt + 90天
+    // 查询 effectiveAt + 90天 <= now + daysBeforeExpiry 的 EFFECTIVE 订单
     const deadlineDate = new Date(now);
     deadlineDate.setDate(deadlineDate.getDate() + daysBeforeExpiry);
 
@@ -1282,16 +1385,16 @@ export class SubscriptionService {
       .where('order.status = :status', { status: SubscriptionOrderStatus.EFFECTIVE })
       .getMany();
 
-    // 在JS中过滤：effectiveAt + 10天 <= deadlineDate
+    // 在JS中过滤：effectiveAt + 90天 <= deadlineDate
     const filtered = orders.filter((order: any) => {
       const expiryDate = new Date(order.effectiveAt);
-      expiryDate.setDate(expiryDate.getDate() + 10);
+      expiryDate.setDate(expiryDate.getDate() + 90);
       return expiryDate <= deadlineDate;
     });
 
     return filtered.map((order: any) => {
       const expiryDate = new Date(order.effectiveAt);
-      expiryDate.setDate(expiryDate.getDate() + 10);
+      expiryDate.setDate(expiryDate.getDate() + 90);
       const isExpired = expiryDate <= now;
       const daysLeft = Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
@@ -1364,10 +1467,10 @@ export class SubscriptionService {
       const operationFee = Number((sellingPrice * 0.06 + 0.45 + deliveryFee).toFixed(2));
       const partnerProfit = Number(((sellingPrice - purchasePrice - operationFee) / 10).toFixed(2));
 
-      // 检查是否在10天有效期内
+      // 检查是否在90天有效期内
       const effectiveAt = new Date(order.effectiveAt);
       const expiryDate = new Date(effectiveAt);
-      expiryDate.setDate(expiryDate.getDate() + 10);
+      expiryDate.setDate(expiryDate.getDate() + 90);
       const isExpired = expiryDate <= new Date();
 
       result.push({
@@ -1528,6 +1631,96 @@ export class SubscriptionService {
   }
 
   /**
+   * 管理员录入售出数量
+   */
+  async recordSale(orderId: string, quantity: number): Promise<SaleRecord> {
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // 1. 查找并锁定订单（不加relations，避免FOR UPDATE冲突）
+      const order = await queryRunner.manager.findOne(SubscriptionOrder, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException('订单不存在');
+      }
+
+      // 2. 校验订单状态（只有 EFFECTIVE 或 PARTIAL_SOLD 可以录入售出）
+      if (![SubscriptionOrderStatus.EFFECTIVE, SubscriptionOrderStatus.PARTIAL_SOLD].includes(order.status)) {
+        throw new BadRequestException(`订单状态为${order.status}，无法录入售出`);
+      }
+
+      // 3. 校验数量
+      const unsoldQuantity = order.quantity - order.soldQuantity;
+      if (quantity <= 0) {
+        throw new BadRequestException('售出数量必须大于0');
+      }
+      if (quantity > unsoldQuantity) {
+        throw new BadRequestException(`售出数量不能超过未售出数量(${unsoldQuantity})`);
+      }
+
+      // 4. 加载药品信息计算金额
+      const drug = await queryRunner.manager.findOne(Drug, {
+        where: { id: order.drugId },
+      });
+
+      const saleAmount = Number((quantity * Number(drug.sellingPrice)).toFixed(2));
+      const profitAmount = Number((saleAmount * 0.018).toFixed(2)); // 资方利润 1.8%
+
+      // 5. 创建售出记录
+      const settlementDueAt = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000); // 10天后结算
+      const saleRecord = queryRunner.manager.create(SaleRecord, {
+        orderId: order.id,
+        quantity,
+        settlementDueAt,
+        settled: false,
+        saleAmount,
+        profitAmount,
+        subsidyAmount: 0, // 结算时再计算补贴
+      });
+      await queryRunner.manager.save(saleRecord);
+
+      // 6. 更新订单售出数量和状态
+      order.soldQuantity += quantity;
+      if (!order.firstSoldAt) {
+        order.firstSoldAt = new Date();
+      }
+      order.lastSoldAt = new Date();
+
+      // 7. 更新订单状态
+      if (order.soldQuantity >= order.quantity) {
+        order.status = SubscriptionOrderStatus.FULLY_SOLD;
+      } else {
+        order.status = SubscriptionOrderStatus.PARTIAL_SOLD;
+      }
+
+      await queryRunner.manager.save(order);
+      await queryRunner.commitTransaction();
+
+      return saleRecord;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 获取订单的售出记录列表
+   */
+  async getSaleRecords(orderId: string): Promise<SaleRecord[]> {
+    return this.saleRecordRepository.find({
+      where: { orderId },
+      order: { recordedAt: 'DESC' },
+    });
+  }
+
+  /**
    * C. 截止处理 - 到期结算
    * 1. 更新订单状态为 SETTLED
    * 2. 退还本金到用户可用余额
@@ -1563,10 +1756,10 @@ export class SubscriptionService {
         throw new BadRequestException('仅生效中的订单可进行截止处理');
       }
 
-      // 验证10天期限已到
+      // 验证90天期限已到
       const effectiveAt = new Date(order.effectiveAt);
       const expiryDate = new Date(effectiveAt);
-      expiryDate.setDate(expiryDate.getDate() + 10);
+      expiryDate.setDate(expiryDate.getDate() + 90);
 
       // 即使未到期也允许管理员手动截止（但给出提示）
       const isExpired = expiryDate <= new Date();
@@ -1654,6 +1847,148 @@ export class SubscriptionService {
         this.logger.warn(`[settleOrder] 重新查询订单异常: ${e.message}`);
       }
       return order;
+    } catch (error) {
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      await queryRunner.release();
+    }
+  }
+
+  /**
+   * 管理员查询已到锁定期截止日的订单（用于到期提醒）
+   * 按 queuePosition 升序（先进先出）
+   */
+  async getAdminExpiringOrders(): Promise<{ list: any[]; count: number }> {
+    const now = new Date();
+    const orders = await this.subscriptionOrderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.drug', 'drug')
+      .leftJoinAndMapOne(
+        'order.user',
+        User,
+        'user',
+        'user.id = order.userId',
+      )
+      .where('order.lockExpiresAt IS NOT NULL')
+      .andWhere('order.lockExpiresAt <= :now', { now })
+      .andWhere('order.status = :status', { status: SubscriptionOrderStatus.EFFECTIVE })
+      .andWhere('order.dividendAmount = 0')
+      .orderBy('order.queuePosition', 'ASC')
+      .getMany();
+
+    return {
+      list: orders.map((order: any) => ({
+        id: order.id,
+        orderNo: order.orderNo,
+        userId: order.userId,
+        username: order.user?.username,
+        realName: order.user?.realName,
+        drugId: order.drugId,
+        drugName: order.drug?.name,
+        quantity: order.quantity,
+        amount: Number(order.amount),
+        queuePosition: order.queuePosition,
+        lockExpiresAt: order.lockExpiresAt,
+        effectiveAt: order.effectiveAt,
+        status: order.status,
+      })),
+      count: orders.length,
+    };
+  }
+
+  /**
+   * 管理员手动填写分红金额并结算
+   * 本金+分红一次性退回客户余额，订单 → SETTLED
+   */
+  async fillDividend(adminUserId: string, orderId: string, dividendAmount: number): Promise<SubscriptionOrder> {
+    this.logger.log(`[fillDividend] 管理员填写分红: orderId=${orderId}, dividendAmount=${dividendAmount}`);
+
+    if (dividendAmount <= 0) {
+      throw new BadRequestException('分红金额必须大于0');
+    }
+
+    const queryRunner = this.dataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      const order = await queryRunner.manager.findOne(SubscriptionOrder, {
+        where: { id: orderId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!order) {
+        throw new NotFoundException('认购订单不存在');
+      }
+
+      if (order.status !== SubscriptionOrderStatus.EFFECTIVE) {
+        throw new BadRequestException('仅生效中的订单可进行分红结算');
+      }
+
+      if (order.dividendAmount > 0) {
+        throw new BadRequestException('该订单已完成分红结算');
+      }
+
+      // 记录分红信息
+      order.dividendAmount = Number(dividendAmount.toFixed(2));
+      order.dividendFilledBy = adminUserId;
+      order.dividendFilledAt = new Date();
+      order.status = SubscriptionOrderStatus.SETTLED;
+
+      // 结算：解锁冻结本金 + 分红退回到可用余额
+      const amount = Number(order.amount);
+      const totalRefund = Number((amount + order.dividendAmount).toFixed(2));
+
+      const balance = await queryRunner.manager.findOne(AccountBalance, {
+        where: { userId: order.userId },
+        lock: { mode: 'pessimistic_write' },
+      });
+
+      if (!balance) {
+        throw new Error(`用户 ${order.userId} 账户余额不存在`);
+      }
+
+      const balanceBefore = Number(balance.availableBalance);
+      balance.availableBalance = Number((balanceBefore + totalRefund).toFixed(2));
+      balance.frozenBalance = Number((Number(balance.frozenBalance) - amount).toFixed(2));
+      await queryRunner.manager.save(balance);
+      await queryRunner.manager.save(order);
+
+      // 记录资金流水 - 本金退回
+      const principalTx = queryRunner.manager.create(AccountTransaction, {
+        userId: order.userId,
+        type: TransactionType.PRINCIPAL_RETURN,
+        amount: amount,
+        balanceBefore: balanceBefore,
+        balanceAfter: Number((balanceBefore + amount).toFixed(2)),
+        relatedOrderId: order.id,
+        description: `10天锁定期结算本金退回(${order.quantity}份) - 订单${order.orderNo}`,
+      });
+      await queryRunner.manager.save(principalTx);
+
+      // 记录资金流水 - 分红收益
+      const dividendTx = queryRunner.manager.create(AccountTransaction, {
+        userId: order.userId,
+        type: TransactionType.DIVIDEND_SETTLE,
+        amount: order.dividendAmount,
+        balanceBefore: Number((balanceBefore + amount).toFixed(2)),
+        balanceAfter: Number(balance.availableBalance),
+        relatedOrderId: order.id,
+        description: `10天锁定期分红收益 ¥${order.dividendAmount} - 订单${order.orderNo}`,
+      });
+      await queryRunner.manager.save(dividendTx);
+
+      await queryRunner.commitTransaction();
+
+      this.logger.log(`[fillDividend] 分红结算完成: orderId=${orderId}, 本金${amount}+分红${order.dividendAmount}`);
+
+      // 重新查询完整数据
+      const result = await this.subscriptionOrderRepository.findOne({
+        where: { id: order.id },
+        relations: ['drug', 'user'],
+      });
+      return result || order;
     } catch (error) {
       await queryRunner.rollbackTransaction();
       throw error;

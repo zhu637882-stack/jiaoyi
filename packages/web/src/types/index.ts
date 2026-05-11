@@ -33,6 +33,7 @@ export interface Drug {
   operationFeeRate: number
   batchNo?: string
   slowSellingDays: number
+  imageUrl?: string
   status: 'pending' | 'funding' | 'selling' | 'completed' | 'active' | 'inactive'
   createdAt: string
   updatedAt: string
@@ -308,6 +309,7 @@ export interface DrugFormData {
   operationFeeRate: number
   slowSellingDays: number
   actualSellingPrice?: number
+  imageUrl?: string
 }
 
 // 销售记录类型

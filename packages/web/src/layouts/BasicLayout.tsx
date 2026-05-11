@@ -1,15 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  FundOutlined,
-  WalletOutlined,
-  FileTextOutlined,
   SettingOutlined,
   LogoutOutlined,
   UserOutlined,
 } from '@ant-design/icons'
 import { Avatar, Dropdown, Space, Typography, message } from 'antd'
-import { accountApi } from '../services/api'
 import logoPng from '../assets/logo.png'
 
 const { Text } = Typography
@@ -20,52 +16,26 @@ interface UserInfo {
   realName?: string
 }
 
-interface BalanceInfo {
-  availableBalance: number
-  frozenBalance: number
-  totalProfit: number
-}
 
-const getMenuItems = (role?: string) => {
-  const items = [
-    {
-      path: '/',
-      name: '交易终端',
-      icon: <FundOutlined />,
-    },
-    {
-      path: '/portfolio',
-      name: '我的持仓',
-      icon: <WalletOutlined />,
-    },
-    {
-      path: '/settlement',
-      name: '清算记录',
-      icon: <FileTextOutlined />,
-    },
-  ]
 
-  // 管理员角色（viewer/manager/admin）才显示管理后台菜单
-  if (['admin', 'manager', 'viewer'].includes(role || '')) {
-    items.push({
+const getMenuItems = () => {
+  return [
+    {
       path: '/admin',
       name: '管理后台',
       icon: <SettingOutlined />,
-    })
-  }
-
-  return items
+    },
+  ]
 }
 
 const BasicLayout = () => {
   const location = useLocation()
   const navigate = useNavigate()
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null)
-  const [balanceInfo, setBalanceInfo] = useState<BalanceInfo | null>(null)
   const [isMobile, setIsMobile] = useState(false)
 
-  // 根据用户角色获取菜单项
-  const menuItems = getMenuItems(userInfo?.role)
+  // 获取菜单项
+  const menuItems = getMenuItems()
 
   // 响应式检测
   const checkMobile = useCallback(() => {
@@ -89,25 +59,7 @@ const BasicLayout = () => {
         console.error('Failed to parse user info')
       }
     }
-
-    // 获取账户余额
-    fetchBalance()
   }, [])
-
-  const fetchBalance = async () => {
-    try {
-      const response = await accountApi.getBalance()
-      if (response) {
-        setBalanceInfo({
-          availableBalance: Number(response.availableBalance) || 0,
-          frozenBalance: Number(response.frozenBalance) || 0,
-          totalProfit: Number(response.totalProfit) || 0,
-        })
-      }
-    } catch (error) {
-      console.error('Failed to fetch balance:', error)
-    }
-  }
 
   const handleMenuClick = (key: string) => {
     navigate(key)
@@ -129,15 +81,7 @@ const BasicLayout = () => {
     },
   ]
 
-  // 格式化金额显示
-  const formatAmount = (amount: number) => {
-    return new Intl.NumberFormat('zh-CN', {
-      style: 'currency',
-      currency: 'CNY',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount)
-  }
+  // 移除余额相关格式化函数（交易功能已移除）
 
   // 移动端底部导航栏
   const mobileBottomNav = isMobile && (
@@ -214,11 +158,11 @@ const BasicLayout = () => {
               gap: 8,
               cursor: 'pointer',
             }}
-            onClick={() => navigate('/')}
+            onClick={() => navigate('/admin')}
           >
             <img
               src={logoPng}
-              alt="零钱保"
+              alt="零钱宝"
               style={{ width: isMobile ? 28 : 32, height: isMobile ? 28 : 32, borderRadius: 4 }}
             />
             <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
@@ -230,7 +174,7 @@ const BasicLayout = () => {
                   letterSpacing: '-0.5px',
                 }}
               >
-                零钱保
+                零钱宝
               </Text>
               {!isMobile && (
                 <Text
@@ -293,57 +237,6 @@ const BasicLayout = () => {
 
         {/* 右侧：账户信息 + 用户 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 16 }}>
-          {/* 余额显示 - 移动端隐藏 */}
-          {balanceInfo && !isMobile && (
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 16,
-                padding: '6px 16px',
-                background: '#0D1117',
-                border: '1px solid #2B3139',
-                borderRadius: 6,
-                height: 36,
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Text style={{ color: '#848E9C', fontSize: 12 }}>可用</Text>
-                <Text
-                  style={{
-                    color: '#cf1322',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: "'JetBrains Mono', 'DIN', monospace",
-                  }}
-                >
-                  {formatAmount(balanceInfo.availableBalance)}
-                </Text>
-              </div>
-              <div
-                style={{
-                  width: 1,
-                  height: 16,
-                  background: '#2B3139',
-                }}
-              />
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Text style={{ color: '#848E9C', fontSize: 12 }}>收益</Text>
-                <Text
-                  style={{
-                    color: balanceInfo.totalProfit >= 0 ? '#cf1322' : '#00b96b',
-                    fontSize: 13,
-                    fontWeight: 600,
-                    fontFamily: "'JetBrains Mono', 'DIN', monospace",
-                  }}
-                >
-                  {balanceInfo.totalProfit >= 0 ? '+' : ''}
-                  {formatAmount(balanceInfo.totalProfit)}
-                </Text>
-              </div>
-            </div>
-          )}
-
           {/* 用户信息 */}
           <Dropdown
             menu={{ items: avatarDropdownItems }}

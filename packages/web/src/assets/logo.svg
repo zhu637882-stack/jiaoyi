@@ -1,10 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none">
-  <!-- 胶囊外形 -->
-  <rect x="4" y="8" width="24" height="16" rx="8" fill="#F0B90B"/>
-  <!-- 胶囊分隔线 -->
-  <line x1="16" y1="8" x2="16" y2="24" stroke="#181A20" stroke-width="1.5"/>
-  <!-- 左半部分 - 药 -->
-  <text x="10" y="19" font-size="8" font-weight="700" fill="#181A20" text-anchor="middle" font-family="Arial">药</text>
-  <!-- 右半部分 - 上升箭头 -->
-  <path d="M22 19L22 14M22 14L19.5 16.5M22 14L24.5 16.5" stroke="#FF4D4F" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- 纯色黄底圆角方块 -->
+  <rect width="512" height="512" rx="96" fill="#F0C720"/>
+  
+  <!-- 抽象LG字母组合图形 — 厚边框矩形+右侧缺口 -->
+  <path d="
+    M 140 140
+    L 372 140
+    L 372 196
+    L 316 196
+    L 316 316
+    L 372 316
+    L 372 372
+    L 140 372
+    Z
+  " fill="#000000" stroke="none"/>
 </svg>

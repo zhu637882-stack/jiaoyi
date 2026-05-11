@@ -16,6 +16,8 @@ const Settlement = React.lazy(() => import('./pages/Settlement'))
 const Transactions = React.lazy(() => import('./pages/Transactions'))
 const ServiceAgreement = React.lazy(() => import('./pages/ServiceAgreement'))
 const Invitation = React.lazy(() => import('./pages/Invitation'))
+const HelpCenter = React.lazy(() => import('./pages/HelpCenter'))
+const About = React.lazy(() => import('./pages/About'))
 
 const PrivateRoute = ({ children }: { children: React.ReactNode }) => {
   const token = localStorage.getItem('access_token')
@@ -45,9 +47,9 @@ function SplashScreen() {
   return (
     <div className="splash-screen">
       <div className="splash-logo">
-        <img src={logoImg} alt="零钱保" className="splash-logo-img" loading="lazy" />
+        <img src={logoImg} alt="零钱宝" className="splash-logo-img" loading="lazy" />
       </div>
-      <div className="splash-text">零钱保</div>
+      <div className="splash-text">零钱宝</div>
       <div className="splash-subtitle">多客控股旗下药品交易平台</div>
     </div>
   )
@@ -88,6 +90,8 @@ function App() {
           <Route path="/m/login" element={<Login />} />
           <Route path="/m/agreement" element={<div className="page-slide-up"><ServiceAgreement /></div>} />
           <Route path="/m/invitation" element={<PrivateRoute><div className="page-enter"><Invitation /></div></PrivateRoute>} />
+          <Route path="/m/help-center" element={<PrivateRoute><div className="page-enter"><HelpCenter /></div></PrivateRoute>} />
+          <Route path="/m/about" element={<PrivateRoute><div className="page-enter"><About /></div></PrivateRoute>} />
           <Route path="/m/trade/:drugId" element={<PrivateRoute><div className="page-enter"><Trade /></div></PrivateRoute>} />
           <Route
             path="/m"

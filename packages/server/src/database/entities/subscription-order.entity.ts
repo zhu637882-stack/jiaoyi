@@ -12,7 +12,7 @@ import { User } from './user.entity';
 import { Drug } from './drug.entity';
 
 /**
- * 零钱保认购订单状态
+ * 认购订单状态
  * CONFIRMED: T+0已确认
  * EFFECTIVE: T+1已生效
  * RETURN_PENDING: 退回审核中（客户主动申请退回）
@@ -21,6 +21,10 @@ import { Drug } from './drug.entity';
  * CANCELLED: 已取消
  * SLOW_SELLING_REFUND: 滞销退款
  * SETTLED: 到期已结算（10天期限到期，管理员手动截止处理）
+ * PARTIAL_SOLD: 部分售出
+ * FULLY_SOLD: 全部售出
+ * SETTLING: 回款中
+ * RETURNED_TO_STOCK: 退货回库
  */
 export enum SubscriptionOrderStatus {
   CONFIRMED = 'confirmed',
@@ -31,6 +35,10 @@ export enum SubscriptionOrderStatus {
   CANCELLED = 'cancelled',
   SLOW_SELLING_REFUND = 'slow_selling_refund',
   SETTLED = 'settled',
+  PARTIAL_SOLD = 'partial_sold',
+  FULLY_SOLD = 'fully_sold',
+  SETTLING = 'settling',
+  RETURNED_TO_STOCK = 'returned_to_stock',
 }
 
 @Entity('subscription_orders')
@@ -50,6 +58,15 @@ export class SubscriptionOrder {
 
   @Column('int')
   quantity: number;
+
+  @Column('int', { default: 0, comment: '管理员确认数量' })
+  confirmedQuantity: number;
+
+  @Column('int', { default: 0, comment: '待确认数量（quantity - confirmedQuantity）' })
+  unconfirmedQuantity: number;
+
+  @Column({ type: 'timestamp', nullable: true, comment: '部分确认时间（未确认部分开始计时）' })
+  unconfirmedAt: Date;
 
   @Column('decimal', { precision: 12, scale: 2 })
   amount: number;
@@ -76,10 +93,10 @@ export class SubscriptionOrder {
   @Column({ comment: 'T+0确认时间' })
   confirmedAt: Date;
 
-  @Column({ comment: 'T+1生效时间' })
+  @Column({ nullable: true, comment: 'T+1生效时间（审核通过时设置）' })
   effectiveAt: Date;
 
-  @Column({ comment: '滞销截止日 = effectiveAt + 90天' })
+  @Column({ nullable: true, comment: '滞销截止日 = effectiveAt + 90天（审核通过时设置）' })
   slowSellingDeadline: Date;
 
   @Column({ nullable: true, comment: '全部退回时间' })
@@ -111,6 +128,27 @@ export class SubscriptionOrder {
 
   @Column('decimal', { precision: 12, scale: 2, default: 0, comment: '累计亏损' })
   totalLoss: number;
+
+  @Column({ type: 'int', default: 0, comment: '已售出数量（累计）' })
+  soldQuantity: number;
+
+  @Column({ type: 'timestamp', nullable: true, comment: '首次售出时间' })
+  firstSoldAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true, comment: '最近一次售出时间' })
+  lastSoldAt: Date;
+
+  @Column({ type: 'timestamp', nullable: true, comment: '锁定期截止日（effectiveAt + 10天）' })
+  lockExpiresAt: Date;
+
+  @Column('decimal', { precision: 12, scale: 2, default: 0, comment: '分红金额（财务手动填写）' })
+  dividendAmount: number;
+
+  @Column({ type: 'varchar', nullable: true, comment: '填写分红的管理员' })
+  dividendFilledBy: string;
+
+  @Column({ type: 'timestamp', nullable: true, comment: '分红填写时间' })
+  dividendFilledAt: Date;
 
   @CreateDateColumn()
   createdAt: Date;

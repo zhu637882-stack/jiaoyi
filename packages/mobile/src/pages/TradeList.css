@@ -1,511 +1,642 @@
 /* ============================================
-   TradeList - 交易页样式（卡片风格）
+   TradeList - 垫资进货页面 (币安深色风格)
    ============================================ */
 
-/* ---------- 页面容器 ---------- */
-.trade-list-page {
+.tl-page {
   min-height: 100vh;
-  background: #0B0E11;
-  padding-bottom: 80px;
+  background: var(--color-bg-primary);
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
 }
 
-/* ---------- 顶部标题栏 ---------- */
-.trade-list-header {
-  padding: 12px 16px 8px;
-  background: #0B0E11;
+/* ---------- 固定头部容器 ---------- */
+.tl-sticky-header {
   position: sticky;
   top: 0;
   z-index: 100;
+  background: var(--color-bg-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  will-change: transform;
 }
 
-.trade-list-title {
-  font-size: 20px;
-  font-weight: 600;
-  color: #EAECEF;
-  margin: 0;
-  padding: 0;
-}
-
-/* ---------- 标题行（标题 + 导出按钮） ---------- */
-.trade-list-title-row {
+/* ---------- 顶部导航 ---------- */
+.tl-nav {
   display: flex;
+  align-items: center;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  padding: 12px 16px;
+  padding-top: calc(12px + env(safe-area-inset-top, 0));
+  background: var(--color-bg-primary);
 }
 
-/* ---------- 导出按钮 ---------- */
-.trade-export-btn {
+.tl-nav-title {
+  font-size: 20px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+}
+
+.tl-nav-actions {
   display: flex;
   align-items: center;
-  gap: 4px;
-  padding: 5px 12px;
-  background: rgba(240, 185, 11, 0.12);
-  border: 1px solid rgba(240, 185, 11, 0.3);
-  border-radius: 16px;
-  color: #F0B90B;
-  font-size: 12px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-  line-height: 1.4;
+  gap: 8px;
 }
 
-.trade-export-btn:active {
+.tl-nav-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-sm);
+  background: var(--color-bg-card);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tl-nav-btn:active {
+  background: var(--color-brand-bg);
   transform: scale(0.95);
 }
 
-.trade-export-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.trade-export-btn.loading {
-  background: rgba(240, 185, 11, 0.06);
-}
-
-.trade-export-icon {
-  flex-shrink: 0;
-}
-
-.trade-export-spinner {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 1.5px solid rgba(240, 185, 11, 0.25);
-  border-top-color: #F0B90B;
+.tl-nav-bell-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  animation: tradeSpin 0.6s linear infinite;
-  flex-shrink: 0;
+  background: #EF4444;
+  border: 1.5px solid var(--color-bg-card);
 }
 
-/* ---------- 搜索栏 ---------- */
-.trade-search-wrapper {
-  margin-bottom: 4px;
-}
-
-/* ---------- 分类标签栏 ---------- */
-.trade-category-tabs {
-  display: flex;
-  gap: 24px;
-  margin-top: 12px;
-  padding: 0 4px;
-}
-
-.trade-tab-item {
-  font-size: 14px;
-  font-weight: 500;
-  color: #848E9C;
-  padding: 8px 0;
-  cursor: pointer;
+/* ---------- 额度卡片 ---------- */
+.tl-quota-card {
+  margin: 0 16px 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #1a2332 0%, #162030 50%, #1a2840 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(240, 185, 11, 0.15);
   position: relative;
-  transition: color 0.2s ease;
+  overflow: hidden;
+  animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
 }
 
-.trade-tab-item.active {
-  color: #F0B90B;
-}
-
-.trade-tab-item.active::after {
+.tl-quota-card::before {
   content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.1) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.tl-quota-body {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+}
+
+.tl-quota-main {
+  flex: 1;
+}
+
+.tl-quota-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+}
+
+.tl-quota-amount {
+  font-size: 28px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-accent);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.5px;
+}
+
+.tl-quota-side {
+  flex-shrink: 0;
+  min-width: 110px;
+}
+
+.tl-quota-used-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin-bottom: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tl-quota-progress-track {
+  width: 100%;
+  height: 4px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.tl-quota-progress-fill {
+  height: 100%;
+  background: var(--color-accent);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
+
+/* ---------- 分类 Tab 栏 ---------- */
+.tl-category-tabs {
+  display: flex;
+  padding: 0 16px;
+  margin-bottom: 4px;
+  background: transparent;
+  gap: 20px;
+  border-bottom: 1px solid var(--color-border);
+}
+
+.tl-category-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 10px 0;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  white-space: nowrap;
+}
+
+.tl-category-tab.active {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.tl-category-tab-line {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
   height: 2px;
-  background: #F0B90B;
+  background: var(--color-accent);
   border-radius: 1px;
+  animation: scaleXIn 0.25s ease;
 }
 
-.trade-search-bar {
-  --adm-color-background: #1E2329;
-  --adm-color-text: #EAECEF;
-  --adm-color-weak: #848E9C;
-  --adm-color-border: #2B3139;
-}
-
-.trade-search-bar .adm-search-bar-input-box {
-  background: #1E2329 !important;
+.tl-category-tab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: #FFFFFF;
+  background: #EF4444;
   border-radius: 8px;
-  border: 1px solid #2B3139;
 }
 
-.trade-search-bar .adm-search-bar-input {
-  color: #EAECEF;
-  font-size: 14px;
+.tl-category-tab-label {
+  /* ensure alignment */
 }
 
-.trade-search-bar .adm-search-bar-input::placeholder {
-  color: #848E9C;
-}
-
-/* ---------- 卡片列表容器 ---------- */
-.trade-card-list {
-  padding: 8px 16px;
+/* ---------- 统计行 ---------- */
+.tl-stats-row {
   display: flex;
-  flex-direction: column;
-  gap: 12px;
-  perspective: 1000px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 16px;
 }
 
-/* ---------- 产品卡片 ---------- */
-.trade-card {
-  background: linear-gradient(135deg, rgba(60,50,20,0.9), rgba(30,25,10,0.8));
-  border-radius: 12px;
-  padding: 16px;
+.tl-stats-total {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.tl-stats-profit {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-down);
+}
+
+/* ---------- 搜索栏 ---------- */
+.tl-search-bar {
   display: flex;
-  flex-direction: column;
+  align-items: center;
   gap: 8px;
-  cursor: pointer;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-              box-shadow 0.3s ease;
-  border: 1px solid rgba(80,70,30,0.4);
-  animation: tradeCardEnter 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both;
-  transform-style: preserve-3d;
-  will-change: transform, opacity;
-  position: relative;
-  overflow: hidden;
+  margin: 0 16px 8px;
+  background: var(--color-bg-input);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  height: 40px;
+  box-sizing: border-box;
 }
 
-@keyframes tradeCardEnter {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+.tl-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--color-text-primary);
+  font-size: var(--font-size-base);
+  line-height: 1;
 }
 
-/* 实时更新徽章 */
-.trade-card-badge {
-  background: rgba(0, 180, 80, 0.2);
-  color: #00E676;
-  border: 1px solid rgba(0, 180, 80, 0.3);
+.tl-search-input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+/* ---------- 药品卡片列表 ---------- */
+.tl-drug-list {
+  padding: 0 16px;
+}
+
+.tl-drug-card {
+  display: flex;
+  gap: 10px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: var(--color-bg-card);
   border-radius: 12px;
-  padding: 2px 10px;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.4;
-  white-space: nowrap;
-  pointer-events: none;
+  border: 1px solid var(--color-border);
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
 }
 
-/* 价格翻牌效果 */
-.trade-price-flip {
-  display: inline-block;
+.tl-drug-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(240, 185, 11, 0.3), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-fast);
+}
+
+.tl-drug-card:active {
+  background: rgba(255, 255, 255, 0.04);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.tl-drug-card:active::before {
+  opacity: 1;
+}
+
+/* 左侧产品图片 - 紧凑尺寸优化加载 */
+.tl-drug-icon {
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  background: var(--color-bg-input);
+  flex-shrink: 0;
   overflow: hidden;
   position: relative;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
-.trade-price-flip-enter {
-  animation: tradePriceFlipIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
-  will-change: transform, opacity;
-  display: inline-block;
-}
-
-@keyframes tradePriceFlipIn {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-/* 3D翻转效果 - 通过CSS变量控制 */
-.trade-card.is-3d {
-  transform: perspective(1000px) rotateX(var(--rotateX, 0deg)) rotateY(var(--rotateY, 0deg)) translateZ(10px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
-}
-
-/* 点击动画 */
-.trade-card.clicked {
-  animation: cardClick 0.5s ease forwards;
-}
-
-@keyframes cardClick {
-  0% {
-    transform: scale(1) rotateY(0deg);
-  }
-  50% {
-    transform: scale(1.1) rotateY(180deg);
-  }
-  100% {
-    transform: scale(1) rotateY(360deg);
-  }
-}
-
-/* 波纹效果 */
-.trade-card .ripple {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(240, 185, 11, 0.3);
-  pointer-events: none;
-  animation: ripple 0.5s ease-out forwards;
-  transform: scale(0);
-}
-
-@keyframes ripple {
-  0% {
-    transform: scale(0);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(4);
-    opacity: 0;
-  }
-}
-
-/* 移动端触摸反馈 - 弹性按压 */
-.trade-card.touch-active {
-  transform: scale(0.97);
-  transition: transform 0.1s ease;
-}
-
-/* 悬停状态（非触摸设备） */
-@media (hover: hover) and (pointer: fine) {
-  .trade-card:hover {
-    border-color: #2B3139;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  }
-}
-
-/* ---------- 卡片第一行：品种名称 ---------- */
-.trade-card-row1 {
+.tl-drug-img {
   width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+  transition: opacity 0.2s ease;
+  will-change: opacity;
 }
 
-.trade-card-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #EAECEF;
-  line-height: 1.3;
+.tl-drug-img-loaded {
+  opacity: 1;
+}
+
+.tl-drug-img-placeholder {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, var(--color-bg-input) 0%, rgba(255,255,255,0.02) 100%);
+  position: relative;
+  overflow: hidden;
+}
+
+/* 占位符网格背景 */
+.tl-drug-img-placeholder::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-image: 
+    linear-gradient(45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+    linear-gradient(-45deg, rgba(255,255,255,0.03) 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, rgba(255,255,255,0.03) 75%),
+    linear-gradient(-45deg, transparent 75%, rgba(255,255,255,0.03) 75%);
+  background-size: 20px 20px;
+  background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+  opacity: 0.5;
+}
+
+.tl-drug-img-loading {
+  position: absolute;
+  top: 0;
+  left: 0;
+  animation: pulse-loading 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-loading {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+/* 右侧信息 - 紧凑间距 */
+.tl-drug-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  justify-content: space-between;
+}
+
+/* 行1: 分类标签 + 药品名称 */
+.tl-drug-name-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 1px;
+}
+
+.tl-drug-category-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1.5;
+  letter-spacing: 0.3px;
+}
+
+.tl-drug-name {
+  font-size: 14px;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
-}
-
-.trade-card-code {
-  font-size: 12px;
-  color: #848E9C;
   line-height: 1.3;
 }
 
-/* ---------- 卡片第二行：规格代码（左）+ 徽章/价格/涨跌幅（右） ---------- */
-.trade-card-row2 {
+/* 行2: 规格 | 厂家 */
+.tl-drug-spec-row {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  width: 100%;
-}
-
-/* ---------- 卡片第三行：运营信息 ---------- */
-.trade-card-row3 {
-  display: flex;
-  gap: 12px;
+  gap: 4px;
   font-size: 11px;
-  color: #999;
-  line-height: 1.4;
-  flex-wrap: wrap;
-}
-
-.trade-card-row3 span {
+  color: var(--color-text-tertiary);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
+  line-height: 1.3;
 }
 
-.trade-card-row2-right {
+.tl-drug-spec-divider {
+  color: var(--color-border);
+}
+
+/* 行3: 价格 + 涨幅 + 原价 */
+.tl-drug-price-row {
   display: flex;
-  gap: 8px;
-  align-items: center;
+  align-items: baseline;
+  gap: 6px;
+  margin-top: 1px;
 }
 
-.trade-card-price {
+.tl-drug-price {
   font-size: 16px;
-  font-weight: 600;
-  color: #EAECEF;
-  font-family: 'DIN Alternate', 'Roboto Mono', monospace;
+  font-weight: var(--font-weight-bold);
+  color: var(--color-up);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
   letter-spacing: -0.3px;
-  white-space: nowrap;
 }
 
-.trade-card-change {
+.tl-drug-profit-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 10px;
+  font-weight: var(--font-weight-bold);
+  color: #FFFFFF;
+  background: var(--color-down);
+  line-height: 1.4;
+  box-shadow: 0 1px 3px rgba(0, 212, 170, 0.2);
+}
+
+.tl-drug-original-price {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-decoration: line-through;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 行4: 剩余库存 + 进货按钮 - 紧凑 */
+.tl-drug-action-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 3px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.tl-drug-stock {
+  font-size: 10px;
+  color: var(--color-text-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.tl-drug-stock::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-down);
+  opacity: 0.6;
+}
+
+.tl-drug-buy-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3px 12px;
+  min-width: 64px;
+  height: 28px;
+  min-height: 28px;
+  background: linear-gradient(135deg, var(--color-accent) 0%, #e6a800 100%);
+  color: #000000;
   font-size: 12px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 6px;
-  min-width: 54px;
-  text-align: center;
-  font-family: 'DIN Alternate', 'Roboto Mono', monospace;
+  font-weight: var(--font-weight-bold);
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  -webkit-tap-highlight-color: transparent;
   white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(240, 185, 11, 0.25);
+  letter-spacing: 0.3px;
 }
 
-.trade-card-change.up {
-  background: rgba(246, 70, 93, 0.15);
-  color: #F6465D;
-}
-
-.trade-card-change.down {
-  background: rgba(14, 203, 129, 0.15);
-  color: #0ECB81;
+.tl-drug-buy-btn:active {
+  transform: scale(0.96);
+  box-shadow: 0 1px 4px rgba(240, 185, 11, 0.3);
 }
 
 /* ---------- 骨架屏 ---------- */
-.trade-skeleton {
+.tl-skeleton-wrap {
+  padding: 8px 0;
+}
+
+.tl-skeleton-card {
   display: flex;
-  flex-direction: column;
   gap: 12px;
+  padding: 14px;
+  margin-bottom: 10px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
 }
 
-.trade-skeleton-card {
-  background: #0B0E11;
-  border: 1px solid #1E2329;
-  border-radius: 12px;
-  padding: 16px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.tl-skeleton-img {
+  width: 80px;
+  height: 80px;
+  border-radius: 10px;
+  background: linear-gradient(90deg, var(--color-bg-input) 25%, rgba(255,255,255,0.04) 50%, var(--color-bg-input) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
-.trade-skeleton-left,
-.trade-skeleton-right {
+.tl-skeleton-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-.trade-skeleton-right {
-  align-items: flex-end;
-}
-
-.trade-skeleton-bar {
-  background: linear-gradient(90deg, #2B3139 25%, #363d47 50%, #2B3139 75%);
-  background-size: 200% 100%;
+.tl-skeleton-line {
+  height: 14px;
   border-radius: 4px;
-  animation: skeletonShimmer 1.5s infinite;
-}
-
-@keyframes skeletonShimmer {
-  0% {
-    background-position: 200% 0;
-  }
-  100% {
-    background-position: -200% 0;
-  }
+  background: linear-gradient(90deg, var(--color-bg-input) 25%, rgba(255,255,255,0.04) 50%, var(--color-bg-input) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
 }
 
 /* ---------- 空状态 ---------- */
-.trade-empty {
+.tl-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
   padding: 60px 20px;
-  gap: 12px;
+  gap: 16px;
 }
 
-.trade-empty-text {
-  font-size: 15px;
-  color: #848E9C;
-  font-weight: 500;
+.tl-empty svg {
+  opacity: 0.4;
 }
 
-.trade-empty-hint {
-  font-size: 13px;
-  color: #5E6673;
+.tl-empty-text {
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
 }
 
-/* ---------- PullToRefresh 自定义 ---------- */
-.trade-list-page .adm-pull-to-refresh {
-  background: #0B0E11;
+/* ---------- 动画 ---------- */
+@keyframes scaleXIn {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
-.trade-list-page .adm-pull-to-refresh-content {
-  background: #0B0E11;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-/* ---------- 响应式适配 ---------- */
-@media (max-width: 375px) {
-  .trade-card {
-    padding: 14px;
-  }
-
-  .trade-card-name {
-    font-size: 15px;
-  }
-
-  .trade-card-row2-right {
-    gap: 5px;
-  }
-
-  .trade-card-badge {
-    font-size: 10px;
-    padding: 2px 6px;
-  }
-
-  .trade-card-price {
-    font-size: 14px;
-  }
-
-  .trade-card-change {
-    font-size: 11px;
-    padding: 2px 6px;
-    min-width: 48px;
-  }
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
-/* ---------- 安全区域适配（iPhone X+） ---------- */
+/* ---------- PullToRefresh ---------- */
+.tl-page .adm-pull-to-refresh {
+  background: var(--color-bg-primary);
+}
+
+.tl-page .adm-pull-to-refresh-content {
+  background: var(--color-bg-primary);
+}
+
+/* ---------- 安全区域适配 ---------- */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
-  .trade-list-page {
+  .tl-page {
     padding-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 }
 
-/* ---------- 总数提示 ---------- */
-.trade-total-hint {
-  font-size: 12px;
-  color: #848E9C;
-  padding: 6px 4px 0;
-}
+/* ---------- 响应式 ---------- */
+@media (max-width: 375px) {
+  .tl-quota-amount {
+    font-size: 24px;
+  }
 
-/* ---------- 上拉加载更多 ---------- */
-.trade-load-more {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 20px 0 10px;
-  min-height: 50px;
-}
+  .tl-category-tab {
+    font-size: var(--font-size-sm);
+  }
 
-.trade-load-more-loading {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  color: #848E9C;
-  font-size: 13px;
-}
+  .tl-drug-price {
+    font-size: 16px;
+  }
 
-.trade-load-spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(240, 185, 11, 0.2);
-  border-top-color: #F0B90B;
-  border-radius: 50%;
-  animation: tradeSpin 0.6s linear infinite;
-}
+  .tl-drug-name {
+    font-size: 14px;
+  }
 
-@keyframes tradeSpin {
-  to { transform: rotate(360deg); }
-}
+  .tl-drug-buy-btn {
+    padding: 6px 14px;
+    font-size: 11px;
+    min-width: 68px;
+  }
 
-.trade-load-more-done {
-  color: #5E6673;
-  font-size: 12px;
-  text-align: center;
+  .tl-drug-icon {
+    width: 72px;
+    height: 72px;
+  }
+
+  .tl-skeleton-img {
+    width: 72px;
+    height: 72px;
+  }
 }

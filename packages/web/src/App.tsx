@@ -4,11 +4,7 @@ import BasicLayout from './layouts/BasicLayout'
 import Login from './pages/Login'
 
 // 动态导入页面组件（代码拆分）
-const Dashboard = React.lazy(() => import('./pages/Dashboard'))
-const Market = React.lazy(() => import('./pages/Market'))
-const Trade = React.lazy(() => import('./pages/Trade'))
-const Portfolio = React.lazy(() => import('./pages/Portfolio'))
-const Settlement = React.lazy(() => import('./pages/Settlement'))
+// 交易相关页面已从路由中移除，仅保留管理后台
 const Admin = React.lazy(() => import('./pages/Admin'))
 
 // 获取当前用户角色
@@ -69,8 +65,8 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAdmin) {
-    // 非管理员重定向到首页
-    return <Navigate to="/" replace />
+    // 非管理员重定向到登录页
+    return <Navigate to="/login" replace />
   }
 
   return <>{children}</>
@@ -103,18 +99,14 @@ function App() {
             </PrivateRoute>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="market" element={<Market />} />
-          <Route path="trade/:drugId" element={<Trade />} />
-          <Route path="portfolio" element={<Portfolio />} />
-          <Route path="settlement" element={<Settlement />} />
+          <Route index element={<Navigate to="/admin" replace />} />
           <Route path="admin" element={
             <AdminRoute>
               <Admin />
             </AdminRoute>
           } />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
       </Routes>
     </Suspense>
   )

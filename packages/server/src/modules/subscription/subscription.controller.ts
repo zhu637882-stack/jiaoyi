@@ -12,6 +12,7 @@ import {
   HttpCode,
   HttpStatus,
   ParseUUIDPipe,
+  BadRequestException,
 } from '@nestjs/common';
 import { Response } from 'express';
 import { SubscriptionService } from './subscription.service';
@@ -105,7 +106,7 @@ export class SubscriptionController {
     const csv = await this.subscriptionService.exportMySubscriptionsCsv(userId);
     const now = new Date();
     const dateStr = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
-    const filename = encodeURIComponent(`零钱保_交易记录_${dateStr}.csv`);
+    const filename = encodeURIComponent(`零钱宝_交易记录_${dateStr}.csv`);
 
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', `attachment; filename*=UTF-8''${filename}`);
@@ -282,13 +283,14 @@ export class SubscriptionController {
   async auditSubscription(
     @CurrentUser('userId') adminUserId: string,
     @Param('id', new ParseUUIDPipe({ version: '4' })) orderId: string,
-    @Body() body: { approved: boolean; remark?: string },
+    @Body() body: { approved: boolean; remark?: string; confirmedQuantity?: number },
   ) {
     const order = await this.subscriptionService.auditSubscription(
       adminUserId,
       orderId,
       body.approved,
       body.remark,
+      body.confirmedQuantity,
     );
 
     if (!order) {
@@ -377,6 +379,76 @@ export class SubscriptionController {
       success: true,
       data: order,
       message: '到期截止处理完成，本金已退还',
+    };
+  }
+
+  /**
+   * 管理员录入售出数量
+   * POST /api/subscriptions/admin/record-sale
+   */
+  @Post('admin/record-sale')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async recordSale(@Body() body: { orderId: string; quantity: number }) {
+    if (!body.orderId || !body.quantity) {
+      throw new BadRequestException('orderId和quantity不能为空');
+    }
+    const saleRecord = await this.subscriptionService.recordSale(body.orderId, Number(body.quantity));
+    return {
+      success: true,
+      data: saleRecord,
+      message: `成功录入售出${body.quantity}份`,
+    };
+  }
+
+  /**
+   * 获取订单的售出记录
+   * GET /api/subscriptions/admin/sale-records/:orderId
+   */
+  @Get('admin/sale-records/:orderId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getSaleRecords(@Param('orderId') orderId: string) {
+    const records = await this.subscriptionService.getSaleRecords(orderId);
+    return { success: true, data: records };
+  }
+
+  /**
+   * 查询已到锁定期截止日的订单（到期提醒）
+   * GET /api/subscriptions/admin/expiring
+   */
+  @Get('admin/expiring')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAdminExpiringOrders() {
+    const result = await this.subscriptionService.getAdminExpiringOrders();
+    return { success: true, data: result };
+  }
+
+  /**
+   * 管理员填写分红金额并结算
+   * PUT /api/subscriptions/admin/:id/dividend
+   */
+  @Put('admin/:id/dividend')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async fillDividend(
+    @CurrentUser('userId') adminUserId: string,
+    @Param('id', new ParseUUIDPipe({ version: '4' })) orderId: string,
+    @Body() body: { dividendAmount: number },
+  ) {
+    if (!body.dividendAmount || body.dividendAmount <= 0) {
+      throw new BadRequestException('分红金额必须大于0');
+    }
+    const order = await this.subscriptionService.fillDividend(
+      adminUserId,
+      orderId,
+      body.dividendAmount,
+    );
+    return {
+      success: true,
+      data: order,
+      message: `分红结算完成，本金${order.amount}元+分红${order.dividendAmount}元已退回`,
     };
   }
 }

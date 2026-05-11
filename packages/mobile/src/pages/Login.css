@@ -1,43 +1,71 @@
-/* 币安风格登录页面 */
+/* ============================================
+   Login 登录页 - 零钱宝 黄金深色主题
+   ============================================ */
+
 .mobile-login {
   min-height: 100vh;
-  background: #0B0E11;
+  background: #1B1D21;
   display: flex;
   flex-direction: column;
   position: relative;
-  overflow-x: hidden;
+  overflow: hidden;
 }
 
-/* 顶部导航 */
+/* 装饰光晕 */
+.login-glow {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.login-glow--tr {
+  width: 300px;
+  height: 300px;
+  top: -80px;
+  right: -80px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.08) 0%, transparent 70%);
+}
+
+.login-glow--bl {
+  width: 360px;
+  height: 360px;
+  bottom: -120px;
+  left: -120px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.05) 0%, transparent 70%);
+}
+
+/* 顶部导航 - 仅注册页 */
 .login-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: #181A20;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  padding-top: calc(12px + env(safe-area-inset-top, 0));
+  background: #1B1D21;
   position: sticky;
   top: 0;
   z-index: 100;
 }
 
 .login-back-btn {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: #282B33;
   border: none;
   color: #EAECEF;
   cursor: pointer;
   padding: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   transition: all 0.2s ease;
 }
 
 .login-back-btn:active {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(240, 185, 11, 0.12);
+  transform: scale(0.95);
 }
 
 .login-header-title {
@@ -50,7 +78,7 @@
 }
 
 .login-header-placeholder {
-  width: 40px;
+  width: 36px;
 }
 
 /* 内容区域 */
@@ -58,11 +86,13 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  padding: 40px 24px;
+  padding: 0 24px;
   max-width: 400px;
   margin: 0 auto;
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  z-index: 1;
 }
 
 /* Logo区域 */
@@ -70,58 +100,130 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 48px;
-  margin-top: 20px;
+  padding-top: 15vh;
+  margin-bottom: 40px;
+}
+
+.login-logo-wrapper {
+  width: 72px;
+  height: 72px;
+  margin-bottom: 16px;
+  box-shadow: 0 8px 24px rgba(240, 185, 11, 0.25);
+  border-radius: 15%;
+  line-height: 0;
+}
+
+.login-logo-wrapper svg {
+  display: block;
+  border-radius: 15%;
+}
+
+.login-brand-name {
+  font-size: 24px;
+  font-weight: 700;
+  color: #EAECEF;
+  letter-spacing: 2px;
+  margin-bottom: 6px;
+}
+
+.login-brand-slogan {
+  font-size: 14px;
+  color: #848E9C;
+  font-weight: 400;
 }
 
 /* 表单区域 */
 .login-form {
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 12px;
+  animation: slideUp 0.4s ease-out;
 }
 
 /* 输入框包装器 */
 .login-input-wrapper {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .login-input-label {
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: #848E9C;
-  padding-left: 4px;
+  padding-left: 2px;
 }
 
 .login-optional {
-  color: #5E6673;
+  color: #848E9C;
   font-weight: 400;
+}
+
+/* 输入框容器 */
+.login-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+/* 输入框左侧图标 */
+.login-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #848E9C;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 2;
 }
 
 /* 输入框 */
 .login-input {
   width: 100%;
-  height: 52px;
-  background: #2B2F36;
+  height: 48px;
+  background: #282B33;
   border: 1px solid transparent;
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 0 16px;
   font-size: 15px;
   color: #EAECEF;
   outline: none;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
   box-sizing: border-box;
 }
 
+/* 带左侧图标的输入框 */
+.login-input-box .login-input-icon + .login-input,
+.login-input-box .login-input:first-child {
+  /* default no icon */
+}
+
+.login-input-box .login-input-icon ~ .login-input {
+  padding-left: 44px;
+}
+
 .login-input::placeholder {
-  color: #5E6673;
+  color: #848E9C;
 }
 
 .login-input:focus {
   border-color: #F0B90B;
-  background: #2B2F36;
+  box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.15);
+}
+
+/* 带眼睛图标的输入框 */
+.login-input-box .login-eye-btn ~ .login-input,
+.login-input-box .login-input {
+  padding-right: 48px;
+}
+
+/* 左右图标同时存在 */
+.login-input-box .login-input-icon ~ .login-input {
+  padding-left: 44px;
+  padding-right: 48px;
 }
 
 /* 眼睛按钮 */
@@ -140,227 +242,63 @@
   color: #848E9C;
   cursor: pointer;
   padding: 0;
-  border-radius: 6px;
-  transition: all 0.2s ease;
+  border-radius: 8px;
+  transition: color 0.2s ease;
+  z-index: 2;
 }
 
 .login-eye-btn:active {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.login-eye-btn:hover {
   color: #F0B90B;
 }
 
-/* 带眼睛图标的输入框调整 */
-.login-input-box .login-input {
-  padding-right: 52px;
-}
-
-/* 服务协议勾选 */
-.login-agreement {
+/* 忘记密码行 */
+.login-forgot-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-top: 4px;
+  justify-content: flex-end;
+  margin-top: -4px;
 }
 
-.login-checkbox {
-  width: 20px;
-  height: 20px;
-  border-radius: 4px;
-  border: 2px solid #5E6673;
-  background: transparent;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  padding: 0;
-  transition: all 0.2s ease;
-  flex-shrink: 0;
-}
-
-.login-checkbox.checked {
-  background: #F0B90B;
-  border-color: #F0B90B;
-}
-
-.login-agreement-text {
-  font-size: 13px;
-  color: #848E9C;
-  line-height: 1.5;
-}
-
-.login-agreement-link {
-  color: #F0B90B;
-  text-decoration: none;
-  margin-left: 2px;
-  cursor: pointer;
-  border-bottom: 1px solid rgba(240, 185, 11, 0.4);
-  transition: all 0.2s ease;
-}
-
-.login-agreement-link:active {
-  opacity: 0.8;
-}
-
-/* 底部链接 */
-.login-footer-link {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  margin-top: 24px;
-  font-size: 14px;
-  color: #848E9C;
-}
-
-.login-link-btn {
+.login-forgot-btn {
   background: transparent;
   border: none;
   color: #F0B90B;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
-  padding: 4px 8px;
-  border-radius: 4px;
-  transition: all 0.2s ease;
+  padding: 4px 0;
 }
 
-.login-link-btn:active {
-  background: rgba(240, 185, 11, 0.1);
+.login-forgot-btn:active {
+  opacity: 0.7;
 }
 
-/* 适配安全区域 */
-@supports (padding-top: env(safe-area-inset-top)) {
-  .login-content {
-    padding-top: calc(40px + env(safe-area-inset-top));
-    padding-bottom: calc(40px + env(safe-area-inset-bottom));
-  }
-  
-  .login-header {
-    padding-top: calc(12px + env(safe-area-inset-top));
-  }
-}
-
-/* ========== 1. 粒子浮动背景 ========== */
-.login-particles {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
-
-.particle {
-  position: absolute;
-  border-radius: 50%;
-  background: rgba(240, 185, 11, 0.15);
-  will-change: transform, opacity;
-  animation: particleFloat linear infinite;
-}
-
-.particle:nth-child(1) { width: 3px; height: 3px; left: 10%; bottom: -5%; animation-duration: 18s; animation-delay: 0s; }
-.particle:nth-child(2) { width: 5px; height: 5px; left: 25%; bottom: -5%; animation-duration: 22s; animation-delay: -3s; background: rgba(240, 185, 11, 0.1); }
-.particle:nth-child(3) { width: 2px; height: 2px; left: 40%; bottom: -5%; animation-duration: 16s; animation-delay: -6s; background: rgba(240, 185, 11, 0.25); }
-.particle:nth-child(4) { width: 6px; height: 6px; left: 55%; bottom: -5%; animation-duration: 25s; animation-delay: -2s; background: rgba(240, 185, 11, 0.08); }
-.particle:nth-child(5) { width: 4px; height: 4px; left: 70%; bottom: -5%; animation-duration: 20s; animation-delay: -8s; }
-.particle:nth-child(6) { width: 3px; height: 3px; left: 85%; bottom: -5%; animation-duration: 17s; animation-delay: -4s; background: rgba(240, 185, 11, 0.2); }
-.particle:nth-child(7) { width: 7px; height: 7px; left: 15%; bottom: -5%; animation-duration: 24s; animation-delay: -10s; background: rgba(240, 185, 11, 0.06); }
-.particle:nth-child(8) { width: 2px; height: 2px; left: 60%; bottom: -5%; animation-duration: 19s; animation-delay: -12s; background: rgba(240, 185, 11, 0.3); }
-
-@keyframes particleFloat {
-  0% {
-    transform: translateY(0) translateX(0);
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  50% {
-    transform: translateY(-50vh) translateX(30px);
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateY(-110vh) translateX(-20px);
-    opacity: 0;
-  }
-}
-
-/* ========== 2. Logo呼吸脉冲光晕 ========== */
-.login-logo-img {
-  width: 120px;
-  height: auto;
-  object-fit: contain;
-  display: block;
-  will-change: filter;
-  animation: logoGlow 3s ease-in-out infinite;
-}
-
-@keyframes logoGlow {
-  0%, 100% {
-    filter: drop-shadow(0 0 8px rgba(240, 185, 11, 0.3));
-  }
-  50% {
-    filter: drop-shadow(0 0 20px rgba(240, 185, 11, 0.6))
-           drop-shadow(0 0 40px rgba(240, 185, 11, 0.15));
-  }
-}
-
-/* ========== 3. 输入框focus波纹线条 ========== */
-.login-input-box {
-  position: relative;
-  display: flex;
-  align-items: center;
-}
-
-.login-input-box::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  width: 0;
-  height: 2px;
-  background: linear-gradient(90deg, transparent, #F0B90B, transparent);
-  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  transform: translateX(-50%);
-  border-radius: 1px;
-  pointer-events: none;
-}
-
-.login-input-box:focus-within::after {
-  width: 100%;
-}
-
-/* ========== 4. 登录按钮动画状态 ========== */
+/* 登录按钮 */
 .login-submit-btn {
   width: 100%;
-  height: 52px;
-  margin-top: 12px;
+  height: 48px;
+  margin-top: 8px;
   background: #F0B90B;
   border: none;
-  border-radius: 8px;
-  color: #0B0E11;
+  border-radius: 12px;
+  color: #1B1D21;
   font-size: 16px;
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
+  transition: all 0.2s ease;
   display: flex;
   align-items: center;
   justify-content: center;
+  box-shadow: 0 4px 16px rgba(240, 185, 11, 0.3);
+  position: relative;
 }
 
-.login-submit-btn:active:not(:disabled):not(.is-loading):not(.is-success) {
+.login-submit-btn:active:not(:disabled) {
   transform: scale(0.98);
-  background: #D4A20A;
+  opacity: 0.9;
 }
 
-.login-submit-btn:disabled:not(.is-loading):not(.is-success) {
-  opacity: 0.6;
+.login-submit-btn:disabled {
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
@@ -375,38 +313,40 @@
 }
 
 .login-submit-btn.is-loading {
-  width: 52px;
+  width: 48px;
   border-radius: 50%;
   margin-left: auto;
   margin-right: auto;
   pointer-events: none;
+  box-shadow: 0 4px 16px rgba(240, 185, 11, 0.3);
 }
 
 .login-submit-btn.is-loading::before {
   content: '';
-  width: 24px;
-  height: 24px;
-  border: 3px solid rgba(11, 14, 17, 0.3);
-  border-top-color: #0B0E11;
+  width: 22px;
+  height: 22px;
+  border: 3px solid rgba(27, 29, 33, 0.3);
+  border-top-color: #1B1D21;
   border-radius: 50%;
   animation: btnSpin 0.6s linear infinite;
 }
 
 .login-submit-btn.is-success {
-  width: 52px;
+  width: 48px;
   border-radius: 50%;
   margin-left: auto;
   margin-right: auto;
-  background: #00D4AA;
+  background: #10B981;
   pointer-events: none;
+  box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
 }
 
 .login-submit-btn.is-success::before {
   content: '';
-  width: 20px;
-  height: 10px;
-  border-left: 3px solid #0B0E11;
-  border-bottom: 3px solid #0B0E11;
+  width: 18px;
+  height: 9px;
+  border-left: 3px solid #fff;
+  border-bottom: 3px solid #fff;
   transform: rotate(-45deg) translateY(-2px);
   animation: checkPop 0.3s ease-out;
 }
@@ -421,65 +361,96 @@
   100% { transform: rotate(-45deg) translateY(-2px) scale(1); opacity: 1; }
 }
 
-/* 动画效果 */
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.login-form {
-  animation: fadeIn 0.3s ease-out;
+/* 分割线 */
+.login-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-/* 确保内容在粒子之上 */
-.login-header,
-.login-content {
-  position: relative;
-  z-index: 1;
+.login-divider-line {
+  flex: 1;
+  height: 1px;
+  background: #363840;
 }
 
-/* 响应式适配 */
-@media (max-width: 375px) {
+.login-divider-text {
+  font-size: 12px;
+  color: #848E9C;
+  white-space: nowrap;
+}
+
+/* 底部链接 */
+.login-footer-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  margin-top: 4px;
+  font-size: 14px;
+  color: #848E9C;
+}
+
+.login-link-btn {
+  background: transparent;
+  border: none;
+  color: #F0B90B;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.login-link-btn:active {
+  background: rgba(240, 185, 11, 0.12);
+}
+
+/* 安全区域适配 */
+@supports (padding-top: env(safe-area-inset-top)) {
   .login-content {
-    padding: 32px 20px;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: calc(40px + env(safe-area-inset-bottom));
   }
-  
-  .login-logo-img {
-    width: 96px;
+
+  .login-header {
+    padding-top: calc(12px + env(safe-area-inset-top));
   }
-  
+}
+
+/* 响应式 */
+@media (max-width: 375px) {
+  .login-logo-section {
+    padding-top: 10vh;
+  }
+
+  .login-logo-wrapper {
+    width: 60px;
+    height: 60px;
+  }
+
+  .login-logo-wrapper svg {
+    width: 60px;
+    height: 60px;
+  }
+
+  .login-brand-name {
+    font-size: 20px;
+  }
+
   .login-input {
-    height: 48px;
+    height: 44px;
     font-size: 14px;
   }
-  
-  .login-submit-btn {
-    height: 48px;
-  }
-}
 
-/* 横屏适配 */
-@media (max-height: 600px) and (orientation: landscape) {
-  .login-logo-section {
-    margin-bottom: 24px;
-    margin-top: 0;
-  }
-  
-  .login-logo-img {
-    width: 72px;
-  }
-  
-  .login-form {
-    gap: 12px;
-  }
-  
-  .login-input-wrapper {
-    gap: 4px;
+  .login-submit-btn {
+    height: 44px;
   }
 }

@@ -32,7 +32,7 @@ export default defineConfig({
   server: {
     host: '127.0.0.1',
     port: 5173,
-    allowedHosts: ['mufend.com', 'www.mufend.com', '103.43.188.127', 'localhost'],
+    allowedHosts: ['duokeer.com', 'www.duokeer.com', 'mufend.com', 'www.mufend.com', '103.43.188.127', 'localhost'],
     hmr: {
       clientPort: 80,
       protocol: 'ws',

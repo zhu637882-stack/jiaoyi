@@ -20,7 +20,7 @@ export class AuditLog {
   targetId: string
 
   @Column({ type: 'text', nullable: true })
-  detail: string  // JSON string
+  detail?: string  // JSON string
 
   @Column({ nullable: true })
   ipAddress: string

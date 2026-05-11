@@ -9,6 +9,7 @@ import { AccountBalance } from '../../database/entities/account-balance.entity';
 import { AccountTransaction } from '../../database/entities/account-transaction.entity';
 import { User } from '../../database/entities/user.entity';
 import { DailyYield } from '../../database/entities/daily-yield.entity';
+import { SaleRecord } from '../../database/entities/sale-record.entity';
 import { EventsModule } from '../../common/events/events.module';
 import { InvitationModule } from '../invitation/invitation.module';
 import { TrialBonusModule } from '../trial-bonus/trial-bonus.module';
@@ -22,6 +23,7 @@ import { TrialBonusModule } from '../trial-bonus/trial-bonus.module';
       AccountTransaction,
       User,
       DailyYield,
+      SaleRecord,
     ]),
     EventsModule,
     InvitationModule,

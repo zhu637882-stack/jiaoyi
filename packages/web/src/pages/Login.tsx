@@ -117,7 +117,7 @@ const Login = () => {
   const handleLogin = async (values: { username: string; password: string }) => {
     setLoading(true)
     try {
-      const response = await authApi.login(values.username, values.password)
+      const response = await authApi.login(values.username, values.password) as { access_token?: string; refresh_token?: string; user?: unknown; message?: string }
       if (response.access_token) {
         localStorage.setItem('access_token', response.access_token)
         if (response.refresh_token) {
@@ -125,7 +125,7 @@ const Login = () => {
         }
         localStorage.setItem('user', JSON.stringify(response.user))
         message.success('登录成功')
-        navigate('/')
+        navigate('/admin')
       } else {
         message.error(response.message || '登录失败')
       }
@@ -480,7 +480,7 @@ const Login = () => {
         <div style={{ textAlign: 'center', marginBottom: 36 }}>
           <img
             src={logoPng}
-            alt="零钱保"
+            alt="零钱宝"
             style={{
               height: 64,
               width: 'auto',
@@ -497,10 +497,10 @@ const Login = () => {
               fontSize: 24,
             }}
           >
-            多客数智旗下 · 零钱保
+            多客数智旗下 · 零钱宝
           </Title>
           <Text style={{ color: '#848E9C', fontSize: 14, letterSpacing: 1 }}>
-            我出资质你出钱，零钱保理赚零钱
+            我出资质你出钱，零钱宝理赚零钱
           </Text>
         </div>
 

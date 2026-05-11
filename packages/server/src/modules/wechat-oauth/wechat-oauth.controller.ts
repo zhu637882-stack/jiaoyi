@@ -59,8 +59,12 @@ export class WechatOauthController {
       return { url, statusCode: 302 };
     } catch (error) {
       // 出错时仍然重定向回原URL，附加错误信息
+      console.error('[WechatOAuth] Callback error:', error?.message || error);
       const separator = redirectUrl.includes('?') ? '&' : '?';
-      const url = `${redirectUrl}${separator}wechatError=oauth_failed`;
+      const errorCode = error?.message?.includes('配置缺失') ? 'config_missing'
+        : error?.message?.includes('网络请求') ? 'api_error'
+        : 'oauth_failed';
+      const url = `${redirectUrl}${separator}wechatError=${errorCode}`;
       return { url, statusCode: 302 };
     }
   }

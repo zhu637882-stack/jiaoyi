@@ -25,7 +25,7 @@ export class AuditService {
     try {
       await this.auditLogRepo.save({
         ...params,
-        detail: params.detail ? JSON.stringify(params.detail) : null,
+        detail: params.detail ? JSON.stringify(params.detail) : undefined,
       })
     } catch (error) {
       console.error('Audit log failed:', error)

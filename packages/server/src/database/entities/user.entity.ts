@@ -75,7 +75,7 @@ export class User {
   loginCount: number;
 
   @Column({ type: 'timestamp', nullable: true, comment: '同意协议时间' })
-  agreedAt: Date;
+  agreedAt?: Date;
 
   @CreateDateColumn()
   createdAt: Date;

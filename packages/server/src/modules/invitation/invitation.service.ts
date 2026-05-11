@@ -49,7 +49,7 @@ export class InvitationService {
     if (existing) return existing;
 
     // 生成唯一邀请码，最多重试10次
-    let code: string;
+    let code: string = this.generateRandomCode(); // 初始化
     let isUnique = false;
     let retries = 0;
 
@@ -72,9 +72,10 @@ export class InvitationService {
 
     try {
       return await this.codeRepository.save(invitationCode);
-    } catch (error) {
+    } catch (error: unknown) {
       // 唯一约束冲突(PostgreSQL 23505)：并发插入同一userId，回查返回已有记录
-      if (error?.code === '23505') {
+      const err = error as any;
+      if (err?.code === '23505') {
         const existingRecord = await this.codeRepository.findOne({
           where: { userId },
         });

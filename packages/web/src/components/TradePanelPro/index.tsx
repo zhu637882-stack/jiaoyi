@@ -86,7 +86,7 @@ const TradePanelPro: React.FC<TradePanelProProps> = ({ drug, onOrderSuccess }) =
   // 获取余额
   const fetchBalance = async () => {
     try {
-      const res = await accountApi.getBalance()
+      const res = await accountApi.getBalance() as { availableBalance?: number }
       setBalance(res.availableBalance || 0)
     } catch (e) {
       console.error('获取余额失败', e)
@@ -147,7 +147,7 @@ const TradePanelPro: React.FC<TradePanelProProps> = ({ drug, onOrderSuccess }) =
         const response = await subscriptionApi.createSubscription({
           drugId: drug.drugId,
           quantity: modalQuantity,
-        })
+        }) as { success: boolean }
         if (response.success) {
           message.success('认购成功，T+1生效')
           setModalVisible(false)

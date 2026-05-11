@@ -160,7 +160,7 @@ export class AuthService {
       realName,
       phone,
       agreedToAgreement: agreedToAgreement ?? false,
-      agreedAt: agreedToAgreement ? new Date() : null,
+      agreedAt: agreedToAgreement ? new Date() : undefined,
     });
 
     const savedUser = await this.userRepository.save(user);
@@ -178,24 +178,27 @@ export class AuthService {
     // 自动生成用户的邀请码（失败不影响注册）
     try {
       await this.invitationService.generateInvitationCode(savedUser.id);
-    } catch (e) {
-      this.logger.warn(`生成邀请码失败（不影响注册）: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e as Error;
+      this.logger.warn(`生成邀请码失败（不影响注册）: ${err.message}`);
     }
 
     // 如果传入了邀请码，绑定邀请关系（失败不影响注册）
     if (invitationCode) {
       try {
         await this.invitationService.applyInvitationCode(savedUser.id, invitationCode);
-      } catch (e) {
-        this.logger.warn(`绑定邀请码失败（不影响注册）: ${e.message}`);
+      } catch (e: unknown) {
+        const err = e as Error;
+        this.logger.warn(`绑定邀请码失败（不影响注册）: ${err.message}`);
       }
     }
 
     // 发放体验金（失败不影响注册）
     try {
       await this.trialBonusService.grantTrialBonus(savedUser.id);
-    } catch (e) {
-      this.logger.warn(`体验金发放失败（不影响注册）: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e as Error;
+      this.logger.warn(`体验金发放失败（不影响注册）: ${err.message}`);
     }
 
     const { password: _, ...result } = savedUser;

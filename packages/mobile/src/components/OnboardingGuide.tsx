@@ -78,8 +78,28 @@ const OnboardingGuide: React.FC = () => {
     if (el) {
       const rect = el.getBoundingClientRect()
       setTargetRect(rect)
+    } else {
+      setTargetRect(null)
     }
   }, [visible, currentStep])
+
+  // ---- 完成/跳过 ----
+  const finish = useCallback(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, 'true')
+    } catch { /* ignore */ }
+    setExiting(true)
+    setTimeout(() => setVisible(false), 350)
+  }, [])
+
+  // ---- 如果 targetRect 为 null 超过 1.5 秒，自动关闭引导 ----
+  useEffect(() => {
+    if (!visible || targetRect !== null) return
+    const timer = setTimeout(() => {
+      finish()
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [visible, targetRect, finish])
 
   // 步骤变化时重新定位
   useEffect(() => {
@@ -105,15 +125,6 @@ const OnboardingGuide: React.FC = () => {
     }
   }, [visible, locateTarget])
 
-  // ---- 完成/跳过 ----
-  const finish = useCallback(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, 'true')
-    } catch { /* ignore */ }
-    setExiting(true)
-    setTimeout(() => setVisible(false), 350)
-  }, [])
-
   // ---- 下一步 ----
   const handleNext = useCallback(() => {
     if (currentStep < STEPS.length - 1) {
@@ -130,6 +141,9 @@ const OnboardingGuide: React.FC = () => {
   const step = STEPS[currentStep]
   const isLast = currentStep === STEPS.length - 1
   const pad = 8 // 高亮区域内边距
+
+  // 如果找不到目标元素，不渲染蒙层（避免拦截所有点击）
+  if (!targetRect) return null
 
   // 计算气泡位置
   let bubbleStyle: React.CSSProperties = { left: '50%' }

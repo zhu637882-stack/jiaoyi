@@ -1,4 +1,7 @@
-/* 我的邀请页面 - 深色主题 */
+/* ============================================
+   Invitation 邀请好友 - CryptoTrader 币安风格深色主题
+   ============================================ */
+
 .invitation-page {
   min-height: 100vh;
   background: var(--color-bg-primary);
@@ -13,43 +16,45 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: #181A20;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-primary);
+  padding-top: calc(12px + env(safe-area-inset-top, 0));
   position: sticky;
   top: 0;
   z-index: 100;
+  border-bottom: 1px solid var(--color-border);
 }
 
 .inv-back-btn {
-  width: 40px;
-  height: 40px;
+  width: 36px;
+  height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: transparent;
+  background: var(--color-bg-input);
   border: none;
-  color: #EAECEF;
+  color: var(--color-text-primary);
   cursor: pointer;
   padding: 0;
-  border-radius: 8px;
-  transition: all 0.2s ease;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-fast);
 }
 
 .inv-back-btn:active {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--color-brand-bg);
+  transform: scale(0.95);
 }
 
 .inv-header-title {
   font-size: 17px;
   font-weight: 600;
-  color: #EAECEF;
+  color: var(--color-text-primary);
   margin: 0;
   flex: 1;
   text-align: center;
 }
 
 .inv-header-placeholder {
-  width: 40px;
+  width: 36px;
 }
 
 /* 加载状态 */
@@ -60,15 +65,15 @@
   align-items: center;
   justify-content: center;
   gap: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
 .inv-loading-spinner {
   width: 36px;
   height: 36px;
-  border: 3px solid rgba(240, 185, 11, 0.2);
-  border-top-color: #F0B90B;
+  border: 3px solid var(--color-border);
+  border-top-color: var(--color-brand);
   border-radius: 50%;
   animation: inv-spin 0.8s linear infinite;
 }
@@ -87,15 +92,15 @@
 
 /* 邀请码卡片 */
 .inv-code-card {
-  background: linear-gradient(135deg, rgba(240, 185, 11, 0.15) 0%, rgba(240, 185, 11, 0.05) 100%);
-  border: 1px solid rgba(240, 185, 11, 0.25);
-  border-radius: var(--radius-xl);
-  padding: 20px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  padding: 24px 20px;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 16px;
-  animation: inv-fadeInUp 0.4s ease-out;
+  animation: slideUp 0.4s ease-out;
 }
 
 .inv-code-header {
@@ -106,10 +111,11 @@
 
 .inv-code-tag {
   font-size: 12px;
-  color: var(--color-text-secondary);
-  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-brand);
+  background: var(--color-brand-bg);
   padding: 4px 12px;
   border-radius: 100px;
+  font-weight: 500;
 }
 
 .inv-code-display {
@@ -121,15 +127,14 @@
 .inv-code-text {
   font-size: 36px;
   font-weight: 700;
-  color: #F0B90B;
+  color: var(--color-brand);
   letter-spacing: 6px;
   font-family: var(--font-family-mono);
-  text-shadow: 0 0 20px rgba(240, 185, 11, 0.4);
 }
 
 .inv-code-empty {
   font-size: 16px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 /* 二维码 */
@@ -143,13 +148,13 @@
 .inv-qr-wrapper {
   width: 160px;
   height: 160px;
-  border-radius: 12px;
+  border-radius: var(--radius-md);
   overflow: hidden;
-  background: #F0B90B;
+  background: #fff;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 20px rgba(240, 185, 11, 0.3);
+  border: 1px solid var(--color-border);
 }
 
 .inv-qr-img {
@@ -160,7 +165,7 @@
 
 .inv-qr-tip {
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 /* 操作按钮 */
@@ -177,20 +182,19 @@
   justify-content: center;
   gap: 8px;
   height: 46px;
-  background: linear-gradient(135deg, #F0B90B 0%, #D4A20A 100%);
+  background: linear-gradient(135deg, #2151F5, #4D78FF);
   border: none;
-  border-radius: var(--radius-md);
-  color: #0B0E11;
+  border-radius: var(--radius-sm);
+  color: #fff;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 4px 12px rgba(240, 185, 11, 0.3);
+  transition: all var(--transition-fast);
 }
 
 .inv-btn-primary:active {
   transform: scale(0.97);
-  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.2);
+  opacity: 0.9;
 }
 
 .inv-btn-secondary {
@@ -200,28 +204,28 @@
   justify-content: center;
   gap: 8px;
   height: 46px;
-  background: rgba(240, 185, 11, 0.1);
-  border: 1px solid rgba(240, 185, 11, 0.3);
-  border-radius: var(--radius-md);
-  color: #F0B90B;
+  background: transparent;
+  border: 1px solid var(--color-brand);
+  border-radius: var(--radius-sm);
+  color: var(--color-brand);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .inv-btn-secondary:active {
-  background: rgba(240, 185, 11, 0.15);
+  background: var(--color-brand-bg);
   transform: scale(0.97);
 }
 
 /* 奖励规则卡片 */
 .inv-rule-card {
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
   padding: 16px;
-  animation: inv-fadeInUp 0.5s ease-out;
+  animation: slideUp 0.5s ease-out;
 }
 
 .inv-rule-header {
@@ -231,7 +235,7 @@
   margin-bottom: 12px;
   font-size: 14px;
   font-weight: 600;
-  color: #EAECEF;
+  color: var(--color-text-primary);
 }
 
 .inv-rule-list {
@@ -253,29 +257,30 @@
   width: 5px;
   height: 5px;
   border-radius: 50%;
-  background: rgba(240, 185, 11, 0.5);
+  background: var(--color-brand);
   flex-shrink: 0;
   margin-top: 6px;
+  opacity: 0.6;
 }
 
 .inv-rule-highlight {
-  color: #F0B90B;
+  color: var(--color-brand);
   font-weight: 700;
 }
 
 /* 邀请统计卡片 */
 .inv-stats-card {
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
   padding: 16px;
-  animation: inv-fadeInUp 0.6s ease-out;
+  animation: slideUp 0.6s ease-out;
 }
 
 .inv-stats-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   margin-bottom: 14px;
   padding-left: 4px;
 }
@@ -296,17 +301,17 @@
 .inv-stat-value {
   font-size: 22px;
   font-weight: 700;
-  color: #EAECEF;
+  color: var(--color-text-primary);
   font-variant-numeric: tabular-nums;
 }
 
 .inv-stat-gold {
-  color: #F0B90B;
+  color: var(--color-brand);
 }
 
 .inv-stat-label {
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .inv-stat-divider {
@@ -318,13 +323,13 @@
 
 /* 邀请记录 */
 .inv-records-section {
-  animation: inv-fadeInUp 0.7s ease-out;
+  animation: slideUp 0.7s ease-out;
 }
 
 .inv-records-title {
   font-size: 13px;
   font-weight: 600;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   margin-bottom: 12px;
   padding-left: 4px;
 }
@@ -336,25 +341,25 @@
   justify-content: center;
   padding: 48px 0;
   gap: 10px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 14px;
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
 }
 
 .inv-empty-sub {
   font-size: 12px;
-  color: var(--color-text-muted);
+  color: var(--color-text-secondary);
 }
 
 .inv-records-list {
   display: flex;
   flex-direction: column;
   gap: 0;
-  background: var(--color-bg-secondary);
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
   overflow: hidden;
 }
 
@@ -363,8 +368,8 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--color-border);
-  transition: background 0.2s ease;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  transition: background var(--transition-fast);
 }
 
 .inv-record-item:last-child {
@@ -372,22 +377,21 @@
 }
 
 .inv-record-item:active {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(33, 81, 245, 0.05);
 }
 
 .inv-record-avatar {
   width: 38px;
   height: 38px;
   border-radius: 50%;
-  background: rgba(240, 185, 11, 0.15);
-  border: 1px solid rgba(240, 185, 11, 0.25);
+  background: var(--color-bg-input);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
   font-size: 16px;
   font-weight: 700;
-  color: #F0B90B;
+  color: var(--color-brand);
 }
 
 .inv-record-info {
@@ -398,7 +402,7 @@
 .inv-record-name {
   font-size: 14px;
   font-weight: 500;
-  color: #EAECEF;
+  color: var(--color-text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -406,7 +410,7 @@
 
 .inv-record-time {
   font-size: 11px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   margin-top: 3px;
 }
 
@@ -428,19 +432,8 @@
 .inv-record-reward {
   font-size: 13px;
   font-weight: 600;
-  color: #F0B90B;
+  color: var(--color-brand);
   font-variant-numeric: tabular-nums;
-}
-
-@keyframes inv-fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(16px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 
 /* 安全区域适配 */
@@ -456,7 +449,7 @@
     font-size: 28px;
     letter-spacing: 4px;
   }
-  
+
   .inv-qr-wrapper {
     width: 140px;
     height: 140px;

@@ -1,518 +1,342 @@
 /* ============================================
-   Home Page - 币安App风格行情列表
-   设计系统 v2.0 - 移动端专业交易终端
+   Home Page - 币安风格深色主题（6列数据卡片）
    ============================================ */
 
-.mobile-home {
-  min-height: 100vh;
-  background: var(--color-bg-primary);
-  padding-bottom: calc(90px + env(safe-area-inset-bottom, 0));
+.home-page {
+  background: #1B1D21;
   position: relative;
-
-  /* 中国标准涨跌色：红涨绿跌 */
-  --market-rise: #F6465D;
-  --market-fall: #0ECB81;
-  --market-rise-bg: rgba(246, 70, 93, 0.12);
-  --market-fall-bg: rgba(14, 203, 129, 0.12);
 }
 
 /* ============================================
-   Header - 搜索栏 + 用户头像
+   固定头部区域（Logo + 搜索 + 分类Tab + 交易动态）
    ============================================ */
-.home-header {
+.home-sticky-header {
   position: sticky;
   top: 0;
-  z-index: 20;
-  background: rgba(11,14,17,0.85);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  padding: calc(8px + env(safe-area-inset-top, 0)) 16px 8px;
+  z-index: 10;
+  background: #1B1D21;
 }
 
-.home-search-row {
+/* ============================================
+   Header - Logo + 品牌名 + 铃铛
+   ============================================ */
+.home-header {
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top, 0) + 12px) 16px 12px;
 }
 
-.home-search-box {
-  flex: 1;
+.home-header-left {
   display: flex;
   align-items: center;
-  gap: 8px;
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  padding: 0 12px;
-  height: 40px;
-  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  gap: 10px;
 }
 
-.home-search-box:focus-within {
-  border-color: var(--color-primary);
-  box-shadow: 0 0 0 2px var(--color-primary-bg);
-}
-
-.home-search-icon {
-  color: var(--color-primary);
+.home-header-logo {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: contain;
   flex-shrink: 0;
 }
 
-.home-search-input {
-  flex: 1;
-  background: none;
-  border: none;
-  outline: none;
-  color: var(--color-text-primary);
-  font-size: var(--font-size-base);
-  font-family: inherit;
-  padding: 0;
-  min-width: 0;
+.home-header-brand {
+  font-size: 20px;
+  font-weight: 700;
+  color: #FFFFFF;
+  letter-spacing: 0.5px;
 }
 
-.home-search-input::placeholder {
-  color: var(--color-text-tertiary);
-}
-
-.home-search-clear {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  color: var(--color-text-tertiary);
-  cursor: pointer;
-  flex-shrink: 0;
-  transition: color 0.15s;
-  -webkit-tap-highlight-color: transparent;
-}
-
-.home-search-clear:active {
-  color: var(--color-text-secondary);
-}
-
-.home-avatar-btn {
+.home-header-notify {
+  position: relative;
   width: 40px;
   height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-circle);
-  background: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
-  color: var(--color-primary);
   cursor: pointer;
-  transition: transform 0.15s ease, background 0.15s ease;
-  flex-shrink: 0;
+  border-radius: 50%;
+  background: #282B33;
+  color: #FFFFFF;
+  transition: all 0.2s ease;
   -webkit-tap-highlight-color: transparent;
 }
 
-.home-avatar-btn:active {
-  transform: scale(0.93);
-  background: var(--color-bg-tertiary);
+.home-header-notify:active {
+  transform: scale(0.95);
+  opacity: 0.8;
+}
+
+.home-header-notify-dot {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #EF4444;
+  border: 2px solid #1B1D21;
 }
 
 /* ============================================
-   Ticker Marquee - 品种跑马灯滚动条
+   系统消息横向滚动条
    ============================================ */
-.ticker-marquee {
+.home-msg-ticker {
+  margin: 0 16px 8px;
+  height: 36px;
   overflow: hidden;
+  background: linear-gradient(135deg, rgba(240, 185, 11, 0.06) 0%, rgba(240, 185, 11, 0.02) 100%);
+  border: 1px solid rgba(240, 185, 11, 0.12);
+  border-radius: 8px;
+  position: relative;
+}
+
+.home-msg-ticker-track {
+  display: flex;
+  gap: 0;
+  height: 100%;
+  align-items: center;
   white-space: nowrap;
-  background: #0B0E11;
-  padding: 8px 0;
-  margin-bottom: 4px;
+  animation: msgTickerScroll 20s linear infinite;
 }
 
-.ticker-track {
-  display: inline-flex;
-  gap: 8px;
-  animation: marquee 35s linear infinite;
-}
-
-.ticker-track:hover {
+.home-msg-ticker:hover .home-msg-ticker-track {
   animation-play-state: paused;
 }
 
-@keyframes marquee {
-  0% { transform: translateX(0); }
-  100% { transform: translateX(-50%); }
-}
-
-.ticker-card {
+.home-msg-ticker-item {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding: 8px 12px;
-  background: #1E2329;
-  border-radius: 8px;
-  flex-shrink: 0;
-  min-width: 90px;
+  align-items: center;
+  gap: 6px;
+  padding: 0 16px;
+  height: 100%;
   cursor: pointer;
-  transition: background 0.2s ease;
+  flex-shrink: 0;
   -webkit-tap-highlight-color: transparent;
 }
 
-.ticker-card:active {
-  background: #2B3139;
+.home-msg-ticker-item:active {
+  opacity: 0.7;
 }
 
-.ticker-name {
+.home-msg-ticker-tag {
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(240, 185, 11, 0.15);
+  color: #F0B90B;
+  flex-shrink: 0;
+}
+
+.home-msg-ticker-text {
   font-size: 12px;
   color: #EAECEF;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 80px;
+  max-width: 200px;
 }
 
-.ticker-price {
-  font-size: 14px;
-  font-weight: 600;
-  color: #EAECEF;
-  font-variant-numeric: tabular-nums;
+.home-msg-ticker-empty .home-msg-ticker-text {
+  color: #848E9C;
 }
 
-.ticker-change {
-  font-size: 12px;
-  font-weight: 500;
-  font-variant-numeric: tabular-nums;
-}
-
-.ticker-change.up {
-  color: #F6465D;
-}
-
-.ticker-change.down {
-  color: #0ECB81;
+@keyframes msgTickerScroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
 }
 
 /* ============================================
-   Category Tabs - 分类标签
+   分类Tab - 下划线式
    ============================================ */
 .home-tabs {
+  padding: 0 16px;
+}
+
+.home-tab-group {
   display: flex;
   align-items: center;
-  padding: 0 16px;
-  background: var(--color-bg-primary);
-  border-bottom: 1px solid var(--color-border);
-  position: sticky;
-  top: calc(56px + env(safe-area-inset-top, 0));
-  z-index: 19;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
 }
 
-.home-tabs::-webkit-scrollbar {
-  display: none;
-}
-
-.home-tab {
+.home-tab-item {
   padding: 12px 16px;
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  color: #848E9C;
   cursor: pointer;
-  position: relative;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   white-space: nowrap;
-  transition: color 0.2s ease;
   -webkit-tap-highlight-color: transparent;
+  position: relative;
 }
 
-.home-tab.active {
-  color: var(--color-primary);
-  font-weight: var(--font-weight-semibold);
+.home-tab-item.active {
+  color: #FFFFFF;
+  font-weight: 600;
 }
 
-.home-tab.active::after {
+.home-tab-item.active::after {
   content: '';
   position: absolute;
   bottom: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 20px;
-  height: 3px;
-  background: var(--color-primary);
-  border-radius: 2px;
+  width: 24px;
+  height: 2px;
+  border-radius: 1px;
+  background: #F0B90B;
+}
+
+.home-tab-item:not(.active):active {
+  opacity: 0.7;
 }
 
 /* ============================================
-   Market List - 行情列表
+   药品卡片列表 - 6列数据网格
    ============================================ */
-.market-list {
-  padding: 0 16px;
-  padding-bottom: 80px;
+.home-drug-list {
+  padding: 8px 0 20px;
 }
 
-/* 列表头 */
-.market-list-header {
+.home-drug-card {
+  background: #282B33;
+  border-radius: 12px;
+  padding: 16px;
+  margin: 8px 16px;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.home-drug-card:active {
+  background: #30333D;
+}
+
+/* 第一行：名称 + 单位 */
+.home-drug-card-top {
   display: flex;
-  align-items: center;
-  padding: 10px 0 8px;
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  border-bottom: 1px solid var(--color-border);
-  letter-spacing: 0.3px;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 12px;
 }
 
-.market-list-header .col-name {
-  flex: 1;
-  min-width: 0;
+.home-drug-name {
+  font-size: 16px;
+  font-weight: 700;
+  color: #F0B90B;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.market-list-header .col-purchase {
-  width: 70px;
-  text-align: right;
+.home-drug-unit {
+  font-size: 14px;
+  color: #848E9C;
+  flex-shrink: 0;
 }
 
-.market-list-header .col-status {
-  width: 60px;
+/* 分割线 */
+.home-drug-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.06);
+  margin-bottom: 12px;
+}
+
+/* 6列网格 */
+.home-drug-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
   text-align: center;
 }
 
-.market-list-header .col-price {
-  width: 80px;
-  text-align: right;
-}
-
-/* 行情行 */
-.market-row {
-  display: flex;
-  align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--color-border);
-  cursor: pointer;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1),
-              background 0.15s ease;
-  animation: rowSlideIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
-  will-change: transform, opacity;
-}
-
-@keyframes rowSlideIn {
-  from {
-    opacity: 0;
-    transform: translateX(-15px);
-  }
-  to {
-    opacity: 1;
-    transform: translateX(0);
-  }
-}
-
-.market-row:active {
-  background: var(--color-bg-hover);
-  transform: scale(0.98);
-}
-
-/* 左侧信息 */
-.market-row-info {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
-  margin-right: 12px;
-}
-
-.market-row-name {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  letter-spacing: 0.2px;
-}
-
-.market-row-code {
-  font-size: var(--font-size-xs);
-  color: var(--color-text-tertiary);
-  font-family: var(--font-family-mono);
-  letter-spacing: 0.5px;
-}
-
-.market-row-extra {
-  font-size: 10px;
-  color: #999;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-/* 采购价列 */
-.market-row-purchase-col {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-  flex-shrink: 0;
-  width: 70px;
-}
-
-.market-row-purchase {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--color-text-secondary);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
-  letter-spacing: -0.2px;
-}
-
-/* 发行量列 */
-.market-row-quantity-col {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 3px;
-  flex-shrink: 0;
-  width: 60px;
-  margin-right: 8px;
-}
-
-.market-row-quantity {
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-  font-family: var(--font-family-mono);
-  letter-spacing: -0.2px;
-}
-
-.market-row-status {
-  font-size: 9px;
-  font-weight: var(--font-weight-semibold);
-  padding: 1px 4px;
-  border-radius: 3px;
-  white-space: nowrap;
-  letter-spacing: 0.3px;
-  line-height: 1.4;
-}
-
-.market-row-status.status-selling {
-  color: #0ECB81;
-  background: rgba(14, 203, 129, 0.15);
-}
-
-.market-row-status.status-funding {
-  color: #F0B90B;
-  background: rgba(240, 185, 11, 0.15);
-}
-
-.market-row-status.status-stopped {
+.home-drug-labels span {
+  display: block;
+  font-size: 11px;
   color: #848E9C;
-  background: rgba(132, 142, 156, 0.15);
+  margin-bottom: 6px;
 }
 
-.market-row-status.status-cancelled {
-  color: #F6465D;
-  background: rgba(246, 70, 93, 0.15);
-}
-
-/* 右侧价格列 */
-.market-row-price-col {
-  width: 80px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 3px;
-  flex-shrink: 0;
-}
-
-.market-row-price {
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
+.home-drug-values span {
+  display: block;
+  font-size: 13px;
+  color: #FFFFFF;
   font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum';
-  font-family: var(--font-family-mono);
-  letter-spacing: -0.3px;
+  font-weight: 500;
 }
 
-/* 价格翻牌容器 */
-.market-price-flip {
+/* 涨跌幅badge */
+.home-drug-change {
   display: inline-block;
-  overflow: hidden;
-  position: relative;
-}
-
-.market-price-flip-enter {
-  animation: marketPriceFlipIn 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
-  will-change: transform, opacity;
-  display: inline-block;
-}
-
-@keyframes marketPriceFlipIn {
-  from {
-    transform: translateY(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-
-.market-row-change {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: 'tnum';
   padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  letter-spacing: 0.2px;
+  border-radius: 4px;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  font-variant-numeric: tabular-nums;
 }
 
-.market-row-change.up {
-  color: var(--market-rise);
-  background: var(--market-rise-bg);
+.home-drug-change.up {
+  color: #EF4444;
+  background: rgba(239, 68, 68, 0.15);
 }
 
-.market-row-change.down {
-  color: var(--market-fall);
-  background: var(--market-fall-bg);
+.home-drug-change.down {
+  color: #10B981;
+  background: rgba(16, 185, 129, 0.15);
 }
 
 /* ============================================
-   Skeleton Loading - 骨架屏
+   骨架屏
    ============================================ */
-.market-skeleton {
-  padding-top: 4px;
+.home-skeleton {
+  padding: 8px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
 }
 
-.skeleton-row {
+.home-skeleton-card {
+  background: #282B33;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 8px;
+}
+
+.home-skeleton-row-top {
   display: flex;
   align-items: center;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--color-border);
-  gap: 12px;
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
-.skeleton-row-left {
-  flex: 1;
+.home-skeleton-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.04);
+  margin-bottom: 12px;
+}
+
+.home-skeleton-row-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  text-align: center;
+}
+
+.home-skeleton-col {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 6px;
 }
 
-.skeleton-row-right {
-  width: 100px;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 6px;
-}
-
-.skeleton-bar {
-  background: linear-gradient(
-    90deg,
-    var(--color-bg-tertiary) 25%,
-    var(--color-bg-secondary) 50%,
-    var(--color-bg-tertiary) 75%
-  );
+.home-skeleton-bar {
+  height: 14px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 25%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.03) 75%);
   background-size: 200% 100%;
-  animation: shimmer 1.5s infinite;
+  animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 4px;
 }
 
@@ -522,163 +346,427 @@
 }
 
 /* ============================================
-   Empty State - 空状态
+   空状态
    ============================================ */
-.market-empty {
+.home-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 80px 20px;
-  animation: fadeInUp 0.5s ease-out;
+  padding: 60px 20px;
+  text-align: center;
+  animation: fadeIn 0.5s ease both;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+.home-empty-text {
+  font-size: 16px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin: 0 0 4px;
 }
 
-.empty-text {
-  font-size: var(--font-size-md);
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-secondary);
-  margin-top: 16px;
-  margin-bottom: 4px;
+.home-empty-hint {
+  font-size: 13px;
+  color: #848E9C;
+  margin: 0;
 }
 
-.empty-hint {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-tertiary);
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+/* ============================================
+   上拉加载更多
+   ============================================ */
+.home-load-more {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 24px 0 12px;
+  min-height: 48px;
+}
+
+.home-load-more-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #848E9C;
+  font-size: 14px;
+}
+
+.home-load-spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid rgba(240, 185, 11, 0.2);
+  border-top-color: #F0B90B;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.home-load-more-done {
+  color: #848E9C;
+  font-size: 13px;
+  text-align: center;
 }
 
 /* ============================================
    PullToRefresh 主题覆盖
    ============================================ */
 .adm-pull-to-refresh {
-  --adm-color-primary: var(--color-primary);
+  --adm-color-primary: #F0B90B;
 }
 
 .adm-pull-to-refresh-content {
-  min-height: calc(100vh - 220px);
+  min-height: calc(100vh - 300px);
+}
+
+.adm-pull-to-refresh-head-content {
+  color: #F0B90B;
+}
+
+.adm-pull-to-refresh-head-content .adm-loading {
+  --color: #F0B90B;
 }
 
 /* ============================================
-   Responsive - 响应式适配
+   响应式适配
    ============================================ */
 @media (max-width: 375px) {
-  .home-tab {
+  .home-drug-name {
+    font-size: 14px;
+  }
+
+  .home-drug-labels span {
+    font-size: 10px;
+  }
+
+  .home-drug-values span {
+    font-size: 12px;
+  }
+
+  .home-tab-item {
     padding: 10px 12px;
-    font-size: var(--font-size-sm);
-  }
-
-  .market-row-info {
-    margin-right: 8px;
-  }
-
-  .market-row-purchase-col {
-    width: 60px;
-    margin-right: 6px;
-  }
-
-  .market-row-quantity-col {
-    width: 52px;
-  }
-
-  .market-row-price-col {
-    width: 72px;
-  }
-
-  .market-list-header .col-purchase {
-    width: 60px;
-  }
-
-  .market-list-header .col-status {
-    width: 52px;
-  }
-
-  .market-list-header .col-price {
-    width: 72px;
-  }
-
-  .stat-chip {
-    padding: 6px 10px;
-    min-width: 56px;
-  }
-
-  .stat-chip-value {
-    font-size: var(--font-size-sm);
+    font-size: 13px;
   }
 }
 
-/* 安全区域适配 - 刘海屏 */
+/* 安全区域适配 */
 @supports (padding-top: env(safe-area-inset-top)) {
   .home-header {
-    padding-top: max(8px, env(safe-area-inset-top));
+    padding-top: calc(env(safe-area-inset-top) + 12px);
   }
 }
 
 /* ============================================
-   Load More - 上拉加载更多
+   实时交易动态模块 - 深蓝渐变（统一持仓总值风格）
    ============================================ */
-.market-load-more {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 16px 0 8px;
-  min-height: 40px;
+.home-trading-live {
+  margin: 8px 16px;
+  background: linear-gradient(135deg, #1a2332 0%, #162030 50%, #1a2840 100%);
+  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  border: 1px solid rgba(240, 185, 11, 0.15);
+  position: relative;
+  overflow: hidden;
 }
 
-.market-load-more-loading {
+.home-trading-live::before {
+  content: '';
+  position: absolute;
+  top: -40%;
+  right: -20%;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.06) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.home-trading-live::after {
+  content: '';
+  position: absolute;
+  bottom: -30%;
+  left: -15%;
+  width: 140px;
+  height: 140px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.03) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+/* 统计栏 */
+.home-trading-stats {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  margin-bottom: 10px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.home-trading-stat-item {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+
+.home-trading-stat-label {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.home-trading-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: #F0B90B;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 跑马灯滚动区域 */
+.home-trading-marquee {
+  height: 64px;
+  overflow: hidden;
+  position: relative;
+  z-index: 1;
+}
+
+.home-trading-marquee-inner {
+  display: flex;
+  flex-direction: column;
+  animation: tradingScroll 12s linear infinite;
+}
+
+.home-trading-marquee-inner:hover {
+  animation-play-state: paused;
+}
+
+.home-trading-item {
   display: flex;
   align-items: center;
   gap: 8px;
+  height: 32px;
+  line-height: 32px;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.home-trading-item-user {
+  color: #EAECEF;
+  font-weight: 500;
+}
+
+.home-trading-item-action {
+  color: var(--color-text-secondary);
+}
+
+.home-trading-item-drug {
+  color: #F0B90B;
+  font-weight: 600;
+}
+
+.home-trading-item-qty {
+  color: #EAECEF;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+}
+
+.home-trading-item-time {
   color: var(--color-text-tertiary);
-  font-size: var(--font-size-sm);
+  font-size: 11px;
+  margin-left: auto;
+  flex-shrink: 0;
 }
 
-.market-load-spinner {
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(240, 185, 11, 0.2);
-  border-top-color: var(--color-primary);
-  border-radius: 50%;
-  animation: homeSpin 0.6s linear infinite;
-}
-
-@keyframes homeSpin {
-  to { transform: rotate(360deg); }
-}
-
-.market-load-more-done {
-  color: var(--color-text-tertiary);
-  font-size: var(--font-size-xs);
-  text-align: center;
+@keyframes tradingScroll {
+  0% {
+    transform: translateY(0);
+  }
+  100% {
+    transform: translateY(-50%);
+  }
 }
 
 /* ============================================
-   View All - 查看全部品种入口
+   系统消息弹窗
    ============================================ */
-.market-view-all {
+.home-msg-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 2000;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: msgFadeIn 0.2s ease-out;
+}
+
+.home-msg-popup {
+  width: 100%;
+  max-width: 500px;
+  max-height: 70vh;
+  background: #1E2026;
+  border-radius: 16px 16px 0 0;
+  display: flex;
+  flex-direction: column;
+  margin-bottom: 56px;
+  padding-bottom: env(safe-area-inset-bottom, 0);
+  animation: msgSlideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.home-msg-popup-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  flex-shrink: 0;
+}
+
+.home-msg-popup-title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #FFFFFF;
+}
+
+.home-msg-popup-close {
+  width: 32px;
+  height: 32px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  padding: 14px 0 20px;
-  color: var(--color-primary);
-  font-size: var(--font-size-base);
-  font-weight: var(--font-weight-medium);
+  border-radius: 50%;
+  background: transparent;
+  border: none;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
-  transition: opacity 0.15s ease;
 }
 
-.market-view-all:active {
-  opacity: 0.7;
+.home-msg-popup-close:active {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.home-msg-popup-body {
+  overflow-y: auto;
+  flex: 1;
+  padding: 12px 16px 32px;
+}
+
+.home-msg-popup-loading {
+  text-align: center;
+  padding: 40px;
+  color: #848E9C;
+  font-size: 14px;
+}
+
+.home-msg-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.home-msg-card {
+  background: #282B33;
+  border-radius: 10px;
+  padding: 14px 16px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.home-msg-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.home-msg-card-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+}
+
+.home-msg-tag-announcement {
+  background: rgba(240, 185, 11, 0.12);
+  color: #F0B90B;
+}
+
+.home-msg-tag-notification {
+  background: rgba(24, 144, 255, 0.12);
+  color: #1890FF;
+}
+
+.home-msg-tag-maintenance {
+  background: rgba(250, 140, 22, 0.12);
+  color: #FA8C16;
+}
+
+.home-msg-card-time {
+  font-size: 11px;
+  color: #848E9C;
+}
+
+.home-msg-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #FFFFFF;
+  margin-bottom: 4px;
+  line-height: 1.4;
+}
+
+.home-msg-card-content {
+  font-size: 13px;
+  color: #848E9C;
+  line-height: 1.5;
+}
+
+.home-msg-popup-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 40px 20px;
+  gap: 12px;
+}
+
+.home-msg-popup-empty-text {
+  font-size: 14px;
+  color: #848E9C;
+  margin: 0;
+}
+
+.home-msg-create-btn {
+  padding: 10px 24px;
+  background: rgba(240, 185, 11, 0.1);
+  border: 1px solid rgba(240, 185, 11, 0.3);
+  border-radius: 8px;
+  color: #F0B90B;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: all 0.2s;
+}
+
+.home-msg-create-btn:active {
+  background: rgba(240, 185, 11, 0.2);
+  transform: scale(0.97);
+}
+
+@keyframes msgFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes msgSlideUp {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
 }

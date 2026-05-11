@@ -1,313 +1,220 @@
+/* ============================================
+   Profile 个人中心 - CryptoTrader 币安风格深色主题
+   ============================================ */
+
 .mobile-profile {
   min-height: 100vh;
   background: var(--color-bg-primary);
-  padding-bottom: 40px;
+  padding-bottom: calc(80px + env(safe-area-inset-bottom, 0));
+  color: var(--color-text-primary);
 }
 
-/* 用户信息区 - 我的账户（非卡片样式，融入页面背景） */
-.profile-user-section {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin: 0 16px 20px;
-  padding: 14px 0 0;
-  background: transparent;
-  border-radius: 0;
-  border: none;
-  animation: fadeInUp 0.4s ease-out;
-}
-
-.profile-account-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.account-title {
-  font-size: 13px;
-  color: #848E9C;
-  font-weight: 500;
-}
-
-.account-status {
-  font-size: 11px;
-  color: #0ECB81;
-  background: rgba(14, 203, 129, 0.1);
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.profile-account-main {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.profile-avatar {
-  width: 48px;
-  height: 48px;
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
+/* ===== 顶部深蓝渐变背景区域 - 统一垫资进货风格 ===== */
+.profile-header-gradient {
+  background: linear-gradient(180deg, #1a2840 0%, #162030 40%, #0B0E11 100%);
+  border-bottom: 1px solid rgba(240, 185, 11, 0.08);
+  padding: 0 20px 48px;
+  padding-top: calc(env(safe-area-inset-top, 0) + 16px);
+  position: relative;
   overflow: hidden;
 }
 
-.avatar-logo {
+.profile-header-gradient::before {
+  content: '';
+  position: absolute;
+  top: -30%;
+  right: -15%;
+  width: 160px;
+  height: 160px;
+  background: radial-gradient(circle, rgba(240, 185, 11, 0.08) 0%, transparent 70%);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.profile-header-content {
+  position: relative;
+  z-index: 1;
+}
+
+.profile-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 28px;
+}
+
+.profile-header-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.profile-settings-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.profile-settings-btn:active {
+  transform: scale(0.95);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.profile-user-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-avatar-wrap {
+  flex-shrink: 0;
+}
+
+.profile-avatar-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: #2B3139;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  font-weight: 700;
+  color: #fff;
+  overflow: hidden;
+}
+
+.profile-avatar-circle.placeholder {
+  background: #2B3139;
+}
+
+.avatar-logo-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  border-radius: 12px;
 }
 
-.avatar-text {
-  font-size: 20px;
-  font-weight: 700;
-  color: #181A20;
-}
-
-.profile-user-info {
+.profile-user-detail {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .profile-name-row {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
 
 .profile-name {
-  font-size: 16px;
-  font-weight: 600;
-  color: #EAECEF;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
 }
 
-.profile-role-badge {
+.profile-vip-badge {
   font-size: 10px;
   font-weight: 600;
   padding: 2px 8px;
-  border-radius: 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.profile-username {
-  font-size: 12px;
-  color: #848E9C;
+.profile-phone {
+  font-size: 14px;
+  color: rgba(255, 255, 255, 0.7);
 }
 
-/* 资产卡片 */
+/* ===== 资产概览卡片 ===== */
 .profile-asset-card {
-  margin: 0 16px 20px;
-  padding: 14px 16px;
-  background: linear-gradient(135deg, rgba(240, 185, 11, 0.15) 0%, rgba(240, 185, 11, 0.05) 100%);
-  border-radius: var(--radius-xl);
-  border: 1px solid rgba(240, 185, 11, 0.2);
-  animation: fadeInUp 0.5s ease-out;
-}
-
-.asset-header {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin: -28px 16px 20px;
+  padding: 20px 16px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-card);
+  position: relative;
+  z-index: 2;
+  animation: slideUp 0.4s ease-out;
 }
 
-.asset-title {
-  font-size: 13px;
-  color: var(--color-text-secondary);
-  font-weight: 500;
-}
-
-.asset-update {
-  font-size: 11px;
-  color: #0ECB81;
-  background: rgba(14, 203, 129, 0.1);
-  padding: 2px 8px;
-  border-radius: 10px;
-}
-
-.asset-main {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin-bottom: 14px;
-}
-
-.asset-label {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-}
-
-.asset-value {
-  font-size: 32px;
-  font-weight: 700;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.asset-stats {
-  display: flex;
-  gap: 16px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-}
-
-.asset-stat {
+.asset-card-item {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.stat-label {
-  font-size: 11px;
-  color: var(--color-text-tertiary);
-}
-
-.stat-value {
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  font-variant-numeric: tabular-nums;
-}
-
-.stat-value.frozen {
-  color: #FAAD14;
-}
-
-.stat-sublabel {
-  font-size: 10px;
-  color: var(--color-text-tertiary);
-  margin-top: 2px;
-}
-
-.stat-value.profit {
-  color: var(--color-rise);
-}
-
-.stat-value.loss {
-  color: var(--color-fall);
-}
-
-/* 体验金状态徽章 */
-.trial-bonus-value {
-  display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
 }
 
-.trial-bonus-amount {
-  font-size: 15px;
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
-
-.trial-bonus-badge {
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  border-radius: 8px;
-  line-height: 1.6;
-  white-space: nowrap;
-  vertical-align: middle;
-}
-
-.trial-bonus-badge.pending {
-  color: #FAAD14;
-  background: rgba(250, 173, 20, 0.12);
-}
-
-.trial-bonus-badge.activated {
-  color: #0ECB81;
-  background: rgba(14, 203, 129, 0.1);
-}
-
-.trial-bonus-badge.expired,
-.trial-bonus-badge.used {
-  color: #848E9C;
-  background: rgba(132, 142, 156, 0.12);
-}
-
-/* 快捷操作 */
-.profile-quick-actions {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 12px;
-  padding: 0 16px 24px;
-  animation: fadeInUp 0.6s ease-out;
-}
-
-.profile-quick-action {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  padding: 16px 8px;
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--color-border);
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.profile-quick-action:active {
-  transform: scale(0.95);
-  border-color: rgba(240, 185, 11, 0.2);
-  background: rgba(240, 185, 11, 0.03);
-}
-
-.quick-action-icon {
-  position: relative;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.quick-action-badge {
-  position: absolute;
-  top: -4px;
-  right: -4px;
-}
-
-.quick-action-badge .adm-badge-content {
-  background: #F6465D;
-  font-size: 10px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-}
-
-.quick-action-label {
+.asset-card-label {
   font-size: 12px;
   color: var(--color-text-secondary);
   font-weight: 500;
 }
 
-/* 功能列表 */
-.profile-menu-section {
-  padding: 0 16px 20px;
-  animation: fadeInUp 0.7s ease-out;
+.asset-card-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+  font-variant-numeric: tabular-nums;
+  font-family: var(--font-family-mono);
 }
 
-.menu-section-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--color-text-tertiary);
-  margin-bottom: 12px;
-  padding-left: 4px;
+.asset-card-value.positive {
+  color: var(--color-up);
 }
 
-.profile-menu-list {
-  background: var(--color-bg-secondary);
-  border-radius: var(--radius-lg);
+.asset-card-value.negative {
+  color: var(--color-down);
+}
+
+.asset-card-divider {
+  width: 1px;
+  height: 36px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+
+/* 充值/提现导航按钮 */
+.profile-nav-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  background: rgba(240, 185, 11, 0.12);
+  border: 1px solid rgba(240, 185, 11, 0.2);
+  border-radius: 20px;
+  color: var(--color-brand-light);
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background var(--transition-fast);
+}
+
+.profile-nav-btn:active {
+  background: rgba(240, 185, 11, 0.22);
+}
+
+/* ===== 功能菜单分组 ===== */
+.profile-menu-group {
+  margin: 0 16px 12px;
+}
+
+.profile-menu-card {
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   border: 1px solid var(--color-border);
   overflow: hidden;
 }
@@ -315,11 +222,12 @@
 .profile-menu-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px;
+  gap: 14px;
+  padding: 0 16px;
+  height: 56px;
   cursor: pointer;
-  transition: all 0.2s ease;
-  border-bottom: 1px solid var(--color-border);
+  transition: background var(--transition-fast);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .profile-menu-item:last-child {
@@ -327,48 +235,35 @@
 }
 
 .profile-menu-item:active {
-  background: rgba(255, 255, 255, 0.02);
+  background: rgba(132, 142, 156, 0.08);
 }
 
 .menu-item-icon {
   width: 36px;
   height: 36px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
+  border-radius: 50%;
+  background: rgba(132, 142, 156, 0.1);
   display: flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
 }
 
-.menu-item-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
 .menu-item-title {
+  flex: 1;
   font-size: 15px;
   font-weight: 500;
   color: var(--color-text-primary);
 }
 
-.menu-item-desc {
-  font-size: 12px;
-  color: var(--color-text-tertiary);
-}
-
 .menu-item-arrow {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   flex-shrink: 0;
 }
 
-/* 退出登录 */
+/* ===== 退出登录按钮 ===== */
 .profile-logout-section {
-  padding: 0 16px;
-  padding-bottom: calc(24px + env(safe-area-inset-bottom, 0));
-  animation: fadeInUp 0.8s ease-out;
+  margin: 24px 16px 0;
 }
 
 .profile-logout-btn {
@@ -376,27 +271,27 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 16px;
-  background: transparent;
-  border: 1px solid rgba(246, 70, 93, 0.4);
-  border-radius: var(--radius-lg);
-  color: #F6465D;
+  padding: 14px;
+  background: var(--color-bg-card);
+  border: none;
+  border-radius: var(--radius-md);
+  color: var(--color-up);
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-fast);
 }
 
 .profile-logout-btn:active {
-  background: rgba(246, 70, 93, 0.08);
-  border-color: rgba(246, 70, 93, 0.6);
+  opacity: 0.85;
+  transform: scale(0.98);
 }
 
-/* 充值弹窗 */
+/* ===== 弹窗通用样式 ===== */
 .profile-security-popup,
 .profile-messages-popup {
   padding: 20px 16px 32px;
+  background: var(--color-bg-card);
 }
 
 .security-header,
@@ -417,16 +312,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  color: var(--color-text-tertiary);
+  font-size: 18px;
+  color: var(--color-text-secondary);
   cursor: pointer;
   border-radius: 50%;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .security-close:active,
 .messages-close:active {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-input);
 }
 
 /* 安全信息卡片 */
@@ -435,9 +330,8 @@
 }
 
 .security-info-card {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-input);
+  border-radius: var(--radius-md);
   overflow: hidden;
 }
 
@@ -446,7 +340,7 @@
   align-items: center;
   gap: 12px;
   padding: 14px 16px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
 .security-info-item:last-child {
@@ -456,8 +350,7 @@
 .security-info-icon {
   width: 32px;
   height: 32px;
-  border-radius: 8px;
-  background: rgba(240, 185, 11, 0.08);
+  border-radius: var(--radius-sm);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -500,7 +393,7 @@
 
 .security-divider-text {
   font-size: 13px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
@@ -514,17 +407,17 @@
 .security-input-wrapper {
   display: flex;
   align-items: center;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-input);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 0 16px;
   height: 48px;
-  transition: all 0.2s ease;
+  transition: border-color var(--transition-fast);
 }
 
 .security-input-wrapper:focus-within {
-  border-color: var(--color-primary);
-  background: rgba(240, 185, 11, 0.02);
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.2);
 }
 
 .security-input-icon {
@@ -543,34 +436,32 @@
 }
 
 .security-input::placeholder {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
 .btn-confirm-security {
   width: 100%;
   padding: 14px;
-  background: linear-gradient(135deg, #F0B90B 0%, #D4A00A 100%);
+  background: linear-gradient(135deg, #F0B90B, #FFD54F);
   border: none;
-  border-radius: 10px;
-  color: #1A1A1A;
+  border-radius: var(--radius-sm);
+  color: #000;
   font-size: 15px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(240, 185, 11, 0.3);
+  transition: all var(--transition-fast);
   margin-top: 8px;
 }
 
 .btn-confirm-security:active:not(:disabled) {
   transform: scale(0.98);
-  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.2);
+  opacity: 0.9;
 }
 
 .btn-confirm-security:disabled {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-tertiary);
-  box-shadow: none;
+  background: var(--color-bg-input);
+  color: var(--color-text-secondary);
   cursor: not-allowed;
 }
 
@@ -590,7 +481,7 @@
   justify-content: center;
   padding: 40px 0;
   gap: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
@@ -601,23 +492,21 @@
   justify-content: center;
   padding: 60px 0;
   gap: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
 .message-item {
   padding: 14px 16px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 12px;
-  border: 1px solid var(--color-border);
+  background: var(--color-bg-input);
+  border-radius: var(--radius-md);
   cursor: pointer;
-  transition: all 0.2s ease;
-  animation: fadeInUp 0.4s ease-out;
+  transition: background var(--transition-fast);
+  animation: slideUp 0.4s ease-out;
 }
 
 .message-item:active {
-  background: rgba(255, 255, 255, 0.06);
-  border-color: rgba(240, 185, 11, 0.2);
+  background: rgba(132, 142, 156, 0.08);
 }
 
 .message-item-header {
@@ -636,7 +525,7 @@
 
 .message-time {
   font-size: 12px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .message-item-title {
@@ -649,7 +538,7 @@
 
 .message-item-summary {
   font-size: 13px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }
 
@@ -674,7 +563,7 @@
 
 .message-detail-time {
   font-size: 13px;
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
 }
 
 .message-detail-title {
@@ -696,23 +585,24 @@
 .message-detail-back {
   width: 100%;
   padding: 14px;
-  background: rgba(240, 185, 11, 0.1);
-  border: 1px solid rgba(240, 185, 11, 0.2);
-  border-radius: 10px;
-  color: #F0B90B;
+  background: var(--color-brand-bg);
+  border: 1px solid rgba(240, 185, 11, 0.15);
+  border-radius: var(--radius-md);
+  color: var(--color-brand);
   font-size: 15px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .message-detail-back:active {
-  background: rgba(240, 185, 11, 0.15);
+  background: rgba(240, 185, 11, 0.12);
 }
 
-/* 充值弹窗 */
+/* ===== 充值弹窗 ===== */
 .profile-recharge-popup {
   padding: 20px 16px 32px;
+  background: var(--color-bg-card);
 }
 
 .recharge-header {
@@ -731,15 +621,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 20px;
-  color: var(--color-text-tertiary);
+  font-size: 18px;
+  color: var(--color-text-secondary);
   cursor: pointer;
   border-radius: 50%;
-  transition: all 0.2s ease;
+  transition: all var(--transition-fast);
 }
 
 .recharge-close:active {
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-input);
 }
 
 .recharge-amounts {
@@ -752,21 +642,21 @@
 .recharge-amount-btn {
   padding: 12px 0;
   text-align: center;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-input);
   border: 2px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-fast);
   font-variant-numeric: tabular-nums;
 }
 
 .recharge-amount-btn.active {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: rgba(240, 185, 11, 0.08);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: var(--color-brand-bg);
 }
 
 .recharge-input-section {
@@ -783,17 +673,17 @@
 .recharge-input-wrapper {
   display: flex;
   align-items: center;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-input);
   border: 1px solid var(--color-border);
-  border-radius: 10px;
+  border-radius: var(--radius-sm);
   padding: 0 16px;
   height: 52px;
-  transition: all 0.2s ease;
+  transition: border-color var(--transition-fast);
 }
 
 .recharge-input-wrapper:focus-within {
-  border-color: var(--color-primary);
-  background: rgba(240, 185, 11, 0.02);
+  border-color: var(--color-brand);
+  box-shadow: 0 0 0 2px rgba(240, 185, 11, 0.2);
 }
 
 .recharge-currency {
@@ -815,7 +705,7 @@
 }
 
 .recharge-input::placeholder {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 16px;
   font-weight: 400;
 }
@@ -833,20 +723,20 @@
   justify-content: center;
   gap: 8px;
   padding: 14px;
-  background: var(--color-bg-tertiary);
+  background: var(--color-bg-input);
   border: 2px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   color: var(--color-text-secondary);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-fast);
 }
 
 .recharge-channel.active {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background: rgba(240, 185, 11, 0.08);
+  border-color: var(--color-brand);
+  color: var(--color-brand);
+  background: var(--color-brand-bg);
 }
 
 .channel-icon {
@@ -860,11 +750,6 @@
   font-weight: 700;
 }
 
-.channel-icon.alipay {
-  background: #1677FF;
-  color: white;
-}
-
 .channel-icon.wechat {
   background: #07C160;
   color: white;
@@ -873,47 +758,30 @@
 .btn-confirm-recharge {
   width: 100%;
   padding: 16px;
-  background: linear-gradient(135deg, #F0B90B 0%, #D4A00A 100%);
+  background: linear-gradient(135deg, #F0B90B, #FFD54F);
   border: none;
-  border-radius: 10px;
-  color: #1A1A1A;
+  border-radius: var(--radius-sm);
+  color: #000;
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 16px rgba(240, 185, 11, 0.3);
+  transition: all var(--transition-fast);
 }
 
 .btn-confirm-recharge:active:not(:disabled) {
   transform: scale(0.98);
-  box-shadow: 0 2px 8px rgba(240, 185, 11, 0.2);
+  opacity: 0.9;
 }
 
 .btn-confirm-recharge:disabled {
-  background: var(--color-bg-tertiary);
-  color: var(--color-text-tertiary);
-  box-shadow: none;
+  background: var(--color-bg-input);
+  color: var(--color-text-secondary);
   cursor: not-allowed;
 }
 
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* 适配安全区域 */
+/* ===== 适配安全区域 ===== */
 @supports (padding-bottom: env(safe-area-inset-bottom)) {
   .mobile-profile {
-    padding-bottom: calc(40px + env(safe-area-inset-bottom));
-  }
-  
-  .profile-logout-section {
-    padding-bottom: calc(24px + env(safe-area-inset-bottom));
+    padding-bottom: calc(80px + env(safe-area-inset-bottom));
   }
 }

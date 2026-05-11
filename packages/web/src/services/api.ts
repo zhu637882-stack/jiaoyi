@@ -1,6 +1,6 @@
 import axios, { AxiosInstance, AxiosRequestConfig, AxiosResponse, AxiosError, InternalAxiosRequestConfig } from 'axios'
 import { message } from 'antd'
-import type { ApiResponse, DrugFormData } from '../types'
+import type { DrugFormData } from '../types'
 
 // 错误码映射表
 const errorMessages: Record<string, string> = {
@@ -122,8 +122,9 @@ api.interceptors.response.use(
     }
 
     // 统一错误处理（非401情况）
-    const errorCode = error.response?.data?.code
-    const errorMessage = error.response?.data?.message
+    const errorData = error.response?.data as { code?: string; message?: string } | undefined
+    const errorCode = errorData?.code
+    const errorMessage = errorData?.message
     const translatedMessage = errorCode && errorMessages[errorCode]
       ? errorMessages[errorCode]
       : errorMessage || '请求失败，请稍后重试'
@@ -225,6 +226,18 @@ export const drugApi = {
   
   getDrugHistory: (id: string) =>
     http.get(`/drugs/${id}/history`),
+  
+  uploadImage: (file: File) => {
+    const formData = new FormData()
+    formData.append('file', file)
+    const token = localStorage.getItem('access_token')
+    return axios.post('/api/drugs/upload-image', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    }).then(res => res.data)
+  },
   
   createDrug: (data: DrugFormData) =>
     http.post('/drugs', data as unknown as Record<string, unknown>),
@@ -329,7 +342,7 @@ export const subscriptionApi = {
     http.get('/subscriptions/admin/audit-pending', { params }),
 
   // 审核认购订单
-  auditSubscription: (id: string, data: { approved: boolean; remark?: string }) =>
+  auditSubscription: (id: string, data: { approved: boolean; remark?: string; confirmedQuantity?: number }) =>
     http.put(`/subscriptions/admin/${id}/audit`, data),
 
   // 查询到期/即将到期的订单
@@ -347,6 +360,22 @@ export const subscriptionApi = {
   // 截止处理 - 到期结算
   settleOrder: (id: string) =>
     http.post(`/subscriptions/${id}/settle`),
+
+  // 录入售出
+  recordSale: (data: { orderId: string; quantity: number }) =>
+    http.post('/subscriptions/admin/record-sale', data),
+
+  // 查看售出记录
+  getSaleRecords: (orderId: string) =>
+    http.get(`/subscriptions/admin/sale-records/${orderId}`),
+
+  // 查询已到锁定期截止日的订单（到期提醒）
+  getAdminExpiringOrders: () =>
+    http.get('/subscriptions/admin/expiring'),
+
+  // 管理员填写分红金额并结算
+  fillDividend: (id: string, dividendAmount: number) =>
+    http.put(`/subscriptions/admin/${id}/dividend`, { dividendAmount }),
 }
 
 // 账户相关 API

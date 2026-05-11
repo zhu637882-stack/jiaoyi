@@ -101,7 +101,7 @@ export class PaymentService {
       const result = await this.alipayService.createOrder(
         outTradeNo,
         amount,
-        `零钱保认购${drug.name}-${outTradeNo}`,
+        `零钱宝认购${drug.name}-${outTradeNo}`,
       );
 
       if (result.mockMode) {
@@ -131,7 +131,7 @@ export class PaymentService {
       const result = await this.wechatPayService.createOrder(
         outTradeNo,
         amount,
-        `零钱保认购${drug.name}`,
+        `零钱宝认购${drug.name}`,
         clientIp || '127.0.0.1',
       );
 
@@ -242,8 +242,9 @@ export class PaymentService {
       // 充值成功后，尝试激活体验金（失败不影响充值）
       try {
         await this.trialBonusService.activateTrialBonus(order.userId, queryRunner);
-      } catch (e) {
-        this.logger.error(`[processPaymentSuccess] 体验金激活失败: ${e.message}`);
+      } catch (e: unknown) {
+        const err = e as Error;
+        this.logger.error(`[processPaymentSuccess] 体验金激活失败: ${err.message}`);
       }
 
       this.logger.log(`充值成功: ${order.outTradeNo}, 金额: ${order.amount}`);
@@ -269,7 +270,7 @@ export class PaymentService {
     const result = await this.alipayService.createOrder(
       outTradeNo,
       amount,
-      `零钱保账户充值-${outTradeNo}`,
+      `零钱宝账户充值-${outTradeNo}`,
     );
 
     // Mock模式：创建pending状态订单，等待用户确认
@@ -329,7 +330,7 @@ export class PaymentService {
     const result = await this.wechatPayService.createOrder(
       outTradeNo,
       amount,
-      `零钱保账户充值`,
+      `零钱宝账户充值`,
       clientIp,
     );
 
@@ -505,8 +506,9 @@ export class PaymentService {
         this.logger.log(`支付宝回调已处理过(Redis命中): notify_id=${notifyId}`);
         return 'success';
       }
-    } catch (redisError) {
-      this.logger.warn(`Redis检查失败，降级到数据库层防重: ${redisError.message}`);
+    } catch (redisError: unknown) {
+      const err = redisError as Error;
+      this.logger.warn(`Redis检查失败，降级到数据库层防重: ${err.message}`);
     }
 
     // 第二层防重：数据库事务内检查订单状态（悲观锁）
@@ -578,8 +580,9 @@ export class PaymentService {
         } else {
           this.logger.error(`[验证] payment_orders 异常: ${outTradeNo} status=${verifyOrder?.status ?? 'NOT_FOUND'}`);
         }
-      } catch (verifyErr) {
-        this.logger.error(`[验证] 数据验证异常: ${verifyErr.message}`);
+      } catch (verifyErr: unknown) {
+        const err = verifyErr as Error;
+        this.logger.error(`[验证] 数据验证异常: ${err.message}`);
       }
 
       this.logger.log(`支付宝回调处理成功: ${outTradeNo}, 金额: ${order.amount}`);
@@ -587,16 +590,18 @@ export class PaymentService {
       // 事务成功后设置 Redis 缓存（24小时过期）
       try {
         await this.redis.setex(redisKey, 86400, '1');
-      } catch (redisError) {
-        this.logger.warn(`Redis缓存设置失败: ${redisError.message}`);
+      } catch (redisError: unknown) {
+        const err = redisError as Error;
+        this.logger.warn(`Redis缓存设置失败: ${err.message}`);
       }
 
       return 'success';
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error as Error;
       await queryRunner.rollbackTransaction().catch(rbErr => {
-        this.logger.error(`[handleAlipayNotify] 回滚事务也失败: ${rbErr.message}`);
+        this.logger.error(`[handleAlipayNotify] 回滚事务也失败: ${(rbErr as Error).message}`);
       });
-      this.logger.error(`支付宝回调处理失败: ${outTradeNo}, 错误: ${error.message}`, error.stack);
+      this.logger.error(`支付宝回调处理失败: ${outTradeNo}, 错误: ${err.message}`, err.stack);
       return 'fail';
     } finally {
       await queryRunner.release();
@@ -615,8 +620,9 @@ export class PaymentService {
     try {
       const dbOpts = this.dataSource.options as any;
       this.logger.log(`[DB] DataSource: type=${dbOpts?.type}, host=${dbOpts?.host}, port=${dbOpts?.port}, database=${dbOpts?.database}, isConnected=${this.dataSource.isInitialized}`);
-    } catch (e) {
-      this.logger.warn(`[DB] 无法获取DataSource信息: ${e.message}`);
+    } catch (e: unknown) {
+      const err = e as Error;
+      this.logger.warn(`[DB] 无法获取DataSource信息: ${err.message}`);
     }
 
     // 正确处理body：可能是XML字符串、Buffer（NestJS默认不解析XML）或JSON对象
@@ -653,8 +659,9 @@ export class PaymentService {
         this.logger.log(`微信回调已处理过(Redis命中): ${outTradeNo}_${transactionId}`);
         return this.wechatPayService.buildSuccessResponse();
       }
-    } catch (redisError) {
-      this.logger.warn(`Redis检查失败，降级到数据库层防重: ${redisError.message}`);
+    } catch (redisError: unknown) {
+      const err = redisError as Error;
+      this.logger.warn(`Redis检查失败，降级到数据库层防重: ${err.message}`);
     }
 
     // 第二层防重：数据库事务内检查订单状态（悲观锁）
@@ -737,8 +744,9 @@ export class PaymentService {
             this.logger.error(`[验证] account_transactions 未找到: userId=${order.userId}`);
           }
         }
-      } catch (verifyErr) {
-        this.logger.error(`[验证] 数据验证异常: ${verifyErr.message}`);
+      } catch (verifyErr: unknown) {
+        const err = verifyErr as Error;
+        this.logger.error(`[验证] 数据验证异常: ${err.message}`);
       }
 
       this.logger.log(`微信回调处理成功: ${outTradeNo}, 金额: ${order.amount}`);
@@ -746,16 +754,18 @@ export class PaymentService {
       // 事务成功后设置 Redis 缓存（24小时过期）
       try {
         await this.redis.setex(redisKey, 86400, '1');
-      } catch (redisError) {
-        this.logger.warn(`Redis缓存设置失败: ${redisError.message}`);
+      } catch (redisError: unknown) {
+        const err = redisError as Error;
+        this.logger.warn(`Redis缓存设置失败: ${err.message}`);
       }
 
       return this.wechatPayService.buildSuccessResponse();
-    } catch (error) {
+    } catch (error: unknown) {
+      const err = error as Error;
       await queryRunner.rollbackTransaction().catch(rbErr => {
-        this.logger.error(`[handleWechatNotify] 回滚事务也失败: ${rbErr.message}`);
+        this.logger.error(`[handleWechatNotify] 回滚事务也失败: ${(rbErr as Error).message}`);
       });
-      this.logger.error(`微信回调处理失败: ${outTradeNo}, 错误: ${error.message}`, error.stack);
+      this.logger.error(`微信回调处理失败: ${outTradeNo}, 错误: ${err.message}`, err.stack);
       return this.wechatPayService.buildFailResponse('处理失败');
     } finally {
       await queryRunner.release();
@@ -964,11 +974,12 @@ export class PaymentService {
       result = await this.wechatPayService.createH5Order(
         outTradeNo,
         amount,
-        `零钱保账户充值`,
+        `零钱宝账户充值`,
         clientIp,
       );
-    } catch (error) {
-      throw new BadRequestException(`微信H5支付创建失败: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error as Error;
+      throw new BadRequestException(`微信H5支付创建失败: ${err.message}`);
     }
 
     if (result.mockMode) {
@@ -1055,12 +1066,13 @@ export class PaymentService {
       result = await this.wechatPayService.createJsapiOrder(
         outTradeNo,
         amount,
-        `零钱保账户充值`,
+        `零钱宝账户充值`,
         clientIp,
         openId,
       );
-    } catch (error) {
-      throw new BadRequestException(`微信JSAPI支付创建失败: ${error.message}`);
+    } catch (error: unknown) {
+      const err = error as Error;
+      throw new BadRequestException(`微信JSAPI支付创建失败: ${err.message}`);
     }
 
     if (result.mockMode) {
@@ -1137,7 +1149,7 @@ export class PaymentService {
     const result = await this.wechatPayService.createH5Order(
       outTradeNo,
       amount,
-      `零钱保认购${drug.name}`,
+      `零钱宝认购${drug.name}`,
       clientIp,
     );
 
@@ -1227,7 +1239,7 @@ export class PaymentService {
     const result = await this.wechatPayService.createJsapiOrder(
       outTradeNo,
       amount,
-      `零钱保认购${drug.name}`,
+      `零钱宝认购${drug.name}`,
       clientIp,
       openId,
     );

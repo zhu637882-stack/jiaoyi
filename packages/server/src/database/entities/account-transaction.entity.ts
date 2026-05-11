@@ -18,6 +18,7 @@ export enum TransactionType {
   PROFIT_SHARE = 'profit_share',
   LOSS_SHARE = 'loss_share',
   SLOW_SELL_REFUND = 'slow_sell_refund',
+  SLOW_SELL_SUBSIDY = 'slow_sell_subsidy',
   RETURN_PROFIT = 'return_profit',
   YIELD = 'yield',
   ADMIN_ADJUST = 'admin_adjust',
@@ -27,6 +28,7 @@ export enum TransactionType {
   TRIAL_BONUS_USE = 'trial_bonus_use',
   TRIAL_BONUS_RETURN = 'trial_bonus_return',
   INVITATION_REWARD = 'invitation_reward',
+  DIVIDEND_SETTLE = 'dividend_settle',
 }
 
 @Entity('account_transactions')

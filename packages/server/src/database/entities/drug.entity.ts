@@ -66,6 +66,9 @@ export class Drug {
   @Column({ type: 'boolean', default: false, comment: '是否冷链药品（冷链快递费20元，普通3元）' })
   isColdChain: boolean;
 
+  @Column({ nullable: true, comment: '产品图片URL' })
+  imageUrl: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

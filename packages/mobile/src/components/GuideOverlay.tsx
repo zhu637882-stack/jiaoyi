@@ -139,6 +139,28 @@ const GuideOverlay: React.FC = () => {
     }
   }, [])
 
+  // ---- 处理跳过 ----
+  const handleSkip = useCallback(() => {
+    try {
+      localStorage.setItem('guide_completed_v3', 'true')
+    } catch {
+      // localStorage 不可用，忽略
+    }
+    setExiting(true)
+    setTimeout(() => {
+      setVisible(false)
+    }, 350)
+  }, [])
+
+  // ---- 处理下一步 ----
+  const handleNext = useCallback(() => {
+    if (currentStep < steps.length - 1) {
+      setCurrentStep((prev) => prev + 1)
+    } else {
+      handleSkip()
+    }
+  }, [currentStep, handleSkip])
+
   // ---- 获取目标 Tab 元素位置 ----
   const updateTargetRect = useCallback(() => {
     if (!visible) return
@@ -147,8 +169,20 @@ const GuideOverlay: React.FC = () => {
       const rect = tabElements[currentStep].getBoundingClientRect()
       setTargetRect(rect)
       setWindowHeight(window.innerHeight)
+    } else {
+      // 找不到目标元素时自动跳过引导，避免全屏蒙层拦截点击
+      setTargetRect(null)
     }
   }, [visible, currentStep])
+
+  // ---- 如果 targetRect 为 null 超过 1.5 秒，自动关闭引导 ----
+  useEffect(() => {
+    if (!visible || targetRect !== null) return
+    const timer = setTimeout(() => {
+      handleSkip()
+    }, 1500)
+    return () => clearTimeout(timer)
+  }, [visible, targetRect, handleSkip])
 
   // ---- 步骤变化时：先切路由，再定位 ----
   useEffect(() => {
@@ -178,43 +212,14 @@ const GuideOverlay: React.FC = () => {
     }
   }, [visible, updateTargetRect])
 
-  // ---- 处理下一步 ----
-  const handleNext = useCallback(() => {
-    if (currentStep < steps.length - 1) {
-      setCurrentStep((prev) => prev + 1)
-    } else {
-      // 最后一步：先保存标记，再播放退出动画
-      try {
-        localStorage.setItem('guide_completed_v3', 'true')
-      } catch {
-        // localStorage 不可用，忽略
-      }
-      setExiting(true)
-      setTimeout(() => {
-        setVisible(false)
-      }, 350)
-    }
-  }, [currentStep])
-
-  // ---- 处理跳过 ----
-  const handleSkip = useCallback(() => {
-    // 立即保存标记，再播放退出动画
-    try {
-      localStorage.setItem('guide_completed_v3', 'true')
-    } catch {
-      // localStorage 不可用，忽略
-    }
-    setExiting(true)
-    setTimeout(() => {
-      setVisible(false)
-    }, 350)
-  }, [])
-
   // ---- 渲染 ----
   if (!visible) return null
 
   const step = steps[currentStep]
   const isLastStep = currentStep === steps.length - 1
+
+  // 如果找不到目标元素，不渲染蒙层（避免拦截所有点击）
+  if (!targetRect) return null
 
   return (
     <div className={`guide-overlay ${exiting ? 'guide-overlay-exit' : ''}`}>

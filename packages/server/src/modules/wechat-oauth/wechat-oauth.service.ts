@@ -14,13 +14,24 @@ export class WechatOauthService {
   ) {}
 
   /**
+   * 规范化OAuth回调域名：裸域名自动映射为带www的版本，与微信后台配置保持一致
+   */
+  private normalizeOAuthHost(host: string): string {
+    // 去掉端口号
+    const hostname = host.split(':')[0];
+    // 裸域名映射为微信后台配置的带www域名
+    if (hostname === 'duokeer.com') return 'www.duokeer.com';
+    if (hostname === 'mufend.com') return 'www.mufend.com';
+    return hostname;
+  }
+
+  /**
    * 构建微信OAuth2授权URL（snsapi_base静默授权）
    */
   getAuthorizeUrl(redirectUrl: string, host?: string): string {
     const appId = this.configService.get<string>('WECHAT_APP_ID');
-    const callbackUrl = host
-      ? `http://${host}/api/wechat/oauth/callback`
-      : 'http://www.mufend.com/api/wechat/oauth/callback';
+    const normalizedHost = host ? this.normalizeOAuthHost(host) : 'www.duokeer.com';
+    const callbackUrl = `http://${normalizedHost}/api/wechat/oauth/callback`;
     const state = Buffer.from(redirectUrl).toString('base64url');
 
     const params = new URLSearchParams({
@@ -41,12 +52,34 @@ export class WechatOauthService {
     const appId = this.configService.get<string>('WECHAT_APP_ID');
     const appSecret = this.configService.get<string>('WECHAT_APP_SECRET');
 
-    const url = `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${appId}&secret=${appSecret}&code=${code}&grant_type=authorization_code`;
+    console.log('[WechatOAuth] getOpenIdByCode called, appId:', appId ? `${appId.substring(0, 6)}***` : 'UNDEFINED');
 
-    const data = await this.httpsGet(url);
+    if (!appId || !appSecret) {
+      console.error('[WechatOAuth] Missing config! appId:', appId || 'EMPTY', 'appSecret:', appSecret ? 'SET' : 'EMPTY');
+      throw new Error('微信OAuth配置缺失: APP_ID或APP_SECRET未设置');
+    }
+
+    const url = `https://api.weixin.qq.com/sns/oauth2/access_token?appid=${appId}&secret=${appSecret}&code=${code}&grant_type=authorization_code`;
+    console.log('[WechatOAuth] Requesting access_token with code:', code.substring(0, 4) + '***');
+
+    let data: any;
+    try {
+      data = await this.httpsGet(url);
+    } catch (err) {
+      console.error('[WechatOAuth] HTTPS request failed:', err);
+      throw new Error('微信OAuth网络请求失败');
+    }
+
+    console.log('[WechatOAuth] WeChat API response errcode:', data.errcode || 'none', 'openid:', data.openid ? `${String(data.openid).substring(0, 6)}***` : 'none');
 
     if (data.errcode) {
+      console.error('[WechatOAuth] WeChat API error:', data.errcode, data.errmsg);
       throw new Error(`微信OAuth错误: ${data.errcode} - ${data.errmsg}`);
+    }
+
+    if (!data.openid) {
+      console.error('[WechatOAuth] No openid in response, full data:', JSON.stringify(data).substring(0, 200));
+      throw new Error('微信OAuth返回数据异常: 未获取到openid');
     }
 
     return data.openid;

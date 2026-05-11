@@ -105,6 +105,7 @@ export class DrugService {
       operationFeeRate: drug.operationFeeRate,
       slowSellingDays: drug.slowSellingDays,
       isColdChain: drug.isColdChain ?? false,
+      imageUrl: drug.imageUrl || null,
       createdAt: drug.createdAt,
       subscriptionProgress:
         drug.totalQuantity > 0
@@ -194,6 +195,7 @@ export class DrugService {
       status: drug.status,
       batchNo: drug.batchNo,
       isColdChain: drug.isColdChain ?? false,
+      imageUrl: drug.imageUrl || null,
       createdAt: drug.createdAt,
       updatedAt: drug.updatedAt,
       subscriptionProgress,

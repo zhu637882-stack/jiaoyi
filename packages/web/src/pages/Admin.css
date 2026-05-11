@@ -139,7 +139,7 @@
 }
 
 .table-cell-tertiary {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 12px;
 }
 
@@ -172,7 +172,7 @@
 }
 
 .table-cell-code {
-  color: var(--color-text-tertiary);
+  color: var(--color-text-secondary);
   font-size: 11px;
   font-family: var(--font-family-mono);
 }

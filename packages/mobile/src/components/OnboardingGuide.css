@@ -1,5 +1,5 @@
 /* ============================================
-   新手引导蒙层 - OnboardingGuide
+   新手引导蒙层 - OnboardingGuide - 币安风格蓝色主题
    ============================================ */
 
 /* 全屏蒙层 */
@@ -25,15 +25,15 @@
   to { opacity: 0; }
 }
 
-/* 高亮挖洞区域 - box-shadow 方式 */
+/* 高亮挖洞区域 */
 .onboarding-highlight {
   position: fixed;
   border-radius: 12px;
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.72);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
   z-index: 10001;
   pointer-events: none;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 2px solid rgba(240, 185, 11, 0.6);
+  border: 2px solid #2151F5;
 }
 
 /* 高亮区域呼吸光效 */
@@ -42,7 +42,7 @@
   position: absolute;
   inset: -4px;
   border-radius: 14px;
-  border: 2px solid rgba(240, 185, 11, 0.3);
+  border: 2px solid rgba(33, 81, 245, 0.25);
   animation: onboarding-pulse 1.8s ease-in-out infinite;
 }
 
@@ -63,12 +63,12 @@
 
 /* 气泡本体 */
 .onboarding-bubble {
-  background: #1E2329;
-  border-radius: 16px;
+  background: var(--color-bg-card);
+  border-radius: var(--radius-md);
   padding: 20px;
   position: relative;
-  border: 1px solid rgba(240, 185, 11, 0.25);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4), 0 0 20px rgba(240, 185, 11, 0.08);
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-elevated);
   animation: onboarding-bubble-enter 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) both;
 }
 
@@ -89,25 +89,19 @@
 }
 
 @keyframes onboarding-bubble-switch {
-  0% {
-    opacity: 0.4;
-    transform: scale(0.92);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
+  0% { opacity: 0.4; transform: scale(0.92); }
+  100% { opacity: 1; transform: scale(1); }
 }
 
-/* 气泡三角箭头 - 朝下（默认） */
+/* 气泡三角箭头 - 朝下 */
 .onboarding-bubble-arrow-down {
   position: absolute;
   bottom: -8px;
   width: 16px;
   height: 16px;
-  background: #1E2329;
-  border-right: 1px solid rgba(240, 185, 11, 0.25);
-  border-bottom: 1px solid rgba(240, 185, 11, 0.25);
+  background: var(--color-bg-card);
+  border-right: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border);
   transform: rotate(45deg);
   z-index: -1;
 }
@@ -118,9 +112,9 @@
   top: -8px;
   width: 16px;
   height: 16px;
-  background: #1E2329;
-  border-left: 1px solid rgba(240, 185, 11, 0.25);
-  border-top: 1px solid rgba(240, 185, 11, 0.25);
+  background: var(--color-bg-card);
+  border-left: 1px solid var(--color-border);
+  border-top: 1px solid var(--color-border);
   transform: rotate(45deg);
   z-index: -1;
 }
@@ -133,8 +127,8 @@
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: #F0B90B;
-  color: #181A20;
+  background: #2151F5;
+  color: #fff;
   font-size: 13px;
   font-weight: 700;
   margin-right: 8px;
@@ -151,7 +145,7 @@
 .onboarding-bubble-title {
   font-size: 16px;
   font-weight: 600;
-  color: #EAECEF;
+  color: var(--color-text-primary);
   line-height: 1.3;
   margin: 0;
 }
@@ -159,7 +153,7 @@
 /* 气泡描述 */
 .onboarding-bubble-desc {
   font-size: 14px;
-  color: #848E9C;
+  color: var(--color-text-secondary);
   line-height: 1.5;
   margin: 0 0 16px 0;
   padding-left: 32px;
@@ -183,14 +177,14 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #474D57;
+  background: var(--color-border-strong);
   transition: all 0.3s ease;
 }
 
 .onboarding-dot.active {
   width: 18px;
   border-radius: 3px;
-  background: #F0B90B;
+  background: #2151F5;
 }
 
 /* 按钮组 */
@@ -203,35 +197,35 @@
 /* 跳过按钮 */
 .onboarding-skip-btn {
   background: none;
-  border: 1px solid #474D57;
-  color: #848E9C;
+  border: 1px solid var(--color-border-strong);
+  color: var(--color-text-secondary);
   font-size: 13px;
   padding: 6px 14px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
 }
 
 .onboarding-skip-btn:active {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--color-bg-input);
 }
 
 /* 下一步按钮 */
 .onboarding-next-btn {
-  background: #F0B90B;
+  background: #2151F5;
   border: none;
-  color: #181A20;
+  color: #fff;
   font-size: 13px;
   font-weight: 600;
   padding: 7px 18px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
   -webkit-tap-highlight-color: transparent;
 }
 
 .onboarding-next-btn:active {
-  background: #d4a30a;
   transform: scale(0.97);
+  opacity: 0.9;
 }

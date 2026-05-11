@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import './Admin.css'
-import { Card, Tabs, Typography, Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, message, Popconfirm, Statistic, Row, Col, Divider, Alert, Steps } from 'antd'
-import { UserOutlined, MedicineBoxOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, SendOutlined, SwapOutlined, AuditOutlined, ReloadOutlined } from '@ant-design/icons'
+import { Card, Tabs, Typography, Table, Button, Space, Tag, Modal, Form, Input, InputNumber, Select, DatePicker, message, Popconfirm, Statistic, Row, Col, Divider, Alert, Steps, Upload, Tooltip } from 'antd'
+import { UserOutlined, MedicineBoxOutlined, PlusOutlined, EditOutlined, DeleteOutlined, ShoppingCartOutlined, CalculatorOutlined, CheckCircleOutlined, ArrowRightOutlined, DollarOutlined, BarChartOutlined, OrderedListOutlined, SendOutlined, SwapOutlined, AuditOutlined, ReloadOutlined, UploadOutlined, PictureOutlined, ClockCircleOutlined } from '@ant-design/icons'
 import { drugApi, salesApi, settlementApi, adminApi, subscriptionApi, accountApi, systemMessageApi, yieldApi, trialBonusAdminApi, invitationAdminApi } from '../services/api'
 import logoPng from '../assets/logo.png'
 import type { ColumnsType } from 'antd/es/table'
@@ -57,6 +57,7 @@ interface Drug {
   operationFeeRate: number
   batchNo: string
   slowSellingDays: number
+  imageUrl?: string
   createdAt: string
 }
 
@@ -203,7 +204,7 @@ const targetTypeMap: Record<string, string> = {
   user: '用户',
   drug: '药品',
   account: '账户',
-  subscription: '认购单',
+  subscription: '进货单',
   payment: '支付',
   invitation: '邀请',
   pending_order: '挂单',
@@ -332,6 +333,7 @@ const Admin = () => {
   const [editingDrug, setEditingDrug] = useState<Drug | null>(null)
   const [drugForm] = Form.useForm()
   const [submitLoading, setSubmitLoading] = useState(false)
+  const [drugImageUrl, setDrugImageUrl] = useState<string>('')
 
   // 用户管理状态
   const [users, setUsers] = useState<User[]>([])
@@ -435,7 +437,7 @@ const Admin = () => {
   const [pendingSubsidyLoading, setPendingSubsidyLoading] = useState(false)
   const [subsidyYieldDate, setSubsidyYieldDate] = useState<string>(dayjs().format('YYYY-MM-DD'))
 
-  // 认购审核状态
+  // 入库审核状态
   const [auditOrders, setAuditOrders] = useState<any[]>([])
   const [auditOrdersLoading, setAuditOrdersLoading] = useState(false)
   const [auditStatusFilter, setAuditStatusFilter] = useState<string>('all')
@@ -443,12 +445,33 @@ const Admin = () => {
   const [auditPageSize, setAuditPageSize] = useState(10)
   const [auditTotal, setAuditTotal] = useState(0)
 
-  // 认购审核弹窗状态
+  // 入库审核弹窗状态
   const [auditModalVisible, setAuditModalVisible] = useState(false)
   const [auditOrderInfo, setAuditOrderInfo] = useState<any>(null)
   const [auditAction, setAuditAction] = useState<'approve' | 'reject'>('approve')
   const [auditForm] = Form.useForm()
   const [auditLoading, setAuditLoading] = useState(false)
+
+  // 录入售出弹窗状态
+  const [saleModalVisible, setSaleModalVisible] = useState(false)
+  const [saleOrderInfo, setSaleOrderInfo] = useState<any>(null)
+  const [saleForm] = Form.useForm()
+  const [saleLoading, setSaleLoading] = useState(false)
+
+  // 售出记录弹窗状态
+  const [saleRecordsModalVisible, setSaleRecordsModalVisible] = useState(false)
+  const [saleRecords, setSaleRecords] = useState<any[]>([])
+  const [saleRecordsLoading, setSaleRecordsLoading] = useState(false)
+  const [saleRecordsOrderInfo, setSaleRecordsOrderInfo] = useState<any>(null)
+
+  // 到期提醒状态
+  const [expiringOrdersCount, setExpiringOrdersCount] = useState(0)
+
+  // 分红填写弹窗状态
+  const [dividendModalVisible, setDividendModalVisible] = useState(false)
+  const [dividendOrderInfo, setDividendOrderInfo] = useState<any>(null)
+  const [dividendForm] = Form.useForm()
+  const [dividendLoading, setDividendLoading] = useState(false)
 
   // 体验金管理状态
   const [trialBonusList, setTrialBonusList] = useState<any[]>([])
@@ -522,6 +545,7 @@ const Admin = () => {
       fetchPendingOrderStats()
       fetchReturnReviewList()
       fetchWithdrawOrders()
+      fetchExpiringOrders()
     } else if (activeTab === 'operations') {
       fetchSales()
       fetchSettlements()
@@ -633,6 +657,7 @@ const Admin = () => {
   const handleAddDrug = () => {
     setEditingDrug(null)
     drugForm.resetFields()
+    setDrugImageUrl('')
     setIsDrugModalOpen(true)
   }
 
@@ -649,7 +674,9 @@ const Admin = () => {
       batchNo: record.batchNo,
       operationFeeRate: record.operationFeeRate != null ? +Number(record.operationFeeRate).toFixed(2) : 0,
       slowSellingDays: record.slowSellingDays,
+      imageUrl: record.imageUrl || '',
     })
+    setDrugImageUrl(record.imageUrl || '')
     setIsDrugModalOpen(true)
   }
 
@@ -669,6 +696,7 @@ const Admin = () => {
         batchNo: values.batchNo,
         operationFeeRate: values.operationFeeRate != null ? values.operationFeeRate : 0,
         slowSellingDays: values.slowSellingDays,
+        imageUrl: drugImageUrl || values.imageUrl || '',
       }
       
       // 编辑时如果有实际成交价，也提交
@@ -848,9 +876,9 @@ const Admin = () => {
     }
   }, [])
 
-  // ==================== 认购管理 ====================
+  // ==================== 进货管理 ====================
 
-  // 获取认购列表
+  // 获取进货列表
   const fetchPendingOrders = useCallback(async () => {
     setPendingOrdersLoading(true)
     try {
@@ -864,14 +892,14 @@ const Admin = () => {
         setPendingOrderTotal(res.data?.pagination?.total || 0)
       }
     } catch (error) {
-      console.error('获取认购列表失败:', error)
-      message.error('获取认购列表失败')
+      console.error('获取进货列表失败:', error)
+      message.error('获取进货列表失败')
     } finally {
       setPendingOrdersLoading(false)
     }
   }, [pendingOrderFilterStatus, pendingOrderPage, pendingOrderPageSize])
 
-  // 获取认购统计
+  // 获取进货统计
   const fetchPendingOrderStats = useCallback(async () => {
     try {
       const res: any = await subscriptionApi.getAdminSubscriptionStats()
@@ -879,21 +907,33 @@ const Admin = () => {
         setPendingOrderStats(res.data)
       }
     } catch (error) {
-      console.error('获取认购统计失败:', error)
+      console.error('获取进货统计失败:', error)
     }
   }, [])
 
-  // 获取退回审核列表
+  // 获取退货审核列表
   const fetchReturnReviewList = useCallback(async () => {
     try {
       const res: any = await subscriptionApi.getAdminSubscriptions({ status: 'return_pending', page: 1, limit: 50 })
       setReturnReviewList(res?.data?.list || [])
     } catch (error) {
-      console.error('获取退回审核列表失败:', error)
+      console.error('获取退货审核列表失败:', error)
     }
   }, [])
 
-  // 获取认购审核列表
+  // 获取到期订单提醒
+  const fetchExpiringOrders = useCallback(async () => {
+    try {
+      const res: any = await subscriptionApi.getAdminExpiringOrders()
+      if (res.success) {
+        setExpiringOrdersCount(res.data?.count || 0)
+      }
+    } catch (error) {
+      console.error('获取到期订单失败:', error)
+    }
+  }, [])
+
+  // 获取入库审核列表
   const fetchAuditOrders = useCallback(async () => {
     setAuditOrdersLoading(true)
     try {
@@ -910,21 +950,21 @@ const Admin = () => {
         setAuditTotal(res.data?.pagination?.total || 0)
       }
     } catch (error) {
-      console.error('获取认购审核列表失败:', error)
-      message.error('获取认购审核列表失败')
+      console.error('获取入库审核列表失败:', error)
+      message.error('获取入库审核列表失败')
     } finally {
       setAuditOrdersLoading(false)
     }
   }, [auditStatusFilter, auditPage, auditPageSize])
 
-  // 认购审核 tab 切换或筛选条件变化时自动刷新
+  // 入库审核 tab 切换或筛选条件变化时自动刷新
   useEffect(() => {
     if (activeTab === 'subscriptions') {
       fetchAuditOrders()
     }
   }, [activeTab, auditStatusFilter, auditPage, auditPageSize, fetchAuditOrders])
 
-  // 提交认购审核
+  // 提交入库审核
   const handleAuditSubmit = async () => {
     if (!auditOrderInfo) return
     try {
@@ -933,6 +973,7 @@ const Admin = () => {
       const res: any = await subscriptionApi.auditSubscription(auditOrderInfo.id, {
         approved: auditAction === 'approve',
         remark: values.remark || '',
+        ...(auditAction === 'approve' && values.confirmedQuantity != null ? { confirmedQuantity: values.confirmedQuantity } : {}),
       })
       if (res.success) {
         message.success(res.message || (auditAction === 'approve' ? '审核通过' : '审核已拒绝'))
@@ -944,6 +985,77 @@ const Admin = () => {
       message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '审核失败'))
     } finally {
       setAuditLoading(false)
+    }
+  }
+
+  // 提交录入售出
+  const handleRecordSale = async () => {
+    if (!saleOrderInfo) return
+    try {
+      const values = await saleForm.validateFields()
+      setSaleLoading(true)
+      const res: any = await subscriptionApi.recordSale({
+        orderId: saleOrderInfo.id,
+        quantity: values.quantity,
+      })
+      if (res.success) {
+        message.success('售出记录已录入')
+        setSaleModalVisible(false)
+        fetchPendingOrders()
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.message
+      message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '录入售出失败'))
+    } finally {
+      setSaleLoading(false)
+    }
+  }
+
+  // 打开分红填写弹窗
+  const handleOpenDividend = (record: any) => {
+    setDividendOrderInfo(record)
+    dividendForm.resetFields()
+    setDividendModalVisible(true)
+  }
+
+  // 提交分红结算
+  const handleFillDividend = async () => {
+    if (!dividendOrderInfo) return
+    try {
+      const values = await dividendForm.validateFields()
+      setDividendLoading(true)
+      const res: any = await subscriptionApi.fillDividend(dividendOrderInfo.id, values.dividendAmount)
+      if (res.success) {
+        message.success(res.message || '分红结算完成')
+        setDividendModalVisible(false)
+        fetchExpiringOrders()
+        fetchPendingOrders()
+      }
+    } catch (error: any) {
+      const errMsg = error.response?.data?.message
+      message.error(Array.isArray(errMsg) ? errMsg.join('; ') : (errMsg || '分红结算失败'))
+    } finally {
+      setDividendLoading(false)
+    }
+  }
+
+  // 查看售出记录
+  const handleViewSaleRecords = async (record: any) => {
+    setSaleRecordsOrderInfo(record)
+    setSaleRecordsModalVisible(true)
+    setSaleRecordsLoading(true)
+    try {
+      const res: any = await subscriptionApi.getSaleRecords(record.id)
+      if (res.success) {
+        setSaleRecords(res.data || [])
+      } else {
+        setSaleRecords([])
+      }
+    } catch (error: any) {
+      message.error('获取售出记录失败')
+      setSaleRecords([])
+    } finally {
+      setSaleRecordsLoading(false)
     }
   }
 
@@ -1058,7 +1170,7 @@ const Admin = () => {
   const fetchPendingSubsidy = useCallback(async () => {
     setPendingSubsidyLoading(true)
     try {
-      // 直接从有效认购订单加载客户列表，无需先生成日收益记录
+      // 直接从有效进货订单加载客户列表，无需先生成日收益记录
       const res: any = await yieldApi.getPendingSubsidyList({ yieldDate: subsidyYieldDate })
       if (res.success) {
         setPendingSubsidyList(res.data?.list || [])
@@ -1468,6 +1580,26 @@ const Admin = () => {
   // 药品表格列
   const drugColumns: ColumnsType<Drug> = [
     {
+      title: '图片',
+      dataIndex: 'imageUrl',
+      key: 'imageUrl',
+      width: 60,
+      align: 'center',
+      render: (imageUrl: string) => (
+        imageUrl ? (
+          <img
+            src={imageUrl}
+            alt="药品图片"
+            style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6 }}
+          />
+        ) : (
+          <div style={{ width: 40, height: 40, borderRadius: 6, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <PictureOutlined style={{ color: '#bfbfbf', fontSize: 18 }} />
+          </div>
+        )
+      ),
+    },
+    {
       title: '药品名称',
       dataIndex: 'name',
       key: 'name',
@@ -1844,7 +1976,7 @@ const Admin = () => {
       ),
     },
     {
-      title: '认购金额',
+      title: '进货金额',
       dataIndex: 'amount',
       key: 'amount',
       align: 'right',
@@ -1869,6 +2001,11 @@ const Admin = () => {
         const config: Record<string, { className: string; text: string }> = {
           confirmed: { className: 'status-tag-warning', text: '已确认' },
           effective: { className: 'status-tag-success', text: '生效中' },
+          partial_sold: { className: 'status-tag-info', text: '部分售出' },
+          fully_sold: { className: 'status-tag-success', text: '全部售出' },
+          settling: { className: 'status-tag-warning', text: '回款中' },
+          returned_to_stock: { className: 'status-tag-default', text: '退货回库' },
+          slow_selling_refund: { className: 'status-tag-error', text: '滞销退回' },
           cancelled: { className: 'status-tag-default', text: '已取消' },
           settled: { className: 'status-tag-success', text: '已结算' },
         }
@@ -1896,21 +2033,72 @@ const Admin = () => {
         <span className="table-cell-tertiary">{text ? dayjs(text).format('MM-DD HH:mm') : '-'}</span>
       ),
     },
+    {
+      title: '已售出/总量',
+      key: 'soldProgress',
+      align: 'center',
+      render: (_: any, record: any) => (
+        <span className="table-cell-mono">
+          {record.soldQuantity || 0} / {record.quantity}
+        </span>
+      ),
+    },
+    {
+      title: '操作',
+      key: 'action',
+      align: 'center',
+      fixed: 'right' as const,
+      render: (_: any, record: any) => {
+        const canRecordSale = ['effective', 'partial_sold'].includes(record.status)
+        const hasSaleRecords = (record.soldQuantity || 0) > 0
+        return (
+          <Space>
+            {canRecordSale && (
+              <Button
+                type="primary"
+                size="small"
+                onClick={() => {
+                  setSaleOrderInfo(record)
+                  setSaleModalVisible(true)
+                  saleForm.resetFields()
+                }}
+              >
+                录入售出
+              </Button>
+            )}
+            {hasSaleRecords && (
+              <Button
+                size="small"
+                onClick={() => handleViewSaleRecords(record)}
+              >
+                售出记录
+              </Button>
+            )}
+          </Space>
+        )
+      },
+    },
   ]
 
-  // 认购审核表格列
+  // 入库审核表格列
   const subscriptionAuditColumns: ColumnsType<any> = [
     {
       title: '订单号',
       dataIndex: 'orderNo',
       key: 'orderNo',
+      width: 130,
       render: (text: string) => (
-        <span style={{ fontFamily: 'monospace', color: '#58A6FF', fontSize: 12 }}>{text}</span>
+        <Tooltip title={text}>
+          <span style={{ fontFamily: 'monospace', color: '#58A6FF', fontSize: 12, cursor: 'pointer' }}>
+            {text.length > 14 ? `${text.slice(0, 6)}...${text.slice(-6)}` : text}
+          </span>
+        </Tooltip>
       ),
     },
     {
       title: '客户',
       key: 'customer',
+      width: 110,
       render: (_: any, record: any) => (
         <div className="table-cell-with-sub">
           <span className="table-cell-primary table-cell-bold">{record.realName || record.username || '-'}</span>
@@ -1921,6 +2109,7 @@ const Admin = () => {
     {
       title: '药品',
       key: 'drug',
+      width: 150,
       render: (_: any, record: any) => (
         <div className="table-cell-with-sub">
           <span className="table-cell-primary">{record.drugName || '-'}</span>
@@ -1932,24 +2121,27 @@ const Admin = () => {
       title: '数量',
       dataIndex: 'quantity',
       key: 'quantity',
+      width: 70,
       align: 'right',
       render: (quantity: number) => (
         <span className="table-cell-mono">{Number(quantity || 0).toLocaleString()} 盒</span>
       ),
     },
     {
-      title: '认购金额',
+      title: '进货金额',
       dataIndex: 'amount',
       key: 'amount',
+      width: 90,
       align: 'right',
       render: (amount: number) => (
         <span className="table-cell-mono">¥{Number(amount || 0).toFixed(2)}</span>
       ),
     },
     {
-      title: '认购时间',
+      title: '进货时间',
       dataIndex: 'createdAt',
       key: 'createdAt',
+      width: 100,
       render: (text: string) => (
         <span className="table-cell-tertiary">{text ? dayjs(text).format('MM-DD HH:mm') : '-'}</span>
       ),
@@ -1958,6 +2150,7 @@ const Admin = () => {
       title: '审核状态',
       dataIndex: 'auditStatus',
       key: 'auditStatus',
+      width: 80,
       render: (auditStatus: string) => {
         const config: Record<string, { className: string; text: string }> = {
           pending: { className: 'status-tag-warning', text: '待审核' },
@@ -1972,24 +2165,29 @@ const Admin = () => {
       title: '审核时间',
       dataIndex: 'auditAt',
       key: 'auditAt',
+      width: 100,
       render: (text: string) => (
         <span className="table-cell-tertiary">{text ? dayjs(text).format('MM-DD HH:mm') : '-'}</span>
       ),
     },
     {
       title: '审核人',
-      dataIndex: 'auditBy',
-      key: 'auditBy',
-      render: (text: string) => (
-        <span className="table-cell-tertiary">{text || '-'}</span>
+      dataIndex: 'auditorName',
+      key: 'auditorName',
+      width: 90,
+      render: (text: string, record: any) => (
+        <span className="table-cell-secondary">{text || record.auditBy || '-'}</span>
       ),
     },
     {
       title: '审核备注',
       dataIndex: 'auditRemark',
       key: 'auditRemark',
+      width: 120,
       render: (text: string) => (
-        <span className="table-cell-tertiary" style={{ maxWidth: 150, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text || '-'}</span>
+        <Tooltip title={text}>
+          <span className="table-cell-tertiary" style={{ maxWidth: 120, display: 'inline-block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{text || '-'}</span>
+        </Tooltip>
       ),
     },
     {
@@ -1998,6 +2196,21 @@ const Admin = () => {
       align: 'center',
       fixed: 'right',
       render: (_: any, record: any) => {
+        // 已审核通过 + 生效中 + 锁定期到期 + 尚未分红 → 显示分红结算按钮
+        const isLockExpired = record.lockExpiresAt && new Date(record.lockExpiresAt) <= new Date()
+        if (record.auditStatus === 'approved' && record.status === 'effective' && isLockExpired && !record.dividendAmount) {
+          return (
+            <Button
+              type="primary"
+              size="small"
+              style={{ background: '#F0B90B', borderColor: '#F0B90B', color: '#0B0E11' }}
+              icon={<DollarOutlined />}
+              onClick={() => handleOpenDividend(record)}
+            >
+              分红结算
+            </Button>
+          )
+        }
         if (record.auditStatus !== 'pending') {
           return <span className="table-cell-tertiary">-</span>
         }
@@ -2011,6 +2224,7 @@ const Admin = () => {
                 setAuditOrderInfo(record)
                 setAuditAction('approve')
                 auditForm.resetFields()
+                auditForm.setFieldsValue({ confirmedQuantity: record.quantity })
                 setAuditModalVisible(true)
               }}
             >
@@ -2392,11 +2606,25 @@ const Admin = () => {
       label: (
         <span>
           <OrderedListOutlined style={{ marginRight: 8 }} />
-          认购管理
+          进货管理
         </span>
       ),
       children: (
         <Card className="admin-content-card">
+          {/* 到期提醒 */}
+          {expiringOrdersCount > 0 && (
+            <Alert
+              type="warning"
+              showIcon
+              icon={<ClockCircleOutlined />}
+              message={
+                <span>
+                  有 <span style={{ color: '#FA8C16', fontWeight: 700, fontSize: 16 }}>{expiringOrdersCount}</span> 个订单锁定期已到期，请及时处理分红结算
+                </span>
+              }
+              style={{ marginBottom: 16, borderColor: '#FA8C16', background: 'rgba(250, 140, 22, 0.08)' }}
+            />
+          )}
           {/* 委托列表 */}
           <div style={{ marginBottom: 12 }}>
             <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>委托列表</Text>
@@ -2447,6 +2675,10 @@ const Admin = () => {
             >
               <Option value="pending">待触发</Option>
               <Option value="triggered">已触发</Option>
+              <Option value="effective">生效中</Option>
+              <Option value="partial_sold">部分售出</Option>
+              <Option value="fully_sold">全部售出</Option>
+              <Option value="settling">回款中</Option>
               <Option value="cancelled">已撤销</Option>
               <Option value="expired">已过期</Option>
             </Select>
@@ -2473,12 +2705,12 @@ const Admin = () => {
 
           <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
 
-          {/* 认购审核 */}
+          {/* 入库审核 */}
           <div style={{ marginBottom: 12 }}>
-            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>认购审核</Text>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>入库审核</Text>
           </div>
           <div className="admin-action-bar">
-            <Text style={{ color: '#8B949E' }}>认购订单审核</Text>
+            <Text style={{ color: '#8B949E' }}>进货订单审核</Text>
             <Select
               placeholder="筛选审核状态"
               allowClear
@@ -2517,9 +2749,9 @@ const Admin = () => {
 
           <div style={{ borderTop: '1px solid #30363D', margin: '24px 0' }} />
 
-          {/* 退回审核 */}
+          {/* 退货审核 */}
           <div style={{ marginBottom: 8, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>退回审核</Text>
+            <Text style={{ color: '#E6EDF3', fontSize: 16, fontWeight: 600 }}>退货审核</Text>
             <Button
               type="primary"
               icon={<ReloadOutlined />}
@@ -2539,13 +2771,13 @@ const Admin = () => {
             pagination={{ pageSize: 10, showTotal: (total: number) => `共 ${total} 条` }}
             scroll={{ x: 'max-content' }}
             rowClassName={() => 'admin-table-row'}
-            locale={{ emptyText: <Text style={{ color: '#8B949E' }}>暂无待审核的退回申请</Text> }}
+            locale={{ emptyText: <Text style={{ color: '#8B949E' }}>暂无待审核的退货申请</Text> }}
           >
             <Table.Column title="订单号" dataIndex="orderNo" key="orderNo" width={150} render={(v: string) => <Text style={{ color: '#8B949E', fontFamily: 'monospace', fontSize: 12 }}>{v}</Text>} />
             <Table.Column title="客户" key="customer" width={120} render={(_: any, record: any) => <Text style={{ color: '#E6EDF3' }}>{(record as any).realName || (record as any).username || '-'}</Text>} />
             <Table.Column title="药品" key="drug" width={120} render={(_: any, record: any) => <Text style={{ color: '#E6EDF3' }}>{(record as any).drugName || '-'}</Text>} />
             <Table.Column title="数量" dataIndex="quantity" key="quantity" width={80} align="center" render={(v: number) => <Text style={{ color: '#E6EDF3' }}>{v}盒</Text>} />
-            <Table.Column title="认购金额" dataIndex="amount" key="amount" width={110} align="right" render={(v: number) => <Text style={{ color: '#E6EDF3' }}>¥{Number(v || 0).toFixed(2)}</Text>} />
+            <Table.Column title="进货金额" dataIndex="amount" key="amount" width={110} align="right" render={(v: number) => <Text style={{ color: '#E6EDF3' }}>¥{Number(v || 0).toFixed(2)}</Text>} />
             <Table.Column title="未结算金额" dataIndex="unsettledAmount" key="unsettledAmount" width={110} align="right" render={(v: number) => <Text style={{ color: '#FAAD14', fontWeight: 600 }}>¥{Number(v || 0).toFixed(2)}</Text>} />
             <Table.Column title="累计收益" key="profit" width={110} align="right" render={(_: any, record: any) => {
               const profit = Number(record.totalProfit || 0) - Number(record.totalLoss || 0)
@@ -2568,7 +2800,7 @@ const Admin = () => {
                       try {
                         const res: any = await subscriptionApi.approveReturn(record.id)
                         if (res.success) {
-                          message.success('退回已核准，本金和收益已退还客户')
+                          message.success('退货已核准，本金和收益已退还客户')
                           const refreshRes: any = await subscriptionApi.getAdminSubscriptions({ status: 'return_pending', page: 1, limit: 50 })
                           setReturnReviewList(refreshRes?.data?.list || [])
                         }
@@ -2578,15 +2810,15 @@ const Admin = () => {
                       }
                     }}
                   >
-                    核准退回
+                    核准退货
                   </Button>
                   <Popconfirm
-                    title="确定驳回该退回申请？"
+                    title="确定驳回该退货申请？"
                     onConfirm={async () => {
                       try {
                         const res: any = await subscriptionApi.rejectReturn(record.id, '管理员驳回')
                         if (res.success) {
-                          message.success('退回申请已驳回')
+                          message.success('退货申请已驳回')
                           const refreshRes: any = await subscriptionApi.getAdminSubscriptions({ status: 'return_pending', page: 1, limit: 50 })
                           setReturnReviewList(refreshRes?.data?.list || [])
                         }
@@ -3318,10 +3550,10 @@ const Admin = () => {
     <div className="admin-page">
       {/* 页面标题 */}
       <div className="admin-page-header" style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-        <img src={logoPng} alt="零钱保" style={{ width: 32, height: 32, borderRadius: 6 }} />
+        <img src={logoPng} alt="零钱宝" style={{ width: 32, height: 32, borderRadius: 6 }} />
         <div>
           <Title level={3} className="admin-page-title" style={{ marginBottom: 0 }}>
-            零钱保 · 管理后台
+            零钱宝 · 管理后台
           </Title>
           <Text className="admin-page-subtitle">
             多客数智旗下 · 系统管理与配置中心
@@ -3482,6 +3714,96 @@ const Admin = () => {
           requiredMark={false}
           className="admin-form"
         >
+          {/* 产品图片上传 */}
+          <Form.Item label="产品图片" name="imageUrl">
+            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+              <Upload
+                name="file"
+                action="/api/drugs/upload-image"
+                headers={{ Authorization: `Bearer ${localStorage.getItem('access_token')}` }}
+                showUploadList={false}
+                accept=".jpg,.jpeg,.png,.webp"
+                beforeUpload={(file) => {
+                  const isValidType = ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+                  if (!isValidType) {
+                    message.error('仅支持 JPG/PNG/WebP 格式图片')
+                    return Upload.LIST_IGNORE
+                  }
+                  const isLt5M = file.size / 1024 / 1024 < 5
+                  if (!isLt5M) {
+                    message.error('图片大小不能超过 5MB')
+                    return Upload.LIST_IGNORE
+                  }
+                  return true
+                }}
+                onChange={(info) => {
+                  if (info.file.status === 'done') {
+                    const url = info.file.response?.data?.url
+                    if (url) {
+                      setDrugImageUrl(url)
+                      drugForm.setFieldValue('imageUrl', url)
+                      message.success('图片上传成功')
+                    }
+                  } else if (info.file.status === 'error') {
+                    message.error('图片上传失败')
+                  }
+                }}
+              >
+                {drugImageUrl ? (
+                  <div style={{ position: 'relative', width: 104, height: 104 }}>
+                    <img
+                      src={drugImageUrl}
+                      alt="产品图片"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 8 }}
+                    />
+                    <div style={{
+                      position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+                      background: 'rgba(0,0,0,0.4)', borderRadius: 8,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      opacity: 0, transition: 'opacity 0.2s', cursor: 'pointer',
+                    }}
+                      onMouseEnter={(e) => (e.currentTarget.style.opacity = '1')}
+                      onMouseLeave={(e) => (e.currentTarget.style.opacity = '0')}
+                    >
+                      <span style={{ color: '#fff', fontSize: 12 }}>更换图片</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div style={{
+                    width: 104, height: 104, borderRadius: 8,
+                    border: '1px dashed #d9d9d9',
+                    display: 'flex', flexDirection: 'column',
+                    alignItems: 'center', justifyContent: 'center',
+                    cursor: 'pointer', transition: 'border-color 0.2s',
+                  }}
+                    onMouseEnter={(e) => (e.currentTarget.style.borderColor = 'var(--color-primary, #1890ff)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.borderColor = '#d9d9d9')}
+                  >
+                    <UploadOutlined style={{ fontSize: 24, color: '#999' }} />
+                    <span style={{ marginTop: 4, fontSize: 12, color: '#999' }}>上传图片</span>
+                  </div>
+                )}
+              </Upload>
+              {drugImageUrl && (
+                <Button
+                  type="text"
+                  danger
+                  size="small"
+                  onClick={() => {
+                    setDrugImageUrl('')
+                    drugForm.setFieldValue('imageUrl', '')
+                  }}
+                >
+                  删除图片
+                </Button>
+              )}
+              <div style={{ fontSize: 12, color: '#999', lineHeight: '20px' }}>
+                <div>支持 JPG/PNG/WebP 格式</div>
+                <div>大小不超过 5MB</div>
+              </div>
+            </div>
+          </Form.Item>
+
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--space-lg)' }}>
             <Form.Item
               name="name"
@@ -4116,12 +4438,12 @@ const Admin = () => {
         </Form>
       </Modal>
 
-      {/* 认购审核弹窗 */}
+      {/* 入库审核弹窗 */}
       <Modal
         title={
           <Space>
             <AuditOutlined style={{ color: auditAction === 'approve' ? '#00b96b' : '#F5222D' }} />
-            <span>{auditAction === 'approve' ? '通过认购审核' : '拒绝认购审核'}</span>
+            <span>{auditAction === 'approve' ? '通过入库审核' : '拒绝入库审核'}</span>
           </Space>
         }
         open={auditModalVisible}
@@ -4159,7 +4481,7 @@ const Admin = () => {
                 <div style={{ color: '#E6EDF3', fontWeight: 500 }}>{auditOrderInfo.quantity} 盒</div>
               </div>
               <div>
-                <Text style={{ color: '#8B949E', fontSize: 12 }}>认购金额</Text>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>进货金额</Text>
                 <div style={{ color: '#00b96b', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", fontSize: 18 }}>¥{Number(auditOrderInfo.amount || 0).toFixed(2)}</div>
               </div>
               <div>
@@ -4167,13 +4489,28 @@ const Admin = () => {
                 <div style={{ color: '#58A6FF', fontFamily: 'monospace', fontSize: 12 }}>{auditOrderInfo.orderNo}</div>
               </div>
               <div>
-                <Text style={{ color: '#8B949E', fontSize: 12 }}>认购时间</Text>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>进货时间</Text>
                 <div style={{ color: '#E6EDF3', fontSize: 13 }}>{auditOrderInfo.createdAt ? new Date(auditOrderInfo.createdAt).toLocaleString('zh-CN') : '-'}</div>
               </div>
             </div>
           </div>
         )}
         <Form form={auditForm} layout="vertical" requiredMark={false} className="admin-form">
+          {auditAction === 'approve' && (
+            <Form.Item
+              name="confirmedQuantity"
+              label={<Text style={{ color: '#8B949E' }}>确认数量</Text>}
+              rules={[{ required: true, message: '请填写确认数量' }]}
+            >
+              <InputNumber
+                min={1}
+                max={auditOrderInfo?.quantity}
+                precision={0}
+                style={{ width: '100%', background: '#0D1117', borderColor: '#30363D' }}
+                placeholder={`请输入确认数量（1-${auditOrderInfo?.quantity}）`}
+              />
+            </Form.Item>
+          )}
           <Form.Item
             name="remark"
             label={<Text style={{ color: '#8B949E' }}>审核备注</Text>}
@@ -4349,6 +4686,161 @@ const Admin = () => {
             <Input placeholder="请输入手机号（可选）" style={{ background: '#0D1117', borderColor: '#30363D', color: '#E6EDF3' }} />
           </Form.Item>
         </Form>
+      </Modal>
+
+      {/* 录入售出弹窗 */}
+      <Modal
+        title="录入售出"
+        open={saleModalVisible}
+        onOk={handleRecordSale}
+        onCancel={() => setSaleModalVisible(false)}
+        confirmLoading={saleLoading}
+        okText="确认录入"
+        width={480}
+        className="admin-modal"
+        okButtonProps={{
+          style: { background: 'linear-gradient(135deg, #1890FF 0%, #096DD9 100%)', border: 'none' }
+        }}
+        cancelButtonProps={{ className: 'admin-modal-cancel-btn' }}
+      >
+        {saleOrderInfo && (
+          <div style={{ marginBottom: 16, padding: 16, background: '#0D1117', borderRadius: 8, border: '1px solid #30363D' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>药品名</Text>
+                <div style={{ color: '#E6EDF3', fontWeight: 500 }}>{saleOrderInfo.drugName || '-'}</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>总数量</Text>
+                <div style={{ color: '#E6EDF3', fontWeight: 500 }}>{saleOrderInfo.quantity} 盒</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>已售出数量</Text>
+                <div style={{ color: '#1890FF', fontWeight: 700 }}>{saleOrderInfo.soldQuantity || 0} 盒</div>
+              </div>
+              <div>
+                <Text style={{ color: '#8B949E', fontSize: 12 }}>未售出数量</Text>
+                <div style={{ color: '#FAAD14', fontWeight: 700 }}>{(saleOrderInfo.quantity || 0) - (saleOrderInfo.soldQuantity || 0)} 盒</div>
+              </div>
+            </div>
+          </div>
+        )}
+        <Form form={saleForm} layout="vertical" requiredMark={false} className="admin-form">
+          <Form.Item
+            name="quantity"
+            label={<Text style={{ color: '#8B949E' }}>本次售出数量</Text>}
+            rules={[{ required: true, message: '请输入售出数量' }]}
+          >
+            <InputNumber
+              style={{ width: '100%' }}
+              min={1}
+              max={saleOrderInfo ? (saleOrderInfo.quantity || 0) - (saleOrderInfo.soldQuantity || 0) : 1}
+              precision={0}
+              placeholder="请输入本次售出数量"
+            />
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* 售出记录弹窗 */}
+      <Modal
+        title={`售出记录 - ${saleRecordsOrderInfo?.drugName || ''}`}
+        open={saleRecordsModalVisible}
+        onCancel={() => setSaleRecordsModalVisible(false)}
+        footer={null}
+        width={640}
+        className="admin-modal"
+      >
+        <Table
+          dataSource={saleRecords}
+          rowKey="id"
+          loading={saleRecordsLoading}
+          pagination={false}
+          size="small"
+          locale={{ emptyText: <Text style={{ color: '#8B949E' }}>暂无售出记录</Text> }}
+        >
+          <Table.Column title="售出数量" dataIndex="quantity" key="quantity" render={(v: number) => <Text style={{ color: '#E6EDF3' }}>{v} 盒</Text>} />
+          <Table.Column title="录入时间" dataIndex="createdAt" key="createdAt" render={(v: string) => <Text style={{ color: '#8B949E', fontSize: 12 }}>{v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-'}</Text>} />
+          <Table.Column title="结算到期时间" dataIndex="settlementDueAt" key="settlementDueAt" render={(v: string) => <Text style={{ color: '#8B949E', fontSize: 12 }}>{v ? dayjs(v).format('YYYY-MM-DD HH:mm') : '-'}</Text>} />
+          <Table.Column title="是否已结算" dataIndex="settled" key="settled" render={(v: boolean) => <Tag color={v ? 'green' : 'orange'}>{v ? '已结算' : '未结算'}</Tag>} />
+        </Table>
+      </Modal>
+
+      {/* 分红填写弹窗 */}
+      <Modal
+        title={
+          <Space>
+            <DollarOutlined style={{ color: '#F0B90B' }} />
+            <span>填写分红金额</span>
+          </Space>
+        }
+        open={dividendModalVisible}
+        onOk={handleFillDividend}
+        onCancel={() => setDividendModalVisible(false)}
+        confirmLoading={dividendLoading}
+        okText="确认结算"
+        width={500}
+        className="admin-modal"
+        okButtonProps={{
+          style: {
+            background: 'linear-gradient(135deg, #F0B90B 0%, #FADB14 100%)',
+            border: 'none',
+            color: '#0B0E11',
+          }
+        }}
+        cancelButtonProps={{
+          className: 'admin-modal-cancel-btn'
+        }}
+      >
+        {dividendOrderInfo && (
+          <>
+            <div style={{ marginBottom: 16, padding: '12px 16px', background: '#1E2026', borderRadius: 8 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: '#8B949E' }}>订单号</Text>
+                <Text style={{ color: '#E6EDF3', fontFamily: "'JetBrains Mono', monospace" }}>{dividendOrderInfo.orderNo}</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: '#8B949E' }}>客户</Text>
+                <Text style={{ color: '#E6EDF3' }}>{dividendOrderInfo.username || dividendOrderInfo.userId}</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: '#8B949E' }}>药品</Text>
+                <Text style={{ color: '#E6EDF3' }}>{dividendOrderInfo.drug?.name || dividendOrderInfo.drugName || '-'}</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                <Text style={{ color: '#8B949E' }}>数量</Text>
+                <Text style={{ color: '#E6EDF3' }}>{dividendOrderInfo.quantity} 盒</Text>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text style={{ color: '#8B949E' }}>本金</Text>
+                <Text style={{ color: '#F0B90B', fontFamily: "'JetBrains Mono', monospace", fontWeight: 600 }}>¥{Number(dividendOrderInfo.amount).toFixed(2)}</Text>
+              </div>
+            </div>
+            <Form
+              form={dividendForm}
+              layout="vertical"
+              requiredMark={false}
+              className="admin-form"
+            >
+              <Form.Item
+                name="dividendAmount"
+                label="分红金额（元）"
+                rules={[
+                  { required: true, message: '请输入分红金额' },
+                  { type: 'number', min: 0.01, message: '分红金额必须大于0' },
+                ]}
+              >
+                <InputNumber
+                  style={{ width: '100%' }}
+                  precision={2}
+                  min={0.01}
+                  placeholder="由财务计算后手动填写"
+                  prefix="¥"
+                />
+              </Form.Item>
+            </Form>
+          </>
+        )}
       </Modal>
 
     </div>

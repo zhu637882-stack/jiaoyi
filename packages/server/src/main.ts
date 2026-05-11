@@ -1,6 +1,8 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
+import { join } from 'path';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
@@ -30,7 +32,10 @@ async function bootstrap() {
     console.warn(`⚠️ 支付相关环境变量未配置（支付功能将不可用）: ${missingPayment.join(', ')}`);
   }
 
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // 静态文件服务 - 提供上传图片的访问
+  app.useStaticAssets(join(process.cwd(), 'public'));
 
   const configService = app.get(ConfigService);
   const port = configService.get<number>('PORT', 3000);
@@ -68,6 +73,10 @@ async function bootstrap() {
   app.enableCors({
     origin: process.env.CORS_ORIGIN?.split(',') || [
       'http://103.43.188.127',
+      'http://www.duokeer.com',
+      'https://www.duokeer.com',
+      'http://duokeer.com',
+      'https://duokeer.com',
       'http://www.mufend.com',
       'https://www.mufend.com',
       'http://mufend.com',

@@ -63,4 +63,8 @@ export class UpdateDrugDto {
   @IsOptional()
   @IsBoolean({ message: '是否冷链必须是布尔值' })
   isColdChain?: boolean;
+
+  @IsOptional()
+  @IsString({ message: '产品图片URL必须是字符串' })
+  imageUrl?: string;
 }

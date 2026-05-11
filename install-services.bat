@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 echo ==========================================
-echo    安装零钱保服务为 Windows 自启动服务
+echo    安装零钱宝服务为 Windows 自启动服务
 echo ==========================================
 echo.
 
@@ -49,8 +49,8 @@ nssm install Lingqianbao-Backend "%NODE_PATH%"
 nssm set Lingqianbao-Backend AppDirectory "%PROJECT_DIR%\packages\server"
 nssm set Lingqianbao-Backend AppParameters "dist\main"
 nssm set Lingqianbao-Backend Environment "DB_USERNAME=postgres;DB_PASSWORD=123456;DB_DATABASE=jiaoyi;DB_HOST=localhost;DB_PORT=5432;REDIS_HOST=localhost;REDIS_PORT=6379;JWT_SECRET=jiaoyi-secret-key;PORT=3000"
-nssm set Lingqianbao-Backend DisplayName "零钱保-后端服务"
-nssm set Lingqianbao-Backend Description "零钱保交易平台后端 API 服务"
+nssm set Lingqianbao-Backend DisplayName "零钱宝-后端服务"
+nssm set Lingqianbao-Backend Description "零钱宝交易平台后端 API 服务"
 nssm set Lingqianbao-Backend Start SERVICE_AUTO_START
 nssm start Lingqianbao-Backend
 echo        后端服务已安装并启动
@@ -60,8 +60,8 @@ echo [3/4] 安装前端服务...
 nssm install Lingqianbao-Frontend "%NODE_PATH%"
 nssm set Lingqianbao-Frontend AppDirectory "%PROJECT_DIR%\packages\web"
 nssm set Lingqianbao-Frontend AppParameters "node_modules\vite\bin\vite.js --host"
-nssm set Lingqianbao-Frontend DisplayName "零钱保-前端服务"
-nssm set Lingqianbao-Frontend Description "零钱保交易平台前端 Vite 服务"
+nssm set Lingqianbao-Frontend DisplayName "零钱宝-前端服务"
+nssm set Lingqianbao-Frontend Description "零钱宝交易平台前端 Vite 服务"
 nssm set Lingqianbao-Frontend Start SERVICE_AUTO_START
 nssm start Lingqianbao-Frontend
 echo        前端服务已安装并启动
@@ -71,8 +71,8 @@ echo [4/4] 安装代理服务...
 nssm install Lingqianbao-Proxy "%NODE_PATH%"
 nssm set Lingqianbao-Proxy AppDirectory "%PROJECT_DIR%"
 nssm set Lingqianbao-Proxy AppParameters "proxy-server-v2.js"
-nssm set Lingqianbao-Proxy DisplayName "零钱保-反向代理"
-nssm set Lingqianbao-Proxy Description "零钱保交易平台 80 端口反向代理"
+nssm set Lingqianbao-Proxy DisplayName "零钱宝-反向代理"
+nssm set Lingqianbao-Proxy Description "零钱宝交易平台 80 端口反向代理"
 nssm set Lingqianbao-Proxy Start SERVICE_AUTO_START
 nssm start Lingqianbao-Proxy
 echo        代理服务已安装并启动

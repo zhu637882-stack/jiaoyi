@@ -1,8 +1,8 @@
-# 零钱保网站一键部署脚本 (FTP版本)
+# 零钱宝网站一键部署脚本 (FTP版本)
 # 在 PowerShell (管理员) 中运行
 
 Write-Host "========================================" -ForegroundColor Green
-Write-Host "   零钱保网站一键部署脚本" -ForegroundColor Green
+Write-Host "   零钱宝网站一键部署脚本" -ForegroundColor Green
 Write-Host "========================================" -ForegroundColor Green
 Write-Host ""
 
