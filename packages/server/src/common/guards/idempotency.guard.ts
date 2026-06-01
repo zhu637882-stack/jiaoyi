@@ -5,7 +5,8 @@ import { IDEMPOTENT_KEY } from '../decorators/idempotent.decorator'
 @Injectable()
 export class IdempotencyGuard implements CanActivate {
   private processedRequests = new Map<string, { timestamp: number; response?: any }>()
-  private readonly TTL = 5 * 60 * 1000 // 5分钟
+  private readonly MAX_ENTRIES = 1000
+  private readonly TTL_MS = 300000 // 5分钟
 
   constructor(private reflector: Reflector) {
     // 每分钟清理过期记录
@@ -27,6 +28,14 @@ export class IdempotencyGuard implements CanActivate {
       throw new ConflictException('Duplicate request')
     }
 
+    // 超限时删除最旧条目
+    if (this.processedRequests.size >= this.MAX_ENTRIES) {
+      const oldestKey = this.processedRequests.keys().next().value
+      if (oldestKey !== undefined) {
+        this.processedRequests.delete(oldestKey)
+      }
+    }
+
     this.processedRequests.set(requestId, { timestamp: Date.now() })
     return true
   }
@@ -34,7 +43,7 @@ export class IdempotencyGuard implements CanActivate {
   private cleanup() {
     const now = Date.now()
     for (const [key, value] of this.processedRequests) {
-      if (now - value.timestamp > this.TTL) {
+      if (now - value.timestamp > this.TTL_MS) {
         this.processedRequests.delete(key)
       }
     }
