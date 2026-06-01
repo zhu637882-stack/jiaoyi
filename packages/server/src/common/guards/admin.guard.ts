@@ -5,6 +5,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
+import { UserRole } from '../../database/entities/user.entity';
 
 /**
  * 管理员权限守卫
@@ -22,7 +23,7 @@ export class AdminGuard implements CanActivate {
       throw new ForbiddenException('未登录');
     }
 
-    if (user.role !== 'admin') {
+    if (user.role !== UserRole.ADMIN) {
       throw new ForbiddenException('需要管理员权限');
     }
 
