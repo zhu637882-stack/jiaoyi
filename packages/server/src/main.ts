@@ -71,7 +71,7 @@ async function bootstrap() {
   
   // 启用CORS
   app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') || [
+    origin: process.env.CORS_ORIGINS?.split(',').map(s => s.trim()) || [
       'http://103.43.188.127',
       'http://www.duokeer.com',
       'https://www.duokeer.com',
